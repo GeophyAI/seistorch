@@ -13,10 +13,11 @@ import argparse
 
 # args = parser.parse_args() 
 
+
 # d = np.load("/public1/home/wangsw/FWI/AFWI/data/marmousi_MERGECODE.npy")
 # print(d.shape)
 # dx = d[:,:,:,0]
-# dz = d[:,:,:,0]
+# dz = d[:,:,:,1]
 # no = 55
 # fig,axes = plt.subplots(1,2, figsize=(10,5))
 # vmin, vmax = np.percentile(dx[no], [2, 98])
@@ -34,8 +35,8 @@ epoch = 1
 PMLN = 50
 # epoch = args.epoch
 # F=args.frequency_index
-root_path = r"/public1/home/wangsw/FWI/AFWI/Hessian_free2"
-coding="."
+#root_path = r"/public1/home/wangsw/FWI/EFWI/Marmousi/marmousi_10m/l1reg"
+root_path = r"/public1/home/wangsw/FWI/EFWI/Marmousi/marmousi_10m/std"
 #grad_vp = np.load("{root_path}/gradvsE00S70.npy")
 grad_vp = np.load(f"{root_path}/{coding}/gradvpF{F:02d}E{epoch:02d}.npy")[PMLN:-PMLN,PMLN:-PMLN]
 grad_vs = np.load(f"{root_path}/{coding}/gradvsF{F:02d}E{epoch:02d}.npy")[PMLN:-PMLN,PMLN:-PMLN]
@@ -65,4 +66,20 @@ ax3 = axes[1,1].imshow(vs.squeeze(), vmin=vmin, vmax=vmax, aspect='auto', cmap=p
 plt.colorbar(ax1);plt.colorbar(ax0)
 plt.colorbar(ax2);plt.colorbar(ax3)
 plt.tight_layout()
+plt.show()
+
+def loss_norm(path, freqnorm = False, eps=1e-20):
+    loss = np.load(path)
+    loss = np.sum(loss, axis=2)
+    for i in range(loss.shape[0]):
+        loss[i] = loss[i]/(loss[i].max()+eps)
+        if freqnorm and i >0:
+            loss[i] = loss[i] * loss[i-1][-1]
+    return loss.flatten()
+
+root_path = r"/public1/home/wangsw/FWI/EFWI/Marmousi/marmousi_10m/std"
+root_path2 = r"/public1/home/wangsw/FWI/EFWI/Marmousi/marmousi_10m/l1reg"
+plt.plot(loss_norm(f"{root_path}/loss.npy"))
+plt.plot(loss_norm(f"{root_path2}/loss.npy"))
+plt.legend(["STD", "Gram-invvp_only"])
 plt.show()

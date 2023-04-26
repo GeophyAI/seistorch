@@ -85,5 +85,6 @@ class WaveRNN(torch.nn.Module):
         # Combine outputs into a single tensor
         y_vx = torch.stack(vx_all, dim=1).permute(1, 2, 0)
         y_vz = torch.stack(vz_all, dim=1).permute(1, 2, 0)
-        y = torch.concatenate([y_vx, y_vz], dim = 2)
+        #y = torch.concatenate([y_vx, y_vz], dim = 2)
+        y = torch.concat([y_vx, y_vz], dim = 2)
         return y

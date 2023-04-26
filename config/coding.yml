@@ -1,16 +1,16 @@
 # Random seed for pytorch and all shuffle functions
 seed: 10
 
-name: fwi
+name: coding_fwi
 
 # Data type to use for tensors, either float32 or float64
 dtype: float32
 
 training:
 
-  minibatch: false
+  minibatch: true
 
-  batch_size: 10
+  batch_size: 20
 
   # Number of training epochs
   N_epochs: 40

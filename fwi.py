@@ -8,17 +8,17 @@ from wavetorch.utils import ricker_wave, to_tensor, cpu_fft
 # from tensorflow.keras.models import load_model
 from wavetorch.model import build_model
 from wavetorch.loss import NormalizedCrossCorrelation, ElasticLoss
-from wavetorch.optimizer import gram_schmidt_orthogonalization
+from wavetorch.optimizer import NonlinearConjugateGradient as NCG
 from wavetorch.shape import Shape
-from copy import deepcopy
+# from skopt import Optimizer
 from yaml import load, dump
+
 try:
     from yaml import CLoader as Loader, CDumper as Dumper
 except ImportError:
     from yaml import Loader, Dumper
-    
-    
-from wavetorch.setup_source_probe import setup_src_coords_customer, setup_probe_coords_customer, get_sources_coordinate_list
+
+from wavetorch.setup_source_probe import setup_src_coords_customer, get_sources_coordinate_list
 
 parser = argparse.ArgumentParser()
 parser.add_argument('config', type=str, 
@@ -33,7 +33,7 @@ parser.add_argument('--encoding', action='store_true',
                     help='Use phase encoding to accelerate performance')
 parser.add_argument('--name', type=str, default=time.strftime('%Y%m%d%H%M%S'),
                     help='Name to use when saving or loading the model file. If not specified when saving a time and date stamp is used')
-parser.add_argument('--opt', choices=['adam', 'lbfgs'], default='adam',
+parser.add_argument('--opt', choices=['adam', 'lbfgs', 'ncg'], default='adam',
                     help='optimizer (adam)')
 parser.add_argument('--mode', choices=['forward', 'inversion', 'rtm'], default='forward',
                     help='forward modeling, inversion or reverse time migration mode')
@@ -55,6 +55,7 @@ if __name__ == '__main__':
         if rank ==0:
             print("Configuration: %s" % args.config)
             print("Using CUDA for calculation")
+            print(f"Optimizer: {args.opt}")
     else:
         args.dev = torch.device('cpu')
         if rank ==0:
@@ -65,9 +66,13 @@ if __name__ == '__main__':
     torch.set_num_threads(args.num_threads)
     # Build model
     cfg, model = build_model(args.config, device=args.dev, mode=args.mode)
+    #model = torch.compile(model)
 
     # Set the name of the process
-    setproctitle.setproctitle(cfg['name'])
+    if rank!=0:
+        setproctitle.setproctitle(cfg['name'])
+    else:
+        setproctitle.setproctitle("TaskAssign")
 
     """Short cuts of the configures"""
     ELASTIC = cfg['equation'] == 'elastic'
@@ -90,6 +95,10 @@ if __name__ == '__main__':
         #.to(args.dev)
 
     shape = Shape(cfg)
+
+    """---------------------------------------------"""
+    """-------------------MODELING------------------"""
+    """---------------------------------------------"""
     
     if args.mode == 'forward':
 
@@ -181,7 +190,12 @@ if __name__ == '__main__':
                         {'params': model.cell.get_parameters('vs'), 'lr':LEARNING_RATE/1.73},
                         {'params': model.cell.get_parameters('rho'), 'lr':0.}], 
                         betas=(0.9, 0.999), eps=1e-16)
+                
+                # opt_bayesian = Optimizer(dimensions=[(-10.0, 10.0)]*shape.numel, 
+                #                          base_estimator="gp", n_initial_points=0, acq_func="EI")
 
+        if args.opt == "ncg":
+            optimizer = NCG(model.parameters(), lr=0.001, max_iter=10)
 
         """Define the learning rate decay"""
         lr_milestones = [EPOCHS*(i+1) for i in range(len(cfg['geom']['multiscale']))]
@@ -234,6 +248,7 @@ if __name__ == '__main__':
 
             """Loop over all epoches"""
             for epoch in range(EPOCHS):
+
                 # 主节点
                 if rank == 0:
                     pbar = tqdm.tqdm(range(0, NSHOTS), leave=False)
@@ -293,9 +308,22 @@ if __name__ == '__main__':
                                 ypred = model(lp_wavelet)
                                 target = to_tensor(filtered_data[shot_num]).to(ypred.device)#.unsqueeze(0)
                                 loss = criterion(ypred, target)
+
+                                """START"""
+                                # Model regularization
+                                # l1_reg = 0
+                                # for mname in model.cell.geom.model_parameters:
+                                #     if mname == 'rho':
+                                #         continue
+                                #     l1_reg += torch.norm(model.cell.geom.__getattr__(mname), p=1)
+                                # # Assign the weight of the model regulazation to %10 of the obj.
+                                # alpha = loss.item()*1e-16
+                                # loss += alpha*l1_reg
+                                """END"""
+
                                 loss.backward()
                             return loss.item()
-                        
+
                         # Run the closure
                         loss = closure(sources)
 
@@ -305,7 +333,7 @@ if __name__ == '__main__':
                         GRAD = np.array(GRAD)
                         # Get the gram_schmidt_orthogonalization
 
-                        GRAD[1], GRAD[0] = gram_schmidt_orthogonalization(GRAD[1], GRAD[0])
+                        # GRAD[1], GRAD[0] = gram_schmidt_orthogonalization(GRAD[1], GRAD[0])
                         comm.send((task, rank, GRAD, loss), dest=0, tag=1)
 
                 comm.Barrier()

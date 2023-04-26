@@ -33,6 +33,15 @@ class Shape():
                            'elastic': self.__grad3d_elastic}
         
     @property
+    def numel(self,):
+        cfg = self.cfg
+        return cfg['geom']['Ny']* cfg['geom']['Nx']
+    
+    def model2d(self,):
+        cfg = self.cfg
+        return (cfg['geom']['Ny'], cfg['geom']['Nx'])
+        
+    @property
     def loss(self,):
         cfg = self.cfg
         return (len(cfg['geom']['multiscale']), cfg['training']['N_epochs'], self.nshots)
