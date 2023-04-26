@@ -1,18 +1,38 @@
-import numpy as np
 import torch
 from .utils import to_tensor
-from torch.utils.checkpoint import checkpoint, check_backward_validity
+
+NEW_DIFF = True
 
 def saturable_damping(u, uth, b0):
     return b0 / (1 + torch.abs(u / uth).pow(2))
 
+def diff_using_roll(input, dim=-1, append=True, padding_value=0):
+
+    dim = input.dim() + dim if dim < 0 else dim
+    shifts = -1 if append else 1
+    rolled_input = torch.roll(input, shifts=shifts, dims=dim)
+
+    # Fill the idex with value padding_value
+    index = [slice(None)] * input.dim()
+    index[dim] = -1 if append else 0
+    rolled_input[tuple(index)] = padding_value
+
+    diff_result = rolled_input - input if append else input-rolled_input
+    return diff_result
+    
 def _time_step_vel(rho, vx, vz, txx, tzz, txz, dt, h, d):
     
     nz, nx = rho.shape
-    txx_x = torch.diff(txx, append=(torch.zeros(1, nz, 1).to(txx.device)), dim=2)
-    txz_z = torch.diff(txz, prepend=(torch.zeros(1, 1, nx).to(txx.device)), dim=1)
-    tzz_z = torch.diff(tzz, prepend=(torch.zeros(1, 1, nx).to(txx.device)), dim=1)
-    txz_x = torch.diff(txz, prepend=(torch.zeros(1, nz, 1).to(txx.device)), dim=2)
+    if NEW_DIFF:
+        txx_x = diff_using_roll(txx, 2)
+        txz_z = diff_using_roll(txz, 1, False)
+        tzz_z = diff_using_roll(tzz, 1, False)
+        txz_x = diff_using_roll(txz, 2, False)
+    else:
+        txx_x = torch.diff(txx, append=(torch.zeros(1, nz, 1).to(txx.device)), dim=2)
+        txz_z = torch.diff(txz, prepend=(torch.zeros(1, 1, nx).to(txx.device)), dim=1)
+        tzz_z = torch.diff(tzz, prepend=(torch.zeros(1, 1, nx).to(txx.device)), dim=1)
+        txz_x = torch.diff(txz, prepend=(torch.zeros(1, nz, 1).to(txx.device)), dim=2)
 
     # c = a+d*b**-1
     c = 0.5*dt*d
@@ -26,11 +46,17 @@ def _time_step_vel(rho, vx, vz, txx, tzz, txz, dt, h, d):
 def _time_step_stress(lame_lambda, lame_mu, vx, vz, txx, tzz, txz, dt, h, d):
     
     nz, nx = lame_lambda.shape
-    vx_x = torch.diff(vx, prepend=(torch.zeros(1, nz, 1).to(txx.device)), dim=2)
-    vz_z = torch.diff(vz, append=(torch.zeros(1, 1, nx).to(txx.device)), dim=1)
-    vx_z = torch.diff(vx, append=(torch.zeros(1, 1, nx).to(txx.device)), dim=1)
-    vz_x = torch.diff(vz, append=(torch.zeros(1, nz, 1).to(txx.device)), dim=2)
 
+    if NEW_DIFF:
+        vx_x = diff_using_roll(vx, 2, False)
+        vz_z = diff_using_roll(vz, 1)
+        vx_z = diff_using_roll(vx, 1)
+        vz_x = diff_using_roll(vz, 2)
+    else:
+        vx_x = torch.diff(vx, prepend=(torch.zeros(1, nz, 1).to(txx.device)), dim=2)
+        vz_z = torch.diff(vz, append=(torch.zeros(1, 1, nx).to(txx.device)), dim=1)
+        vx_z = torch.diff(vx, append=(torch.zeros(1, 1, nx).to(txx.device)), dim=1)
+        vz_x = torch.diff(vz, append=(torch.zeros(1, nz, 1).to(txx.device)), dim=2)
     # c = (1+0.5*dt*d)**-1
     c = 0.5*dt*d
     # Equation A-8
@@ -82,11 +108,20 @@ class TimeStep(torch.autograd.Function):
 
             # x---dim=2 
             # z---dim=1
-            vx_x = torch.diff(vx, prepend=(torch.zeros(1, nz, 1).to(device)), dim=2)
-            vx_z = torch.diff(vx, append=(torch.zeros(1, 1, nx).to(device)), dim=1)
+            # prepend--- False
+            # append---  True
+            if NEW_DIFF:
+                vx_x = diff_using_roll(vx, 2, False)
+                vx_z = diff_using_roll(vx, 1)
 
-            vz_z = torch.diff(vz, append=(torch.zeros(1, 1, nx).to(device)), dim=1)
-            vz_x = torch.diff(vz, append=(torch.zeros(1, nz, 1).to(device)), dim=2)
+                vz_z = diff_using_roll(vz, 1)
+                vz_x = diff_using_roll(vz, 2)
+            else:
+                vx_x = torch.diff(vx, prepend=(torch.zeros(1, nz, 1).to(device)), dim=2)
+                vx_z = torch.diff(vx, append=(torch.zeros(1, 1, nx).to(device)), dim=1)
+
+                vz_z = torch.diff(vz, append=(torch.zeros(1, 1, nx).to(device)), dim=1)
+                vz_x = torch.diff(vz, append=(torch.zeros(1, nz, 1).to(device)), dim=2)
 
 
         grad_rho = grad_vp = grad_vs = None
@@ -96,14 +131,22 @@ class TimeStep(torch.autograd.Function):
         lame_mu = rho*(vs.pow(2))
         device = rho.device
         nz, nx = vp.shape
+        if NEW_DIFF:
+            grad_y_txx_x = diff_using_roll(grad_y_txx, 2)
+            grad_y_tzz_z = diff_using_roll(grad_y_tzz, 1, False)
 
-        grad_y_txx_x = torch.diff(grad_y_txx, append=(torch.zeros(1, nz, 1).to(device)), dim=2)
-        grad_y_tzz_z = torch.diff(grad_y_tzz, prepend=(torch.zeros(1, 1, nx).to(device)), dim=1)
-        grad_y_txz_x = torch.diff(grad_y_txz, prepend=(torch.zeros(1, nz, 1).to(device)), dim=2)
-        grad_y_txz_z = torch.diff(grad_y_txz, prepend=(torch.zeros(1, 1, nx).to(device)), dim=1)
-        
-        grad_y_txx_z = torch.diff(grad_y_txx, prepend=(torch.zeros(1, 1, nx).to(device)), dim=1)
-        grad_y_tzz_x = torch.diff(grad_y_tzz, append=(torch.zeros(1, nz, 1).to(device)), dim=2)
+            grad_y_txz_x = diff_using_roll(grad_y_txz, 2, False)
+            grad_y_txz_z = diff_using_roll(grad_y_txz, 1, False)
+            grad_y_txx_z = diff_using_roll(grad_y_txx, 1, False)
+            grad_y_tzz_x = diff_using_roll(grad_y_tzz, 2)
+        else:
+            grad_y_txx_x = torch.diff(grad_y_txx, append=(torch.zeros(1, nz, 1).to(device)), dim=2)
+            grad_y_tzz_z = torch.diff(grad_y_tzz, prepend=(torch.zeros(1, 1, nx).to(device)), dim=1)
+            grad_y_txz_x = torch.diff(grad_y_txz, prepend=(torch.zeros(1, nz, 1).to(device)), dim=2)
+            grad_y_txz_z = torch.diff(grad_y_txz, prepend=(torch.zeros(1, 1, nx).to(device)), dim=1)
+            
+            grad_y_txx_z = torch.diff(grad_y_txx, prepend=(torch.zeros(1, 1, nx).to(device)), dim=1)
+            grad_y_tzz_x = torch.diff(grad_y_tzz, append=(torch.zeros(1, nz, 1).to(device)), dim=2)
 
         if ctx.needs_input_grad[0]: # vx
             grad_vx = (1+c)**-1*(dt*h**-1*rho**-1*((lame_lambda+2*lame_mu)*grad_y_txx_x\
