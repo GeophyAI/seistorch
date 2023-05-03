@@ -1,24 +1,8 @@
 import torch
 from .utils import to_tensor
+from .utils import diff_using_roll
 
 NEW_DIFF = True
-
-def saturable_damping(u, uth, b0):
-    return b0 / (1 + torch.abs(u / uth).pow(2))
-
-def diff_using_roll(input, dim=-1, append=True, padding_value=0):
-
-    dim = input.dim() + dim if dim < 0 else dim
-    shifts = -1 if append else 1
-    rolled_input = torch.roll(input, shifts=shifts, dims=dim)
-
-    # Fill the idex with value padding_value
-    index = [slice(None)] * input.dim()
-    index[dim] = -1 if append else 0
-    rolled_input[tuple(index)] = padding_value
-
-    diff_result = rolled_input - input if append else input-rolled_input
-    return diff_result
     
 def _time_step_vel(rho, vx, vz, txx, tzz, txz, dt, h, d):
     
@@ -210,7 +194,7 @@ class WaveCell(torch.nn.Module):
         Parameters
         ----------
         vx, vz, txx, tzz, txz : 
-             wave field one time step ago (hidden state)
+             wave field one time step ago
         vp  :
             Vp velocity.
         vs  :

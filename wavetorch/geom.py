@@ -170,6 +170,7 @@ class WaveGeometryFreeForm(WaveGeometry):
     def determine_eq_type(self,):
         paras = self.model_parameters
         if len(paras)==1 and 'vp' in paras: return "acoustic"
+        if len(paras)==3 and 'Q'  in paras: return "viscoacoustic"
         if len(paras)==3 and "vs" in paras: return "elastic"
     
     def __repr__(self):

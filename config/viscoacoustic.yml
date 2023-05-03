@@ -32,16 +32,14 @@ training:
 geom:
 
   # The observer data
-  obsPath: /mnt/others/DATA/Inversion/RNN/data/marmousi_acoustic.npy
+  obsPath: /mnt/others/DATA/Inversion/RNN/data/marmousi_viscoacoustic.npy
 
   # Wave speed model from disk_file for forward modeling
   truePath:
     vp: /mnt/others/DATA/Inversion/RNN//velocity/true_vp.npy
     vs: 
-    #/mnt/others/DATA/Inversion/RNN//velocity/true_vs.npy
-    rho: 
-    #/mnt/others/DATA/Inversion/RNN//velocity/rho.npy
-    Q:
+    rho: /mnt/others/DATA/Inversion/RNN/velocity/rho_const.npy
+    Q: /mnt/others/DATA/Inversion/RNN/velocity/q_const.npy
 
   source_type:
     - vz
@@ -50,13 +48,11 @@ geom:
   initPath: 
     vp: /mnt/others/DATA/Inversion/RNN//velocity/linear.npy
     vs: 
-    #/mnt/others/DATA/Inversion/RNN//velocity/init_vs.npy
     rho: 
-    #/mnt/others/DATA/Inversion/RNN//velocity/rho.npy
     Q:
 
   # Save the results of FWI
-  inv_savePath: /mnt/others/DATA/Inversion/RNN/coding_linear
+  inv_savePath: /mnt/others/DATA/Inversion/RNN/coding_visco
 
   multiscale: 
     - 3.0

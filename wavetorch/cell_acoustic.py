@@ -3,11 +3,6 @@ import torch
 from .operators import _laplacian
 from .utils import to_tensor
 
-
-def saturable_damping(u, uth, b0):
-    return b0 / (1 + torch.abs(u / uth).pow(2))
-
-
 def _time_step(b, c, y1, y2, dt, h):
     # Equation S8(S9)
     # When b=0, without boundary conditon.
@@ -16,7 +11,6 @@ def _time_step(b, c, y1, y2, dt, h):
                    + torch.mul(c.pow(2), _laplacian(y1, h)))
                   )
     return y
-
 
 class TimeStep(torch.autograd.Function):
     @staticmethod

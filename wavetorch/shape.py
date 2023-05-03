@@ -21,15 +21,19 @@ class Shape():
     def __init_lib__(self,):
 
         self.record3d_lib = {"acoustic": self.__record3d_acoustic, 
+                             "viscoacoustic": self.__record3d_acoustic, 
                              "elastic" : self.__record3d_elastic}
 
         self.record2d_lib = {"acoustic": self.__record2d_acoustic, 
+                             "viscoacoustic": self.__record2d_acoustic, 
                              "elastic" : self.__record2d_elastic}
         
         self.grad2d_lib = {'acoustic': self.__grad2d_acoustic, 
+                           'viscoacoustic': self.__grad2d_acoustic, 
                            'elastic': self.__grad2d_elastic}
         
         self.grad3d_lib = {'acoustic': self.__grad3d_acoustic, 
+                           'viscoacoustic': self.__grad3d_acoustic, 
                            'elastic': self.__grad3d_elastic}
         
     @property

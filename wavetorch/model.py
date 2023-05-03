@@ -5,8 +5,12 @@ from yaml import load
 from .utils import set_dtype, update_cfg
 from .cell_elastic import WaveCell as WaveCellElastic
 from .cell_acoustic import WaveCell as WaveCellAcoustic
+from .cell_viscoacoustic import WaveCell as WaveCellViscoacoustic
+
 from .rnn_elastic import WaveRNN as WaveRNNElastic
 from .rnn_acoustic import WaveRNN as WaveRNNAcoustic
+from .rnn_viscoacoustic import WaveRNN as WaveRNNViscoacoustic
+
 from .geom import WaveGeometryFreeForm
 from .setup_source_probe import setup_src_coords_customer, setup_probe_coords_customer, get_sources_coordinate_list
 try:
@@ -54,7 +58,7 @@ def build_model(config_path, device = "cuda", mode="forward"):
 
     # Branch
 
-    assert cfg['equation'] in ['acoustic', 'elastic'], f"Cannot find such equation type {cfg['equation']}"
+    assert cfg['equation'] in ['acoustic', 'elastic', 'viscoacoustic'], f"Cannot find such equation type {cfg['equation']}"
 
     if cfg['equation'] == 'elastic':
 
@@ -67,5 +71,11 @@ def build_model(config_path, device = "cuda", mode="forward"):
         cell  = WaveCellAcoustic(geom)
 
         model = WaveRNNAcoustic(cell, probes=probes)
+
+    elif cfg['equation'] == "viscoacoustic":
+
+        cell = WaveCellViscoacoustic(geom)
+
+        model = WaveRNNViscoacoustic(cell, probes=probes)
 
     return cfg, model
