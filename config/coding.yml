@@ -1,5 +1,5 @@
 # Random seed for pytorch and all shuffle functions
-seed: 10
+seed: 20230503
 
 name: coding_fwi
 
@@ -20,11 +20,6 @@ training:
 
   lr_decay: 0.5
 
-  # Limit the maximum number of samples to this number 
-  # If unspecified then all samples available for the specified vowel classes and gender are used
-  max_samples: 12
-
-
   # when >2, can save gpu memory
   save_interval: 10
 
@@ -32,18 +27,20 @@ training:
   normalize: false
 
   # Filter order
-  filter_ord: 1
+  filter_ord: 5
 
 geom:
 
   # The observer data
-  obsPath: /public1/home/wangsw/FWI/AFWI/data/marmousi_MERGECODE.npy
+  obsPath: /mnt/others/DATA/Inversion/RNN/data/marmousi_acoustic.npy
 
   # Wave speed model from disk_file for forward modeling
   truePath:
-    vp: /public1/home/wangsw/FWI/EFWI/Marmousi/marmousi_10m/velocity/true_vp.npy
-    vs: /public1/home/wangsw/FWI/EFWI/Marmousi/marmousi_10m/velocity/true_vs.npy
-    rho: /public1/home/wangsw/FWI/EFWI/Marmousi/marmousi_10m/velocity/rho.npy
+    vp: /mnt/others/DATA/Inversion/RNN//velocity/true_vp.npy
+    vs: 
+    #/mnt/others/DATA/Inversion/RNN//velocity/true_vs.npy
+    rho: 
+    #/mnt/others/DATA/Inversion/RNN//velocity/rho.npy
     Q:
 
   source_type:
@@ -51,22 +48,20 @@ geom:
 
   # Inital Wave speed model from disk_file
   initPath: 
-    vp: /public1/home/wangsw/FWI/EFWI/Marmousi/marmousi_10m/velocity/init_vp.npy
-    vs: /public1/home/wangsw/FWI/EFWI/Marmousi/marmousi_10m/velocity/init_vs.npy
-    rho: /public1/home/wangsw/FWI/EFWI/Marmousi/marmousi_10m/velocity/rho.npy
+    vp: /mnt/others/DATA/Inversion/RNN//velocity/linear.npy
+    vs: 
+    #/mnt/others/DATA/Inversion/RNN//velocity/init_vs.npy
+    rho: 
+    #/mnt/others/DATA/Inversion/RNN//velocity/rho.npy
     Q:
 
   # Save the results of FWI
-  inv_savePath: /public1/home/wangsw/FWI/EFWI/Marmousi/marmousi_10m/ncg
+  inv_savePath: /mnt/others/DATA/Inversion/RNN/coding_linear
 
   multiscale: 
-    - 3.0
-    - 5.0
-    - 8.0
+    - 7.5
     - 10.0
-    - 15.0
-    - 18.0
-    - 20.0
+    - 12.0
 
   use_design_region: true
 

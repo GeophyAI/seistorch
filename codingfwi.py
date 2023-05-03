@@ -7,7 +7,7 @@ import argparse, os, time, tqdm, torch
 from wavetorch.utils import ricker_wave, to_tensor, cpu_fft
 # from tensorflow.keras.models import load_model
 from wavetorch.model import build_model
-from wavetorch.loss import NormalizedCrossCorrelation, ElasticLoss
+from wavetorch.loss import Loss
 from wavetorch.optimizer import gram_schmidt_orthogonalization
 from wavetorch.optimizer import NonlinearConjugateGradient as NCG
 from wavetorch.shape import Shape
@@ -36,6 +36,8 @@ parser.add_argument('--name', type=str, default=time.strftime('%Y%m%d%H%M%S'),
                     help='Name to use when saving or loading the model file. If not specified when saving a time and date stamp is used')
 parser.add_argument('--opt', choices=['adam', 'lbfgs', 'ncg'], default='adam',
                     help='optimizer (adam)')
+parser.add_argument('--loss', default='mse',
+                    help='loss')
 parser.add_argument('--mode', choices=['inversion'], default='inversion',
                     help='forward modeling, inversion or reverse time migration mode')
 
@@ -58,6 +60,10 @@ if __name__ == '__main__':
     torch.set_num_threads(args.num_threads)
     # Build model
     cfg, model = build_model(args.config, device=args.dev, mode=args.mode)
+
+    # Set random seed
+    torch.manual_seed(cfg["seed"])
+    np.random.seed(cfg["seed"])
     #model = torch.compile(model)
 
     # Set the name of the process
@@ -73,6 +79,10 @@ if __name__ == '__main__':
     FILTER_ORDER = cfg['training']['filter_ord']
     MINIBATCH = cfg['training']['minibatch']
     BATCHSIZE = cfg['training']['batch_size']
+    ROOTPATH = cfg["geom"]["inv_savePath"]
+    # Check the working folder
+    if not os.path.exists(ROOTPATH):
+        os.makedirs(ROOTPATH, exist_ok=True)
     ### Get source-x and source-y coordinate in grid cells
     source_x_list, source_y_list = get_sources_coordinate_list(cfg)
 
@@ -120,10 +130,7 @@ if __name__ == '__main__':
                                                             verbose=False)
 
     """Define the misfit function"""
-    if NORMALIZATION and ACOUSTIC:
-        criterion = NormalizedCrossCorrelation()
-    else:
-        criterion = torch.nn.MSELoss()
+    criterion = Loss(args.loss).loss()
 
     """Only rank0 will read the full band data"""
     """Rank0 will broadcast the data after filtering"""
@@ -195,6 +202,7 @@ if __name__ == '__main__':
                 loss[idx_freq][epoch] = optimizer.step(closure).item()
             else:
                 loss[idx_freq][epoch] = closure().item()
+                optimizer.step()
 
             if args.opt!="ncg":
                 lr_scheduler.step()

@@ -24,7 +24,6 @@ training:
   # If unspecified then all samples available for the specified vowel classes and gender are used
   max_samples: 12
 
-
   # when >2, can save gpu memory
   save_interval: 10
 
@@ -37,13 +36,15 @@ training:
 geom:
 
   # The observer data
-  obsPath: /public1/home/wangsw/FWI/AFWI/data/marmousi_MERGECODE.npy
+  obsPath: /mnt/others/DATA/Inversion/RNN/data/marmousi_acoustic.npy
 
   # Wave speed model from disk_file for forward modeling
   truePath:
-    vp: /public1/home/wangsw/FWI/EFWI/Marmousi/marmousi_10m/velocity/true_vp.npy
-    vs: /public1/home/wangsw/FWI/EFWI/Marmousi/marmousi_10m/velocity/true_vs.npy
-    rho: /public1/home/wangsw/FWI/EFWI/Marmousi/marmousi_10m/velocity/rho.npy
+    vp: /mnt/others/DATA/Inversion/RNN//velocity/true_vp.npy
+    vs: 
+    #/mnt/others/DATA/Inversion/RNN//velocity/true_vs.npy
+    rho: 
+    #/mnt/others/DATA/Inversion/RNN//velocity/rho.npy
     Q:
 
   source_type:
@@ -51,13 +52,15 @@ geom:
 
   # Inital Wave speed model from disk_file
   initPath: 
-    vp: /public1/home/wangsw/FWI/EFWI/Marmousi/marmousi_10m/velocity/init_vp.npy
-    vs: /public1/home/wangsw/FWI/EFWI/Marmousi/marmousi_10m/velocity/init_vs.npy
-    rho: /public1/home/wangsw/FWI/EFWI/Marmousi/marmousi_10m/velocity/rho.npy
+    vp: /mnt/others/DATA/Inversion/RNN//velocity/init_vp.npy
+    vs: 
+    #/mnt/others/DATA/Inversion/RNN//velocity/init_vs.npy
+    rho: 
+    #/mnt/others/DATA/Inversion/RNN//velocity/rho.npy
     Q:
 
   # Save the results of FWI
-  inv_savePath: /public1/home/wangsw/FWI/EFWI/Marmousi/marmousi_10m/ncg
+  inv_savePath: /mnt/others/DATA/Inversion/RNN/results_newdiff
 
   multiscale: 
     - 3.0
@@ -90,7 +93,7 @@ geom:
   Nreceivers: 1122
 
   # Total Shots
-  Nshots: 111
+  Nshots: 1
 
   # Probe init_x coordinate in grid cells
   ipx: 1

@@ -308,7 +308,17 @@ if __name__ == '__main__':
                                 ypred = model(lp_wavelet)
                                 target = to_tensor(filtered_data[shot_num]).to(ypred.device)#.unsqueeze(0)
                                 loss = criterion(ypred, target)
-
+                                """HvP Start"""
+                                # Perform a backward pass to compute the gradients
+                                # grads = torch.autograd.grad(loss, [model.cell.geom.vp], create_graph=True)
+                                # # Define a vector v with the same size as the model parameters
+                                # v = [torch.randn_like(param) for param in [model.cell.geom.vp]]
+                                # # Perform a forward pass with the vector v
+                                # grads_v = torch.autograd.grad(grads, [model.cell.geom.vp], grad_outputs=v)
+                                # # Perform a backward pass to compute the Hessian-vector product
+                                # HvP = torch.autograd.grad(grads_v, [model.cell.geom.vp], retain_graph=True)
+                                # np.save(os.path.join(cfg["geom"]["inv_savePath"], f"HvPE{epoch}S{shot_num}.npy"), HvP)
+                                """HvP End"""
                                 """START"""
                                 # Model regularization
                                 # l1_reg = 0
