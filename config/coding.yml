@@ -13,7 +13,7 @@ training:
   batch_size: 20
 
   # Number of training epochs
-  N_epochs: 1
+  N_epochs: 100
 
   # Optimizer learning rate
   lr: 10
@@ -32,40 +32,42 @@ training:
 geom:
 
   # The observer data
-  obsPath: /mnt/others/DATA/Inversion/RNN/data/marmousi_acoustic.npy
+  obsPath: /mnt/data/wangsw/inversion/marmousi/data/marmousi.npy
 
   # Wave speed model from disk_file for forward modeling
   truePath:
-    vp: /mnt/others/DATA/Inversion/RNN//velocity/true_vp.npy
+    vp: /mnt/data/wangsw/inversion/marmousi/velocity/true_vp.npy
     vs: 
-    #/mnt/others/DATA/Inversion/RNN//velocity/true_vs.npy
     rho: 
-    #/mnt/others/DATA/Inversion/RNN//velocity/rho.npy
-    Q:
+    #/mnt/data/wangsw/inversion/marmousi//velocity/rho_const.npy
+    Q: 
+    #/mnt/data/wangsw/inversion/marmousi//velocity/q_const.npy
 
   source_type:
-    - vz
+    - h1
 
+  receiver_type:
+    - h1
+  
   # Inital Wave speed model from disk_file
   initPath: 
-    vp: /mnt/others/DATA/Inversion/RNN//velocity/linear.npy
+    vp: /mnt/others/DATA/Inversion/RNN/velocity/init_vp.npy
     vs: 
-    #/mnt/others/DATA/Inversion/RNN//velocity/init_vs.npy
     rho: 
-    #/mnt/others/DATA/Inversion/RNN//velocity/rho.npy
     Q:
 
   # Save the results of FWI
-  inv_savePath: /mnt/others/DATA/Inversion/RNN/coding_testNone
+  inv_savePath: /mnt/others/DATA/Inversion/RNN/coding_visco
 
   multiscale: 
     - 3.0
+    - 5.0
+    - 10.0
 
   use_design_region: true
 
   # Initialization of the design region, either 'rand', 'half', or 'blank'
   init: blank
-
 
   # Time Sampling step
   dt: 0.001
@@ -83,7 +85,7 @@ geom:
   Nreceivers: 1122
 
   # Total Shots
-  Nshots: 111
+  Nshots: 1
 
   # Probe init_x coordinate in grid cells
   ipx: 1

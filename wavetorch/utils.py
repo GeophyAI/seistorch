@@ -150,3 +150,22 @@ def check_dir(path):
         except Exception as e:
             print(e)
             return False
+        
+def roll(wavelet, data, split=0.2):
+    nt = data.shape[0]
+    # Calculate time-shifts
+    time_shifts = torch.arange(0, split*nt)
+    # Randomly assign polarity and time-shift
+    p = np.random.randint(1, 3)  # Random positive integer (1 or 2)
+    tau_s = np.random.choice(time_shifts)
+
+    # Roll the data along the time axis
+    rolled_signal = (-1)**p * np.roll(wavelet, int(tau_s), axis=1)
+    rolled_signal[:,0:int(tau_s)] = 0
+    rolled_data = (-1)**p * np.roll(data, int(tau_s), axis=0)
+    rolled_data[0:int(tau_s)] = 0
+
+
+    return rolled_signal, rolled_data
+
+

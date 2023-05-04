@@ -4,7 +4,7 @@ import wavetorch
 import numpy as np
 from functools import partial
 import argparse, os, time, tqdm, torch
-from wavetorch.utils import ricker_wave, to_tensor, cpu_fft
+from wavetorch.utils import ricker_wave, to_tensor, cpu_fft, roll
 # from tensorflow.keras.models import load_model
 from wavetorch.model import build_model
 from wavetorch.loss import Loss
@@ -137,6 +137,7 @@ if __name__ == '__main__':
     full_band_data = np.load(cfg['geom']['obsPath'])
     filtered_data = np.zeros(shape.record3d, dtype=np.float32)
     coding_obs = torch.zeros(shape.record2d, device=args.dev)
+    coding_wavelet = torch.zeros((BATCHSIZE, shape.nt), device=args.dev)
     loss = np.zeros((len(cfg['geom']['multiscale']), EPOCHS), np.float32)
     # The gradient in rank0 is a 3D array.
     grad2d = np.zeros(shape.grad2d, np.float32)
@@ -157,6 +158,7 @@ if __name__ == '__main__':
         for epoch in range(EPOCHS):
             # Zero the obs tensor
             coding_obs.zero_()
+            coding_wavelet.zero_()
             pbar.set_description(f"F{idx_freq}E{epoch}")
             if MINIBATCH:
                 shots = np.random.choice(np.arange(NSHOTS), BATCHSIZE, replace=False)
@@ -165,36 +167,30 @@ if __name__ == '__main__':
             sources = []
 
             # Get the coding shot numbers and coding data
-            for shot in shots:
+            for i, shot in enumerate(shots):
                 src = setup_src_coords_customer(source_x_list[shot],
                                                 source_y_list[shot],
                                                 cfg['geom']['Nx'],
                                                 cfg['geom']['Ny'],
                                                 cfg['geom']['pml']['N'])
                 sources.append(src)
-                coding_obs += to_tensor(filtered_data[shot]).to(args.dev)
+                wave_temp, d_temp = roll(lp_wavelet, filtered_data[shot])
+                coding_wavelet[i] = to_tensor(wave_temp).to(args.dev)
+                coding_obs += to_tensor(d_temp).to(args.dev)
 
-            """Calculate one shot gradient"""
+            """Calculate one shotye gradient"""
             def closure():
                 optimizer.zero_grad()
                 # Get the super shot gather
                 model.reset_sources(sources)
-                ypred = model(lp_wavelet)
+                #ypred = model(lp_wavelet)
+                ypred = model(coding_wavelet)
+                #np.save("/mnt/others/DATA/Inversion/RNN/coding_visco/ypred.npy", ypred.cpu().detach().numpy())
+
                 loss = criterion(ypred, coding_obs)
                 loss.backward()
 
                 return loss#.item()
-                """START"""
-                # Model regularization
-                # l1_reg = 0
-                # for mname in model.cell.geom.model_parameters:
-                #     if mname == 'rho':
-                #         continue
-                #     l1_reg += torch.norm(model.cell.geom.__getattr__(mname), p=1)
-                # # Assign the weight of the model regulazation to %10 of the obj.
-                # alpha = loss.item()*1e-16
-                # loss += alpha*l1_reg
-                """END"""
 
             # Run the closure
             # loss[idx_freq][epoch] = closure(sources)

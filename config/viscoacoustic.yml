@@ -10,7 +10,7 @@ training:
 
   minibatch: true
 
-  batch_size: 20
+  batch_size: 2
 
   # Number of training epochs
   N_epochs: 100
@@ -32,26 +32,26 @@ training:
 geom:
 
   # The observer data
-  obsPath: /mnt/others/DATA/Inversion/RNN/data/marmousi_viscoacoustic.npy
+  obsPath: /mnt/data/wangsw/inversion/marmousi/data/marmousi.npy
 
   # Wave speed model from disk_file for forward modeling
   truePath:
-    vp: /mnt/others/DATA/Inversion/RNN//velocity/true_vp.npy
+    vp: /mnt/data/wangsw/inversion/marmousi/velocity/true_vp.npy
     vs: 
-    #/mnt/others/DATA/Inversion/RNN//velocity/true_vs.npy
-    # /mnt/others/DATA/Inversion/RNN/velocity/true_vs.npy
-    rho: /mnt/others/DATA/Inversion/RNN/velocity/rho_const.npy
-    Q: /mnt/others/DATA/Inversion/RNN/velocity/q_const.npy
+    rho: 
+    #/mnt/data/wangsw/inversion/marmousi//velocity/rho_const.npy
+    Q: 
+    #/mnt/data/wangsw/inversion/marmousi//velocity/q_const.npy
 
   source_type:
-    - p
+    - h1
 
   receiver_type:
-    - p
+    - h1
   
   # Inital Wave speed model from disk_file
   initPath: 
-    vp: /mnt/others/DATA/Inversion/RNN//velocity/linear.npy
+    vp: /mnt/data/wangsw/inversion/marmousi/velocity/init_vp.npy
     vs: 
     rho: 
     Q:
@@ -85,7 +85,7 @@ geom:
   Nreceivers: 1122
 
   # Total Shots
-  Nshots: 1
+  Nshots: 111
 
   # Probe init_x coordinate in grid cells
   ipx: 1
