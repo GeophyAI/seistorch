@@ -1,7 +1,6 @@
 import torch
-import numpy as np
-import matplotlib.pyplot as plt
-from .utils import diff_using_roll
+from .wavefield import Wavefield
+
 class WaveRNN(torch.nn.Module):
     def __init__(self, cell, sources=None, probes=[]):
 
@@ -42,40 +41,49 @@ class WaveRNN(torch.nn.Module):
         # Init hidden states
         hidden_state_shape = (batch_size,) + self.cell.geom.domain_shape
 
-        vx = torch.zeros(hidden_state_shape, device=device)
-        vz = torch.zeros(hidden_state_shape, device=device)
-        p = torch.zeros(hidden_state_shape, device=device)
-        r = torch.zeros(hidden_state_shape, device=device)
+        wavefield_names = Wavefield(self.cell.geom.equation).wavefields
 
-        p_all = []
+        # Set wavefields
+        for name in wavefield_names:
+            self.__setattr__(name, torch.zeros(hidden_state_shape, device=device))
 
-        # Because these will not change with time we should pull them out here to avoid unnecessary calculations on each
-        # tme step, dramatically reducing the memory load from backpropagation
+        length_record = len(self.cell.geom.receiver_type)
+        p_all = [[] for i in range(length_record)]
+
+        # Set model parameters
+        for name in self.cell.geom.model_parameters:
+            self.__setattr__(name, self.cell.geom.__getattr__(name))
         
-        vp = self.cell.geom.__getattr__('vp')
-        rho = self.cell.geom.__getattr__('rho')
-        Q = self.cell.geom.__getattr__('Q')
-
+        # Pack parameters
+        model_paras = [self.__getattr__(name) for name in self.cell.geom.model_parameters]
+        
+        # Short cut of the save intervel
         save_interval = self.cell.geom.save_interval
-        # Loop through time
 
+        # Loop through time
         for i, xi in enumerate(x.chunk(x.size(1), dim=1)):
 
             # Propagate the fields
-            vx, vz, p, r = self.cell(vx, vz, p, r, [vp, rho, Q], i, save_interval, omega)
+            wavefield = [self.__getattribute__(name) for name in wavefield_names]
+            wavefield = self.cell(wavefield, model_paras, t=i, it=save_interval, omega=omega)
+            # Set the data to vars
+            for name, data in zip(wavefield_names, wavefield):
+                self.__setattr__(name, data)
 
             # Inject source(s)
             for source in self.sources:
-               # Add source to each wavefield
-               p = source(p, xi.squeeze(-1))
-
+                for source_type in self.cell.geom.source_type:
+                    # Add source to each wavefield
+                    self.__setattr__(source_type, source(self.__getattribute__(source_type), xi.squeeze(-1)))
+                
             if len(self.probes) > 0:
                 # Measure probe(s)
                 for probe in self.probes:
-                    p_all.append(probe(p))
+                    for receiver, p_all_sub in zip(self.cell.geom.receiver_type, p_all):
+                        p_all_sub.append(probe(self.__getattribute__(receiver)))
 
         # Combine outputs into a single tensor
-        y = torch.stack(p_all, dim=1).permute(1, 2, 0)
+        y = torch.concat([torch.stack(y, dim=1).permute(1, 2, 0) for y in p_all], dim = 2)
         has_nan = torch.isnan(x).any()
         assert not has_nan, "Warning!!Data has nan!!"
         return y

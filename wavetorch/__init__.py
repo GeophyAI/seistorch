@@ -1,9 +1,9 @@
-from . import cell_elastic, geom, rnn_elastic, source, probe, utils, setup_source_probe, model, loss, optimizer
+from . import cell_elastic, geom, source, probe, utils, setup_source_probe, model, loss, optimizer
 from .cell_elastic import WaveCell as WaveCellElastic
 from .geom import WaveGeometryFreeForm
 from .probe import WaveProbe, WaveIntensityProbe
-from .rnn_elastic import WaveRNN as WaveRNNElastic
 from .source import WaveSource, WaveLineSource
+from .rnn import WaveRNN
 from .model import build_model
 from .loss import NormalizedCrossCorrelation, ElasticLoss
 

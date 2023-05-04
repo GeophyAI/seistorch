@@ -72,7 +72,7 @@ class WaveCell(torch.nn.Module):
     def get_parameters(self, key=None, recursive=True):
         yield self.geom.__getattr__(key)
 
-    def forward(self, h1, h2, c_linear, rho, t, it):
+    def forward(self, wavefields, model_vars, **kwargs):
         """Take a step through time
 
         Parameters
@@ -82,7 +82,10 @@ class WaveCell(torch.nn.Module):
         h2 : 
             Scalar wave field two time steps ago (part of the hidden state)
         """
-
-        y = TimeStep.apply(self.geom.b, c_linear, h1, h2, self.dt, self.geom.h, t, it)
+        t = kwargs['t']
+        it = kwargs['it']
+        h1, h2 = wavefields
+        vp = model_vars[0]
+        y = TimeStep.apply(self.geom.b, vp, h1, h2, self.dt, self.geom.h, t, it)
 
         return y, h1

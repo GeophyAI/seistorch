@@ -13,7 +13,7 @@ training:
   batch_size: 20
 
   # Number of training epochs
-  N_epochs: 100
+  N_epochs: 1
 
   # Optimizer learning rate
   lr: 10
@@ -56,12 +56,10 @@ geom:
     Q:
 
   # Save the results of FWI
-  inv_savePath: /mnt/others/DATA/Inversion/RNN/coding_linear
+  inv_savePath: /mnt/others/DATA/Inversion/RNN/coding_testNone
 
   multiscale: 
     - 3.0
-    - 5.0
-    - 10.0
 
   use_design_region: true
 

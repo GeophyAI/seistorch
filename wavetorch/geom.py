@@ -146,6 +146,7 @@ class WaveGeometryFreeForm(WaveGeometry):
         self.device = kwargs['device']
         self.padding = abs_N
         self.source_type = kwargs['geom']['source_type']
+        self.receiver_type = kwargs['geom']['receiver_type']
         self.save_interval = kwargs['training']['save_interval']
         self.model_parameters = []
 

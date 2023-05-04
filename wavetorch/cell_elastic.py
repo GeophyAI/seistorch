@@ -189,7 +189,8 @@ class WaveCell(torch.nn.Module):
     def get_parameters(self, key=None, recursive=True):
         yield self.geom.__getattr__(key)
 
-    def forward(self, vx, vz, txx, tzz, txz, model_vars: tuple, t, it):
+    def forward(self, wavefields, model_vars, **kwargs):
+    # def forward(self, vx, vz, txx, tzz, txz, model_vars: tuple, t, it):
         """Take a step through time
         Parameters
         ----------
@@ -202,6 +203,9 @@ class WaveCell(torch.nn.Module):
         rho : 
             Projected density, required for nonlinear response (this gets passed in to avoid generating it on each time step, saving memory for backprop)
         """
+        t = kwargs['t']
+        it = kwargs['it']
+        vx, vz, txx, tzz, txz = wavefields
         vp, vs, rho = model_vars
         hidden = TimeStep.apply(vx, vz, txx, tzz, txz, vp, vs, rho, 
                                 self.dt, self.geom.h, self.geom.d, t, it)

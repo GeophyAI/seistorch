@@ -1,7 +1,5 @@
 import torch
 from .utils import diff_using_roll, to_tensor
-        # vx_x = diff_using_roll(vx, 2, False)
-        # vz_z = diff_using_roll(vz, 1)
 
 def _time_step(vx, vz, p, r, vp, rho, Q, omega, b=None, dt=1.0, dh=1.0):
 
@@ -27,8 +25,8 @@ class TimeStep(torch.autograd.Function):
 
     @staticmethod
     def forward(ctx, vx, vz, p, r,
-                vp, rho, Q, omega,
-                dt, h, d, t, it):
+                vp, rho, Q,
+                dt, h, d, t, it, omega):
 
         # lame_lambda = rho*(vp.pow(2)-2*vs.pow(2))
         # lame_mu = rho*(vs.pow(2))
@@ -43,7 +41,7 @@ class TimeStep(torch.autograd.Function):
                                       vp, rho, Q, omega, d, dt, h)
 
         return yvx, yvz, yp, yr
-    
+
 class WaveCell(torch.nn.Module):
     """The recurrent neural network cell implementing the scalar wave equation"""
 
@@ -62,7 +60,7 @@ class WaveCell(torch.nn.Module):
     def get_parameters(self, key=None, recursive=True):
         yield self.geom.__getattr__(key)
 
-    def forward(self, vx, vz, p, r, model_vars: tuple, t, it, omega):
+    def forward(self, wavefields, model_vars, **kwargs):
 
         """Take a step through time
         Parameters
@@ -76,9 +74,13 @@ class WaveCell(torch.nn.Module):
         rho : 
             Projected density, required for nonlinear response (this gets passed in to avoid generating it on each time step, saving memory for backprop)
         """
+        t = kwargs['t']
+        it = kwargs['it']
+        omega = kwargs['omega']
+        vx, vz, p, r = wavefields
         vp, rho, Q = model_vars
-        
-        hidden = TimeStep.apply(vx, vz, p, r, vp, rho, Q, omega,
-                                self.dt, self.geom.h, self.geom.b, t, it)
+
+        hidden = TimeStep.apply(vx, vz, p, r, vp, rho, Q,
+                                self.dt, self.geom.h, self.geom.b, t, it, omega)
 
         return hidden

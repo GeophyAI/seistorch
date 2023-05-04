@@ -38,12 +38,17 @@ geom:
   truePath:
     vp: /mnt/others/DATA/Inversion/RNN//velocity/true_vp.npy
     vs: 
+    #/mnt/others/DATA/Inversion/RNN//velocity/true_vs.npy
+    # /mnt/others/DATA/Inversion/RNN/velocity/true_vs.npy
     rho: /mnt/others/DATA/Inversion/RNN/velocity/rho_const.npy
     Q: /mnt/others/DATA/Inversion/RNN/velocity/q_const.npy
 
   source_type:
-    - vz
+    - p
 
+  receiver_type:
+    - p
+  
   # Inital Wave speed model from disk_file
   initPath: 
     vp: /mnt/others/DATA/Inversion/RNN//velocity/linear.npy
@@ -64,7 +69,6 @@ geom:
   # Initialization of the design region, either 'rand', 'half', or 'blank'
   init: blank
 
-
   # Time Sampling step
   dt: 0.001
 
@@ -81,7 +85,7 @@ geom:
   Nreceivers: 1122
 
   # Total Shots
-  Nshots: 111
+  Nshots: 1
 
   # Probe init_x coordinate in grid cells
   ipx: 1
