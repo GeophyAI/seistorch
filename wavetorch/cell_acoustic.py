@@ -86,6 +86,8 @@ class WaveCell(torch.nn.Module):
         it = kwargs['it']
         h1, h2 = wavefields
         vp = model_vars[0]
-        y = TimeStep.apply(self.geom.b, vp, h1, h2, self.dt, self.geom.h, t, it)
-
+        if self.geom.autodiff:
+            y = _time_step(self.geom.b, vp, h1, h2, self.dt, self.geom.h)
+        else:
+            y = TimeStep.apply(self.geom.b, vp, h1, h2, self.dt, self.geom.h, t, it)
         return y, h1

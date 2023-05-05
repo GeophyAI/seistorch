@@ -79,15 +79,6 @@ class WaveRNN(torch.nn.Module):
             for source, _s in zip(self.sources, xi.chunk(xi.size(0), dim=0)):
                 for source_type in self.cell.geom.source_type:
                     self.__setattr__(source_type, source(self.__getattribute__(source_type), _s.squeeze(-1)))
-
-            
-            # for source, _s in zip(self.sources, xi.chunk(xi.size(0), dim=0)):
-                #self.h1[0, source.x, source.y] += _s.squeeze()
-                # for source_type in self.cell.geom.source_type:
-                    # Add source to each wavefield
-                    # source_var = self.__getattribute__(source_type)
-                    # source_var[0, source.x, source.y] += _s.squeeze()
-                    #self.__setattr__(source_type, source(self.__getattribute__(source_type), _s.squeeze(-1)))
                 
             if len(self.probes) > 0:
                 # Measure probe(s)

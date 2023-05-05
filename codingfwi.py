@@ -185,7 +185,6 @@ if __name__ == '__main__':
                 model.reset_sources(sources)
                 #ypred = model(lp_wavelet)
                 ypred = model(coding_wavelet)
-                #np.save("/mnt/others/DATA/Inversion/RNN/coding_visco/ypred.npy", ypred.cpu().detach().numpy())
 
                 loss = criterion(ypred, coding_obs)
                 loss.backward()

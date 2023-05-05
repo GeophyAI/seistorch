@@ -6,6 +6,9 @@ name: coding_fwi
 # Data type to use for tensors, either float32 or float64
 dtype: float32
 
+# Using autodiff or not
+autodiff: False
+
 training:
 
   minibatch: true

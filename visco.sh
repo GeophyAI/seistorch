@@ -1,6 +1,6 @@
 mpirun -f mpiconfig_gpu \
 python fwi.py config/viscoacoustic.yml mpiconfig_gpu \
---mode forward \
+--mode inversion \
 --opt adam \
---use-cuda
+#--use-cuda
 # forward inversion

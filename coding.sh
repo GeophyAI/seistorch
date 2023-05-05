@@ -2,6 +2,6 @@
 python codingfwi.py config/viscoacoustic.yml \
 --gpuid 0 \
 --opt adam \
---loss mse \
+--loss l2 \
 --mode inversion \
 --use-cuda

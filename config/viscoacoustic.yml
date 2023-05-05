@@ -10,13 +10,13 @@ training:
 
   minibatch: true
 
-  batch_size: 2
+  batch_size: 20
 
   # Number of training epochs
-  N_epochs: 100
+  N_epochs: 50
 
   # Optimizer learning rate
-  lr: 10
+  lr: 20
 
   lr_decay: 0.5
 
@@ -27,18 +27,20 @@ training:
   normalize: false
 
   # Filter order
-  filter_ord: 5
+  filter_ord: 3
 
 geom:
 
   # The observer data
-  obsPath: /mnt/data/wangsw/inversion/marmousi/data/marmousi.npy
+  obsPath: /mnt/data/wangsw/inversion/marmousi/data/marmousi_acoustic.npy
 
   # Wave speed model from disk_file for forward modeling
   truePath:
     vp: /mnt/data/wangsw/inversion/marmousi/velocity/true_vp.npy
     vs: 
+    # /mnt/data/wangsw/inversion/marmousi/velocity/true_vs.npy
     rho: 
+    # /mnt/data/wangsw/inversion/marmousi/velocity/rho.npy
     #/mnt/data/wangsw/inversion/marmousi//velocity/rho_const.npy
     Q: 
     #/mnt/data/wangsw/inversion/marmousi//velocity/q_const.npy
@@ -53,16 +55,20 @@ geom:
   initPath: 
     vp: /mnt/data/wangsw/inversion/marmousi/velocity/init_vp.npy
     vs: 
+    #/mnt/data/wangsw/inversion/marmousi/velocity/init_vs.npy
     rho: 
+    #/mnt/data/wangsw/inversion/marmousi/velocity/rho.npy
     Q:
 
   # Save the results of FWI
-  inv_savePath: /mnt/others/DATA/Inversion/RNN/coding_visco
+  inv_savePath: /mnt/data/wangsw/inversion/marmousi/results/dynamic_AUTODIFFAFWI_l2
 
   multiscale: 
     - 3.0
     - 5.0
+    - 8.0
     - 10.0
+    - 15.0
 
   use_design_region: true
 

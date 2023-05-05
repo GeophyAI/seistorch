@@ -79,8 +79,11 @@ class WaveCell(torch.nn.Module):
         omega = kwargs['omega']
         vx, vz, p, r = wavefields
         vp, rho, Q = model_vars
-
-        hidden = TimeStep.apply(vx, vz, p, r, vp, rho, Q,
-                                self.dt, self.geom.h, self.geom.b, t, it, omega)
+        
+        if self.geom.autodiff:
+            hidden = _time_step(vx, vz, p, r, vp, rho, Q, omega, self.dt, self.geom.h, self.geom.b)
+        else:
+            hidden = TimeStep.apply(vx, vz, p, r, vp, rho, Q,
+                                    self.dt, self.geom.h, self.geom.b, t, it, omega)
 
         return hidden

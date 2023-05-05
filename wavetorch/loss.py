@@ -305,7 +305,7 @@ class CrossCorrelation(torch.nn.Module):
         """
         loss = self.cross_correlation_loss(x, y)
         return loss 
-    
+
 class Huber(torch.nn.Module):
     def __init__(self, delta=1.0):
         super(Huber, self).__init__()

@@ -207,7 +207,12 @@ class WaveCell(torch.nn.Module):
         it = kwargs['it']
         vx, vz, txx, tzz, txz = wavefields
         vp, vs, rho = model_vars
-        hidden = TimeStep.apply(vx, vz, txx, tzz, txz, vp, vs, rho, 
-                                self.dt, self.geom.h, self.geom.d, t, it)
+        if self.geom.autodiff:
+            y_txx, y_tzz, y_txz = _time_step_stress(rho*(vp.pow(2)-2*vs.pow(2)),  rho*(vs.pow(2)), vx, vz, txx, tzz, txz, self.dt, self.geom.h, self.geom.d)
+            y_vx, y_vz = _time_step_vel(rho, vx, vz, y_txx, y_tzz, y_txz, self.dt, self.geom.h, self.geom.d)
+            hidden = (y_vx, y_vz, y_txx, y_tzz, y_txz)
+        else:
+            hidden = TimeStep.apply(vx, vz, txx, tzz, txz, vp, vs, rho, 
+                                    self.dt, self.geom.h, self.geom.d, t, it)
 
         return hidden
