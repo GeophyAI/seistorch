@@ -146,6 +146,7 @@ class WaveGeometryFreeForm(WaveGeometry):
         domain_shape = kwargs['domain_shape']
         self.autodiff = kwargs['autodiff']
         self.dt = kwargs['geom']['dt']
+        self.checkpoint = kwargs['geom']['ckpt']
         self.device = kwargs['device']
         self.padding = abs_N
         self.source_type = kwargs['geom']['source_type']

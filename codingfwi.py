@@ -87,7 +87,6 @@ if __name__ == '__main__':
     EPOCHS = cfg['training']['N_epochs']
     NSHOTS = cfg['geom']['Nshots']
     LEARNING_RATE = cfg['training']['lr']
-    NORMALIZATION = cfg["training"]["normalize"]
     FILTER_ORDER = cfg['training']['filter_ord']
     MINIBATCH = cfg['training']['minibatch']
     BATCHSIZE = cfg['training']['batch_size']

@@ -16,7 +16,7 @@ training:
   batch_size: 20
 
   # Number of training epochs
-  N_epochs: 80
+  N_epochs: 1
 
   # Optimizer learning rate
   lr: 10
@@ -24,10 +24,7 @@ training:
   lr_decay: 0.5
 
   # when >2, can save gpu memory
-  save_interval: 2
-
-  # Normalize the obs and syn for backward
-  normalize: false
+  save_interval: 100
 
   # Filter order
   filter_ord: 3
@@ -66,8 +63,11 @@ geom:
     rho: false
     q: false
 
+  # using checkpoint for saving memory
+  ckpt: true
+
   # Save the results of FWI
-  inv_savePath: /mnt/data/wangsw/inversion/marmousi_20m/results/test_autodiff
+  inv_savePath: /mnt/data/wangsw/inversion/marmousi_20m/results/test_autodiff_
 
   multiscale: 
     - 3.0

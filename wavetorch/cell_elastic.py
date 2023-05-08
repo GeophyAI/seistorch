@@ -221,7 +221,6 @@ class WaveCell(torch.nn.Module):
         yield self.geom.__getattr__(key)
 
     def forward(self, wavefields, model_vars, **kwargs):
-    # def forward(self, vx, vz, txx, tzz, txz, model_vars: tuple, t, it):
         """Take a step through time
         Parameters
         ----------
@@ -239,11 +238,15 @@ class WaveCell(torch.nn.Module):
         vx, vz, txx, tzz, txz = wavefields
         vp, vs, rho = model_vars
 
-        if self.geom.autodiff and self.geom.inversion:
+        checkpoint = self.geom.checkpoint
+        forward = not self.geom.inversion
+        inversion = self.geom.inversion
+
+        if checkpoint and inversion:
             hidden = ckpt(_time_step, t%it==0, vp, vs, rho, vx, vz, txx, tzz, txz, self.dt, self.geom.h, self.geom.d)
-        elif self.geom.autodiff:
+        if forward or (inversion and not checkpoint):
             hidden = _time_step(vp, vs, rho, vx, vz, txx, tzz, txz, self.dt, self.geom.h, self.geom.d)
-        else:
+        if not self.geom.autodiff:
             hidden = TimeStep.apply(vx, vz, txx, tzz, txz, vp, vs, rho, 
                                     self.dt, self.geom.h, self.geom.d, t, it)
 

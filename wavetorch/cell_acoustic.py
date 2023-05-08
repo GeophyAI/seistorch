@@ -94,10 +94,15 @@ class WaveCell(torch.nn.Module):
         it = kwargs['it']
         h1, h2 = wavefields
         vp = model_vars[0]
-        if self.geom.autodiff and self.geom.inversion:
+
+        checkpoint = self.geom.checkpoint
+        forward = not self.geom.inversion
+        inversion = self.geom.inversion
+
+        if checkpoint and inversion:
             y = ckpt(_time_step, t%it==0, self.geom.b, vp, h1, h2, self.dt, self.geom.h)
-        elif self.geom.autodiff:
+        if forward or (inversion and not checkpoint):
             y = _time_step(self.geom.b, vp, h1, h2, self.dt, self.geom.h)
-        else:
+        if not self.geom.autodiff:
             y = TimeStep.apply(self.geom.b, vp, h1, h2, self.dt, self.geom.h, t, it)
         return y, h1
