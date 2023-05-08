@@ -50,7 +50,7 @@ def build_model(config_path, device = "cuda", mode="forward"):
 
     # Set up geometry
     geom  = WaveGeometryFreeForm(**cfg)
-
+    geom.inversion = mode == "inversion"
     # Add the key 'equation' to the configure file
     cfg['equation'] = geom.equation
 

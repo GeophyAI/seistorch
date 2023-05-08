@@ -1,9 +1,12 @@
 import os
 import numpy as np
 import torch, struct, socket
-#, segyio
 from scipy import signal
-
+from typing import Any, Iterable, List, Tuple
+import torch
+import warnings
+import weakref
+from typing import Any, Iterable, List, Tuple
 
 def to_tensor(x, dtype=None):
     dtype = dtype if dtype is not None else torch.get_default_dtype()
@@ -164,7 +167,6 @@ def roll(wavelet, data, split=0.2):
     rolled_signal[:,0:int(tau_s)] = 0
     rolled_data = (-1)**p * np.roll(data, int(tau_s), axis=0)
     rolled_data[0:int(tau_s)] = 0
-
 
     return rolled_signal, rolled_data
 

@@ -1,10 +1,12 @@
+import os
 from copy import deepcopy
 from typing import Tuple
+
 import numpy as np
-import torch, os
+import torch
 from torch.nn.functional import conv2d
-from .utils import load_file_by_type
-from .utils import to_tensor
+
+from .utils import load_file_by_type, to_tensor
 
 
 class WaveGeometry(torch.nn.Module):
@@ -150,21 +152,22 @@ class WaveGeometryFreeForm(WaveGeometry):
         self.receiver_type = kwargs['geom']['receiver_type']
         self.save_interval = kwargs['training']['save_interval']
         self.model_parameters = []
+        self.inversion = False
 
         super().__init__(domain_shape, h, abs_N)
 
-        self._init_model(kwargs['VEL_PATH'])
+        self._init_model(kwargs['VEL_PATH'], kwargs['geom']['invlist'])
         # Determine the equation type elastic or acoustic
         self.equation = self.determine_eq_type()
 
         
-    def _init_model(self, modelPath, shape = None, pml_width = None):
+    def _init_model(self, modelPath, invlist):
         for mname, mpath in modelPath.items():
             # If path is not None, read it and add to graph
             if mpath:
                 assert os.path.exists(mpath), f"Cannot find model '{mpath}'"
                 self.model_parameters.append(mname)
-                self.__setattr__(mname, self.add_parameter(mpath))
+                self.__setattr__(mname, self.add_parameter(mpath, invlist[mname]))
 
         # vp = self.pad(load_file_by_type(modelPath['vp'], shape=shape, pml_width=pml_width))
         # self.model_vp = torch.nn.Parameter(to_tensor(vp))
@@ -176,12 +179,12 @@ class WaveGeometryFreeForm(WaveGeometry):
         if len(paras)==3 and "vs" in paras: return "elastic"
     
     def __repr__(self):
-        return f"Paramters of {self.model_paramters} have been defined."
+        return f"Paramters of {self.model_parameters} have been defined."
 
     # Add the torch paramter
     def add_parameter(self, path, requires_grad=False):
         model = self.pad(load_file_by_type(path))
-        return torch.nn.Parameter(to_tensor(model), requires_grad=True)
+        return torch.nn.Parameter(to_tensor(model), requires_grad=requires_grad)
 
     def pad(self, d, mode='edge'):
         padding = self.padding

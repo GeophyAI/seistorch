@@ -1,18 +1,24 @@
 import numpy as np
 import torch
+
+from .checkpoint import checkpoint as ckpt
 from .operators import _laplacian
 from .utils import to_tensor
+
+# from .checkpoint_original import checkpoint as ckpt
+
 
 def _time_step(b, c, y1, y2, dt, h):
     # Equation S8(S9)
     # When b=0, without boundary conditon.
     y = torch.mul((dt**-2 + b * dt**-1).pow(-1),
-                  (2 / dt**2 * y1 - torch.mul((dt**-2 - b * dt**-1), y2)
-                   + torch.mul(c.pow(2), _laplacian(y1, h)))
-                  )
+                (2 / dt**2 * y1 - torch.mul((dt**-2 - b * dt**-1), y2)
+                + torch.mul(c.pow(2), _laplacian(y1, h)))
+                )
     return y
 
 class TimeStep(torch.autograd.Function):
+
     @staticmethod
     def forward(ctx, b, c, y1, y2, dt, h, t, it):
         ctx.models = c
@@ -39,6 +45,7 @@ class TimeStep(torch.autograd.Function):
             # grad_y1 = ( dt.pow(2) * _laplacian(c.pow(2) *grad_output, h) + 2*grad_output) * (b*dt + 1).pow(-1)
             c2_grad = (b * dt + 1)**(-1) * c.pow(2) * grad_output
             grad_y1 = dt**(2) * _laplacian(c2_grad, h) + 2 * grad_output * (b * dt + 1).pow(-1)
+        
         if ctx.needs_input_grad[3]:
             grad_y2 = (b * dt - 1) * (b * dt + 1).pow(-1) * grad_output
 
@@ -73,6 +80,7 @@ class WaveCell(torch.nn.Module):
         yield self.geom.__getattr__(key)
 
     def forward(self, wavefields, model_vars, **kwargs):
+        
         """Take a step through time
 
         Parameters
@@ -86,7 +94,9 @@ class WaveCell(torch.nn.Module):
         it = kwargs['it']
         h1, h2 = wavefields
         vp = model_vars[0]
-        if self.geom.autodiff:
+        if self.geom.autodiff and self.geom.inversion:
+            y = ckpt(_time_step, t%it==0, self.geom.b, vp, h1, h2, self.dt, self.geom.h)
+        elif self.geom.autodiff:
             y = _time_step(self.geom.b, vp, h1, h2, self.dt, self.geom.h)
         else:
             y = TimeStep.apply(self.geom.b, vp, h1, h2, self.dt, self.geom.h, t, it)

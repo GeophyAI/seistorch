@@ -7,7 +7,7 @@ name: coding_fwi
 dtype: float32
 
 # Using autodiff or not
-autodiff: False
+autodiff: true
 
 training:
 
@@ -16,7 +16,7 @@ training:
   batch_size: 20
 
   # Number of training epochs
-  N_epochs: 100
+  N_epochs: 80
 
   # Optimizer learning rate
   lr: 10
@@ -24,48 +24,53 @@ training:
   lr_decay: 0.5
 
   # when >2, can save gpu memory
-  save_interval: 10
+  save_interval: 2
 
   # Normalize the obs and syn for backward
   normalize: false
 
   # Filter order
-  filter_ord: 5
+  filter_ord: 3
 
 geom:
 
   # The observer data
-  obsPath: /mnt/data/wangsw/inversion/marmousi/data/marmousi.npy
+  obsPath: /mnt/data/wangsw/inversion/marmousi_20m/data/marmousi_elastic.npy
 
   # Wave speed model from disk_file for forward modeling
   truePath:
-    vp: /mnt/data/wangsw/inversion/marmousi/velocity/true_vp.npy
-    vs: 
-    rho: 
-    #/mnt/data/wangsw/inversion/marmousi//velocity/rho_const.npy
+    vp: /mnt/data/wangsw/inversion/marmousi_20m/velocity/true_vp.npy
+    vs: /mnt/data/wangsw/inversion/marmousi_20m/velocity/true_vs.npy
+    rho: /mnt/data/wangsw/inversion/marmousi_20m/velocity/rho.npy
+    #/mnt/data/wangsw/inversion/marmousi_20m//velocity/rho_const.npy
     Q: 
-    #/mnt/data/wangsw/inversion/marmousi//velocity/q_const.npy
+    #/mnt/data/wangsw/inversion/marmousi_20m//velocity/q_const.npy
 
   source_type:
-    - h1
+    - vz
 
   receiver_type:
-    - h1
+    - vx
+    - vz
   
   # Inital Wave speed model from disk_file
   initPath: 
-    vp: /mnt/others/DATA/Inversion/RNN/velocity/init_vp.npy
-    vs: 
-    rho: 
+    vp: /mnt/data/wangsw/inversion/marmousi_20m/velocity/init_vp.npy
+    vs: /mnt/data/wangsw/inversion/marmousi_20m/velocity/init_vs.npy
+    rho: /mnt/data/wangsw/inversion/marmousi_20m/velocity/rho.npy
     Q:
 
+  invlist:
+    vp: true
+    vs: true
+    rho: false
+    q: false
+
   # Save the results of FWI
-  inv_savePath: /mnt/others/DATA/Inversion/RNN/coding_visco
+  inv_savePath: /mnt/data/wangsw/inversion/marmousi_20m/results/test_autodiff
 
   multiscale: 
     - 3.0
-    - 5.0
-    - 10.0
 
   use_design_region: true
 
@@ -79,16 +84,16 @@ geom:
   nt: 4000
 
   # Main frequency of ricker wave
-  fm: 15.
+  fm: 5.
 
   # Spatial grid step size
-  h: 10.0
+  h: 20.0
 
   # Total receivers
-  Nreceivers: 1122
+  Nreceivers: 561
 
   # Total Shots
-  Nshots: 1
+  Nshots: 111
 
   # Probe init_x coordinate in grid cells
   ipx: 1
@@ -112,7 +117,7 @@ geom:
   src_y: 1
 
   # Spacing, in number grid cells, between source points
-  src_d: 10
+  src_d: 5
 
   pml:
     N: 50    # PML thickness in number of grid cells

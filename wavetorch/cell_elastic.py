@@ -1,9 +1,40 @@
 import torch
 from .utils import to_tensor
 from .utils import diff_using_roll
+from .checkpoint import checkpoint as ckpt
+
 
 NEW_DIFF = True
     
+def _time_step(vp, vs, rho, vx, vz, txx, tzz, txz, dt, h, d):
+    lame_lambda = rho*(vp.pow(2)-2*vs.pow(2))
+    lame_mu = rho*(vs.pow(2))
+
+    vx_x = diff_using_roll(vx, 2, False)
+    vz_z = diff_using_roll(vz, 1)
+    vx_z = diff_using_roll(vx, 1)
+    vz_x = diff_using_roll(vz, 2)
+
+    c = 0.5*dt*d
+    # Equation A-8
+    y_txx  = (1+c)**-1*(dt*h.pow(-1)*((lame_lambda+2*lame_mu)*vx_x+lame_lambda*vz_z)+(1-c)*txx)
+    # Equation A-9
+    y_tzz  = (1+c)**-1*(dt*h.pow(-1)*((lame_lambda+2*lame_mu)*vz_z+lame_lambda*vx_x)+(1-c)*tzz)
+    # Equation A-10
+    y_txz = (1+c)**-1*(dt*lame_mu*h.pow(-1)*(vz_x+vx_z)+(1-c)*txz)
+
+    txx_x = diff_using_roll(y_txx, 2)
+    txz_z = diff_using_roll(y_txz, 1, False)
+    tzz_z = diff_using_roll(y_tzz, 1, False)
+    txz_x = diff_using_roll(y_txz, 2, False)
+
+    # Update y_vx
+    y_vx = (1+c)**-1*(dt*rho.pow(-1)*h.pow(-1)*(txx_x+txz_z)+(1-c)*vx)
+    # Update y_vz
+    y_vz = (1+c)**-1*(dt*rho.pow(-1)*h.pow(-1)*(txz_x+tzz_z)+(1-c)*vz)
+
+    return y_vx, y_vz, y_txx, y_tzz, y_txz
+
 def _time_step_vel(rho, vx, vz, txx, tzz, txz, dt, h, d):
     
     nz, nx = rho.shape
@@ -207,10 +238,11 @@ class WaveCell(torch.nn.Module):
         it = kwargs['it']
         vx, vz, txx, tzz, txz = wavefields
         vp, vs, rho = model_vars
-        if self.geom.autodiff:
-            y_txx, y_tzz, y_txz = _time_step_stress(rho*(vp.pow(2)-2*vs.pow(2)),  rho*(vs.pow(2)), vx, vz, txx, tzz, txz, self.dt, self.geom.h, self.geom.d)
-            y_vx, y_vz = _time_step_vel(rho, vx, vz, y_txx, y_tzz, y_txz, self.dt, self.geom.h, self.geom.d)
-            hidden = (y_vx, y_vz, y_txx, y_tzz, y_txz)
+
+        if self.geom.autodiff and self.geom.inversion:
+            hidden = ckpt(_time_step, t%it==0, vp, vs, rho, vx, vz, txx, tzz, txz, self.dt, self.geom.h, self.geom.d)
+        elif self.geom.autodiff:
+            hidden = _time_step(vp, vs, rho, vx, vz, txx, tzz, txz, self.dt, self.geom.h, self.geom.d)
         else:
             hidden = TimeStep.apply(vx, vz, txx, tzz, txz, vp, vs, rho, 
                                     self.dt, self.geom.h, self.geom.d, t, it)

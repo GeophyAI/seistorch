@@ -1,25 +1,37 @@
 """Perform full waveform inversion."""
-import setproctitle
-import wavetorch
-import numpy as np
+import argparse
+import os
+import time
 from functools import partial
-import argparse, os, time, tqdm, torch
-from wavetorch.utils import ricker_wave, to_tensor, cpu_fft, roll
+
+import numpy as np
+import setproctitle
+import torch
+import tqdm
+# from skopt import Optimizer
+from yaml import dump, load
+
+import wavetorch
+from wavetorch.loss import Loss
 # from tensorflow.keras.models import load_model
 from wavetorch.model import build_model
-from wavetorch.loss import Loss
-from wavetorch.optimizer import gram_schmidt_orthogonalization
 from wavetorch.optimizer import NonlinearConjugateGradient as NCG
+from wavetorch.optimizer import gram_schmidt_orthogonalization
 from wavetorch.shape import Shape
-# from skopt import Optimizer
-from yaml import load, dump
+from wavetorch.utils import cpu_fft, ricker_wave, roll, to_tensor
+from torchviz import make_dot
+
+# from torch.autograd import forward_ad
+
 
 try:
-    from yaml import CLoader as Loader, CDumper as Dumper
+    from yaml import CDumper as Dumper
+    from yaml import CLoader as Loader
 except ImportError:
     from yaml import Loader, Dumper
 
-from wavetorch.setup_source_probe import setup_src_coords_customer, get_sources_coordinate_list
+from wavetorch.setup_source_probe import (get_sources_coordinate_list,
+                                          setup_src_coords_customer)
 
 parser = argparse.ArgumentParser()
 parser.add_argument('config', type=str, 
@@ -183,9 +195,8 @@ if __name__ == '__main__':
                 optimizer.zero_grad()
                 # Get the super shot gather
                 model.reset_sources(sources)
-                #ypred = model(lp_wavelet)
+                #ypred = model(coding_wavelet, obs_y=coding_obs, criterion=criterion, opt=optimizer)
                 ypred = model(coding_wavelet)
-
                 loss = criterion(ypred, coding_obs)
                 loss.backward()
 
@@ -202,6 +213,7 @@ if __name__ == '__main__':
             if args.opt!="ncg":
                 lr_scheduler.step()
             pbar.update(1)
+
             # Save vel and grad
             np.save(os.path.join(cfg['geom']['inv_savePath'], "loss.npy"), loss)
             model.cell.geom.save_model(cfg['geom']['inv_savePath'], 
