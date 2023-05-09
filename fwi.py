@@ -82,7 +82,6 @@ if __name__ == '__main__':
     EPOCHS = cfg['training']['N_epochs']
     NSHOTS = cfg['geom']['Nshots']
     LEARNING_RATE = cfg['training']['lr']
-    NORMALIZATION = cfg["training"]["normalize"]
     FILTER_ORDER = cfg['training']['filter_ord']
     ### Get source-x and source-y coordinate in grid cells
     source_x_list, source_y_list = get_sources_coordinate_list(cfg)

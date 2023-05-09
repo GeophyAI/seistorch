@@ -2,7 +2,7 @@ class Wavefield:
 
 
     def __init__(self, equation="acoustic"):
-        assert equation in ["acoustic", "elastic", "viscoacoustic"]
+        assert equation in ["acoustic", "elastic", "viscoacoustic", "aec"]
         self.wavefields = self.__getattribute__(equation)
 
     @property
@@ -16,3 +16,7 @@ class Wavefield:
     @property
     def viscoacoustic(self,):
         return ["vx", "vz", "p", "r"]
+    
+    @property
+    def aec(self,):
+        return ["p", "vx", "vz", "txx", "tzz", "txz"]

@@ -13,7 +13,7 @@ training:
 
   minibatch: true
 
-  batch_size: 20
+  batch_size: 2
 
   # Number of training epochs
   N_epochs: 1
@@ -24,7 +24,7 @@ training:
   lr_decay: 0.5
 
   # when >2, can save gpu memory
-  save_interval: 100
+  save_interval: 10
 
   # Filter order
   filter_ord: 3
@@ -37,8 +37,10 @@ geom:
   # Wave speed model from disk_file for forward modeling
   truePath:
     vp: /mnt/data/wangsw/inversion/marmousi_20m/velocity/true_vp.npy
-    vs: /mnt/data/wangsw/inversion/marmousi_20m/velocity/true_vs.npy
-    rho: /mnt/data/wangsw/inversion/marmousi_20m/velocity/rho.npy
+    vs: 
+    #/mnt/data/wangsw/inversion/marmousi_20m/velocity/true_vs.npy
+    rho: 
+    #/mnt/data/wangsw/inversion/marmousi_20m/velocity/rho.npy
     #/mnt/data/wangsw/inversion/marmousi_20m//velocity/rho_const.npy
     Q: 
     #/mnt/data/wangsw/inversion/marmousi_20m//velocity/q_const.npy
@@ -71,11 +73,6 @@ geom:
 
   multiscale: 
     - 3.0
-
-  use_design_region: true
-
-  # Initialization of the design region, either 'rand', 'half', or 'blank'
-  init: blank
 
   # Time Sampling step
   dt: 0.001

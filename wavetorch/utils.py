@@ -1,12 +1,12 @@
 import os
+import socket
+import struct
+from typing import Any, Iterable, List, Tuple
+
 import numpy as np
-import torch, struct, socket
-from scipy import signal
-from typing import Any, Iterable, List, Tuple
 import torch
-import warnings
-import weakref
-from typing import Any, Iterable, List, Tuple
+from scipy import signal
+
 
 def to_tensor(x, dtype=None):
     dtype = dtype if dtype is not None else torch.get_default_dtype()

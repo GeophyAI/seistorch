@@ -6,6 +6,7 @@ from .utils import set_dtype, update_cfg
 from .cell_elastic import WaveCell as WaveCellElastic
 from .cell_acoustic import WaveCell as WaveCellAcoustic
 from .cell_viscoacoustic import WaveCell as WaveCellViscoacoustic
+from .cell_aec import WaveCell as WaveCellAcousticElasticCoupled
 
 from .rnn import WaveRNN
 
@@ -56,9 +57,10 @@ def build_model(config_path, device = "cuda", mode="forward"):
 
     # Branch
 
-    assert cfg['equation'] in ['acoustic', 'elastic', 'viscoacoustic'], f"Cannot find such equation type {cfg['equation']}"
+    assert cfg['equation'] in ['acoustic', 'elastic', 'viscoacoustic', 'aec'], f"Cannot find such equation type {cfg['equation']}"
 
     WaveCell = {"elastic": WaveCellElastic, 
+                "aec": WaveCellAcousticElasticCoupled,
                 "acoustic": WaveCellAcoustic,
                 "viscoacoustic": WaveCellViscoacoustic}
     

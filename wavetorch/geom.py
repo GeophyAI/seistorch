@@ -22,9 +22,7 @@ class WaveGeometry(torch.nn.Module):
         # INIT boundary coefficients
         self._init_b(abs_N)
         self._init_cpml(abs_N)
-        # self.boundary = {"acoustic": self._init_b(abs_N), 
-        #                  "elastic" : self._init_cpml(abs_N)}        
-        
+    
     def state_reconstruction_args(self):
         return {"h": self.h.item(),
                 "abs_N": self.abs_N.item()}
@@ -48,12 +46,6 @@ class WaveGeometry(torch.nn.Module):
     @property
     def d(self,):
         return self._d
-    
-    @property
-    def cmax(self):
-        """Helper function for getting the maximum wave speed for calculating CFL"""
-        #return np.max([self.c0.item(), self.c1.item()])
-        return np.max(self.vp.detach().numpy())
 
     def _init_cpml(self, abs_N:int, f0:float=10.0, cp:float=1500., pa:float=1., pd:float=2., pb:float=1.):
         """Initialize the distribution of the d for unsplit PML"""
@@ -66,28 +58,20 @@ class WaveGeometry(torch.nn.Module):
             for i in range(Nx):
                 # Left-Top
                 if i < abs_N+1 and j< abs_N+1:
-                    if i < j:
-                        d[i,j] = dy[i,j]
-                    else:
-                        d[i,j] = dx[i,j]
+                    if i < j: d[i,j] = dy[i,j]
+                    else: d[i,j] = dx[i,j]
                 # Left-Bottom
                 if i > (Nx-abs_N-2) and j < abs_N+1:
-                    if i + j < Nx:
-                        d[i,j] = dx[i,j]
-                    else:
-                        d[i,j] = dy[i,j]
+                    if i + j < Nx: d[i,j] = dx[i,j]
+                    else: d[i,j] = dy[i,j]
                 # Right-Bottom
                 if i > (Nx-abs_N-2) and j > (Ny-abs_N-2):
-                    if i - j > Nx-Ny:
-                        d[i,j] = dy[i,j]
-                    else:
-                        d[i,j] = dx[i,j]
+                    if i - j > Nx-Ny: d[i,j] = dy[i,j]
+                    else: d[i,j] = dx[i,j]
                 # Right-Top
                 if i < abs_N+1 and j> (Ny-abs_N-2):
-                    if i + j < Ny:
-                        d[i,j] = dy[i,j]
-                    else:
-                        d[i,j] = dx[i,j]
+                    if i + j < Ny: d[i,j] = dy[i,j]
+                    else: d[i,j] = dx[i,j]
 
     def _init_d(self, abs_N, order:float = 2.0, cp:float = 1500.):
 
@@ -162,103 +146,74 @@ class WaveGeometryFreeForm(WaveGeometry):
         self.equation = self.determine_eq_type()
 
         
-    def _init_model(self, modelPath, invlist):
+    def _init_model(self, modelPath: dict, invlist: dict):
+        """Initilize the model parameters
+
+        Args:
+            modelPath (dict): The dictionary that contains the path of model files.
+            invlist (dict): The dictionary that specify whether invert the model or not.
+        """
         for mname, mpath in modelPath.items():
             # If path is not None, read it and add to graph
+            assert os.path.exists(mpath), f"Cannot find model '{mpath}'"
             if mpath:
-                assert os.path.exists(mpath), f"Cannot find model '{mpath}'"
                 self.model_parameters.append(mname)
                 self.__setattr__(mname, self.add_parameter(mpath, invlist[mname]))
-
-        # vp = self.pad(load_file_by_type(modelPath['vp'], shape=shape, pml_width=pml_width))
-        # self.model_vp = torch.nn.Parameter(to_tensor(vp))
 
     def determine_eq_type(self,):
         paras = self.model_parameters
         if len(paras)==1 and 'vp' in paras: return "acoustic"
         if len(paras)==3 and 'Q'  in paras: return "viscoacoustic"
         if len(paras)==3 and "vs" in paras: return "elastic"
+        # if len(paras)==3 and "vs" in paras: return "elastic"
     
     def __repr__(self):
         return f"Paramters of {self.model_parameters} have been defined."
 
     # Add the torch paramter
-    def add_parameter(self, path, requires_grad=False):
+    def add_parameter(self, path: str, requires_grad=False):
+        """Read the model paramter and setting the attribute 'requires_grad'.
+
+        Args:
+            path (str): The path of the model file. 
+            requires_grad (bool, optional): Wheter this parameter need to be inverted. Defaults to False.
+
+        Returns:
+            _type_: torch.nn.Tensor
+        """
         model = self.pad(load_file_by_type(path))
         return torch.nn.Parameter(to_tensor(model), requires_grad=requires_grad)
 
-    def pad(self, d, mode='edge'):
+    def pad(self, d: np.ndarray, mode='edge'):
+        """Padding the model based on the PML width.
+
+        Args:
+            d (np.ndarray): The data need to be padded.
+            mode (str, optional): padding mode. Defaults to 'edge'.
+
+        Returns:
+            np.ndarray: the data after padding.
+        """
         padding = self.padding
         return np.pad(d, ((padding, padding), (padding,padding)), mode=mode)
-    
-    @property
-    def lame_lambda(self):
-        return self.rho*(self.vp.pow(2)-2*self.vs.pow(2))
-
-    @property
-    def lame_mu(self):
-        return self.rho*(self.vs.pow(2))
-
-    # @property
-    # def vp(self):
-    #     return self.model_vp
-    
-    # @property
-    # def vs(self):
-    #     return self.model_vs
-    
-    # @property
-    # def rho(self):
-    #     return self.model_rho
-
-    # @vp.setter
-    # def vp(self, new_c):
-    #     assert new_c.shape == self.domain_shape, "Shape of c must be {}, but got input shape {}".format(self.domain_shape, new_c.shape)
-    #     if isinstance(new_c, torch.Tensor):
-    #         self.vp = new_c
-    #     if isinstance(new_c, np.ndarray):
-    #         self.vp = torch.nn.Parameter(to_tensor(new_c).to(self.device))
-
-    # @vs.setter
-    # def vs(self, new_c):
-    #     assert new_c.shape == self.domain_shape, "Shape of c must be {}, but got input shape {}".format(self.domain_shape, new_c.shape)
-    #     if isinstance(new_c, torch.Tensor):
-    #         self.vs = new_c
-    #     if isinstance(new_c, np.ndarray):
-    #         self.vs = torch.nn.Parameter(to_tensor(new_c).to(self.device))
-
-    # @rho.setter
-    # def rho(self, new_c):
-    #     assert new_c.shape == self.domain_shape, "Shape of c must be {}, but got input shape {}".format(self.domain_shape, new_c.shape)
-    #     if isinstance(new_c, torch.Tensor):
-    #         self.rho = new_c
-    #     if isinstance(new_c, np.ndarray):
-    #         self.rho = torch.nn.Parameter(to_tensor(new_c).to(self.device))
 
     def save_model(self, path: str, paras: str, freq_idx=1, epoch=1):
+        """Save the data of model parameters and their gradients(if they have).
+
+        Args:
+            path (str): The root save path.
+            paras (str): not used.
+            freq_idx (int, optional): The frequency index of multi scale. Defaults to 1.
+            epoch (int, optional): The epoch of the current scale. Defaults to 1.
+        """
         if not os.path.exists(path):
             os.makedirs(path, exist_ok=True)
-        if self.equation == 'elastic':
-            _paras = {"vel":{
-                            "vp": self.vp,
-                            "vs": self.vs,
-                            "rho": self.rho,},
-                        "grad":{"vp": self.vp.grad,
-                                "vs": self.vs.grad,
-                                "rho":self.rho.grad,}
-            }
-        else:
-            _paras = {"vel":{"vp": self.vp},
-                     "grad":{"vp": self.vp.grad}}
-            
-        for para in paras:
-            assert para in ["vel", "grad"], "para must be 'vel' or 'grad'"
-            for key, data in _paras[para].items():
-                save_path = os.path.join(path, f"{para}{key}F{freq_idx:02d}E{epoch:02d}.npy")
-                if isinstance(data, np.ndarray):
+
+        for para in self.model_parameters:
+            var = self.__getattr__(para)
+            if var.requires_grad:
+                var_par = var.cpu().detach().numpy()
+                var_grad = var.grad.cpu().detach().numpy()
+                for key, data in zip(["para"+para, "grad"+para], [var_par, var_grad]):
+                    save_path = os.path.join(path, f"{key}F{freq_idx:02d}E{epoch:02d}.npy")
                     np.save(save_path, data)
-                elif isinstance(data, torch.Tensor):
-                    np.save(save_path, data.cpu().detach().numpy())
-            
-    
-        

@@ -8,33 +8,30 @@ class Shape():
         self.orinx = cfg['geom']['_oriNx']
         self.nshots = cfg['geom']['Nshots']
 
-        self.channel = 2 if equation == 'elastic' else 1
+        self.channels = {'acoustic': 1,
+                         'elastic': 2, 
+                         'aec': 3}[equation]
+
         # Init library
         self.__init_lib__()
         # Build shape based on dictionary
         self.grad2d = self.grad2d_lib[equation]
         self.grad3d = self.grad3d_lib[equation]
-        self.record3d = self.record3d_lib[equation]
-        self.record2d = self.record2d_lib[equation]
+        self.record3d = self.__record3d__
+        self.record2d = self.__record2d__
 
 
     def __init_lib__(self,):
-
-        self.record3d_lib = {"acoustic": self.__record3d_acoustic, 
-                             "viscoacoustic": self.__record3d_acoustic, 
-                             "elastic" : self.__record3d_elastic}
-
-        self.record2d_lib = {"acoustic": self.__record2d_acoustic, 
-                             "viscoacoustic": self.__record2d_acoustic, 
-                             "elastic" : self.__record2d_elastic}
         
         self.grad2d_lib = {'acoustic': self.__grad2d_acoustic, 
                            'viscoacoustic': self.__grad2d_acoustic, 
-                           'elastic': self.__grad2d_elastic}
+                           'elastic': self.__grad2d_elastic,
+                           "aec" : self.__grad2d_elastic}
         
         self.grad3d_lib = {'acoustic': self.__grad3d_acoustic, 
                            'viscoacoustic': self.__grad3d_acoustic, 
-                           'elastic': self.__grad3d_elastic}
+                           'elastic': self.__grad3d_elastic,
+                           "aec" : self.__grad3d_elastic}
         
     @property
     def numel(self,):
@@ -77,31 +74,11 @@ class Shape():
         return (self.nshots, 3, cfg['geom']['Ny'], cfg['geom']['Nx'])
     
     @property
-    def __record2d(self,):
+    def __record2d__(self,):
         cfg = self.cfg
-        return (self.nt, self.orinx)
+        return (self.nt, self.orinx, self.channels)
 
     @property
-    def __record3d(self,):
+    def __record3d__(self,):
         cfg = self.cfg
-        return (self.nshots, self.nt, self.orinx)
-    
-    @property
-    def __record3d_elastic(self,):
-        cfg = self.cfg
-        return (self.nshots, self.nt, self.orinx, self.channel)
-    
-    @property
-    def __record3d_acoustic(self,):
-        cfg = self.cfg
-        return (self.nshots, self.nt, self.orinx, self.channel)
-
-    @property
-    def __record2d_elastic(self,):
-        cfg = self.cfg
-        return (self.nt, self.orinx, self.channel)
-    
-    @property
-    def __record2d_acoustic(self,):
-        cfg = self.cfg
-        return (self.nt, self.orinx, self.channel)
+        return (self.nshots, self.nt, self.orinx, self.channels)
