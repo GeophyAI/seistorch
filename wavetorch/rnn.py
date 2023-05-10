@@ -80,8 +80,6 @@ class WaveRNN(torch.nn.Module):
         
         # Short cut of the save intervel
         save_interval = self.cell.geom.save_interval
-
-        #src_index = [[0, source._x, source._y] for source in self.sources]
             
         # Loop through time
         x = x.to(device)

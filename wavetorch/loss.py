@@ -1,7 +1,7 @@
 import torch
 import torch.nn.functional as F
 from torch.nn.functional import pairwise_distance
-# from scipy.signal import hilbert
+from scipy.signal import hilbert
 
 loss_dict =  ["wd", "ncc", "mse", "envelope", "cc", "huber", "phase", "l2", "l1"]
 class Loss:
@@ -127,22 +127,35 @@ class Phase(torch.nn.Module):
         super(Phase, self).__init__()
 
     def hilbert(self, data):
-        nt, ntraces, _ = data.shape
-        data = data.squeeze(dim=2)
+        """
+        Compute the Hilbert transform of the input data tensor.
+        
+        Args:
+            data (torch.Tensor): The input data tensor.
+        
+        Returns:
+            torch.Tensor: The Hilbert transform of the input data tensor.
+        """
+
+        nt, _, _ = data.shape
         nfft = 2 ** (nt - 1).bit_length()
 
+        # Compute the FFT
         data_fft = torch.fft.fft(data, n=nfft, dim=0)
 
-        h = torch.zeros(nfft, device=data.device).unsqueeze(1)
+        # Create the filter
+        h = torch.zeros(nfft, device=data.device).unsqueeze(1).unsqueeze(2)
         h[0] = 1
         h[1:(nfft // 2)] = 2
         if nfft % 2 == 0:
             h[nfft // 2] = 1
 
+        # Apply the filter and compute the inverse FFT
         hilbert_data_fft = data_fft * h
         hilbert_data = torch.fft.ifft(hilbert_data_fft, dim=0)
 
-        hilbert_data = hilbert_data[:nt].view(nt, ntraces, 1)
+        # Truncate the result to the original length
+        hilbert_data = hilbert_data[:nt]
 
         return hilbert_data.real
 
@@ -182,15 +195,15 @@ class Envelope(torch.nn.Module):
         Returns:
             torch.Tensor: The Hilbert transform of the input data tensor.
         """
-        nt, ntraces, _ = data.shape
-        data = data.squeeze(dim=2)
+
+        nt, _, _ = data.shape
         nfft = 2 ** (nt - 1).bit_length()
 
         # Compute the FFT
         data_fft = torch.fft.fft(data, n=nfft, dim=0)
 
         # Create the filter
-        h = torch.zeros(nfft, device=data.device).unsqueeze(1)
+        h = torch.zeros(nfft, device=data.device).unsqueeze(1).unsqueeze(2)
         h[0] = 1
         h[1:(nfft // 2)] = 2
         if nfft % 2 == 0:
@@ -200,11 +213,11 @@ class Envelope(torch.nn.Module):
         hilbert_data_fft = data_fft * h
         hilbert_data = torch.fft.ifft(hilbert_data_fft, dim=0)
 
-        # Truncate the result to the original length and reshape
-        hilbert_data = hilbert_data[:nt].view(nt, ntraces, 1)
+        # Truncate the result to the original length
+        hilbert_data = hilbert_data[:nt]
 
         return hilbert_data.real
-    
+        
     def envelope(self, seismograms):
         """
         Compute the envelope of the input seismograms tensor.

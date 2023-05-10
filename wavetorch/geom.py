@@ -155,8 +155,8 @@ class WaveGeometryFreeForm(WaveGeometry):
         """
         for mname, mpath in modelPath.items():
             # If path is not None, read it and add to graph
-            assert os.path.exists(mpath), f"Cannot find model '{mpath}'"
             if mpath:
+                assert os.path.exists(mpath), f"Cannot find model '{mpath}'"
                 self.model_parameters.append(mname)
                 self.__setattr__(mname, self.add_parameter(mpath, invlist[mname]))
 

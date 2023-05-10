@@ -5,7 +5,7 @@ from .checkpoint import checkpoint as ckpt
 
 
 NEW_DIFF = True
-    
+
 def _time_step(vp, vs, rho, vx, vz, txx, tzz, txz, dt, h, d):
     lame_lambda = rho*(vp.pow(2)-2*vs.pow(2))
     lame_mu = rho*(vs.pow(2))

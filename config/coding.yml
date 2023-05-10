@@ -13,18 +13,18 @@ training:
 
   minibatch: true
 
-  batch_size: 2
+  batch_size: 20
 
   # Number of training epochs
-  N_epochs: 1
+  N_epochs: 80
 
   # Optimizer learning rate
-  lr: 10
+  lr: 15
 
   lr_decay: 0.5
 
   # when >2, can save gpu memory
-  save_interval: 10
+  save_interval: 5
 
   # Filter order
   filter_ord: 3
@@ -32,16 +32,13 @@ training:
 geom:
 
   # The observer data
-  obsPath: /mnt/data/wangsw/inversion/marmousi_20m/data/marmousi_elastic.npy
+  obsPath: /mnt/data/wangsw/inversion/marmousi_20m/data/marmousi_elastic_obn.npy
 
   # Wave speed model from disk_file for forward modeling
   truePath:
     vp: /mnt/data/wangsw/inversion/marmousi_20m/velocity/true_vp.npy
-    vs: 
-    #/mnt/data/wangsw/inversion/marmousi_20m/velocity/true_vs.npy
-    rho: 
-    #/mnt/data/wangsw/inversion/marmousi_20m/velocity/rho.npy
-    #/mnt/data/wangsw/inversion/marmousi_20m//velocity/rho_const.npy
+    vs: /mnt/data/wangsw/inversion/marmousi_20m/velocity/true_vs.npy
+    rho: /mnt/data/wangsw/inversion/marmousi_20m/velocity/rho.npy
     Q: 
     #/mnt/data/wangsw/inversion/marmousi_20m//velocity/q_const.npy
 
@@ -54,25 +51,27 @@ geom:
   
   # Inital Wave speed model from disk_file
   initPath: 
-    vp: /mnt/data/wangsw/inversion/marmousi_20m/velocity/init_vp.npy
-    vs: /mnt/data/wangsw/inversion/marmousi_20m/velocity/init_vs.npy
+    vp: /mnt/data/wangsw/inversion/marmousi_20m/velocity/linear_vp.npy
+    vs: /mnt/data/wangsw/inversion/marmousi_20m/velocity/linear_vs.npy
     rho: /mnt/data/wangsw/inversion/marmousi_20m/velocity/rho.npy
     Q:
 
   invlist:
     vp: true
     vs: true
-    rho: false
+    rho: true
     q: false
 
   # using checkpoint for saving memory
   ckpt: true
 
   # Save the results of FWI
-  inv_savePath: /mnt/data/wangsw/inversion/marmousi_20m/results/test_autodiff_
+  inv_savePath: /mnt/data/wangsw/inversion/marmousi_20m/results/test_autodiff_l2
 
   multiscale: 
     - 3.0
+    - 5.0
+    - 8.0
 
   # Time Sampling step
   dt: 0.001
@@ -102,7 +101,7 @@ geom:
   px:
     
   # Probe y-coordinates in grid cells
-  py: 1
+  py: 24
 
   # Spacing, in number grid cells, between probe points
   pd: 1

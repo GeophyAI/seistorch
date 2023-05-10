@@ -98,20 +98,58 @@ def load_file_by_type(filepath, shape = None, pml_width = None):
     #     vel=np.array(vel).T
     #     return vel
     
-def diff_using_roll(input, dim=-1, append=True, padding_value=0):
+# def diff_using_roll(input, dim=-1, append=True, padding_value=0):
 
-    dim = input.dim() + dim if dim < 0 else dim
-    shifts = -1 if append else 1
-    rolled_input = torch.roll(input, shifts=shifts, dims=dim)
+#     dim = input.dim() + dim if dim < 0 else dim
+#     shifts = -1 if append else 1
+#     rolled_input = torch.roll(input, shifts=shifts, dims=dim)
 
-    # Fill the idex with value padding_value
-    index = [slice(None)] * input.dim()
-    index[dim] = -1 if append else 0
-    rolled_input[tuple(index)] = padding_value
+#     # Fill the idex with value padding_value
+#     index = [slice(None)] * input.dim()
+#     index[dim] = -1 if append else 0
+#     rolled_input[tuple(index)] = padding_value
 
-    diff_result = rolled_input - input if append else input-rolled_input
-    return diff_result
+#     diff_result = rolled_input - input if append else input-rolled_input
+#     return diff_result
 
+def diff_using_roll(input, dim=-1, forward=True, padding_value=0):
+
+    def forward_diff(x, dim=-1, padding_value=0):
+        """
+        Compute the forward difference of an input tensor along a given dimension.
+
+        Args:
+            x (torch.Tensor): Input tensor.
+            dim (int, optional): The dimension along which to compute the difference.
+            padding_value (float, optional): The value to use for padding.
+
+        Returns:
+            torch.Tensor: The forward difference of the input tensor.
+        """
+        diff = x - torch.roll(x, shifts=1, dims=dim)
+        diff[..., 0] = padding_value  # pad with specified value
+        return diff
+
+    def backward_diff(x, dim=-1, padding_value=0):
+        """
+        Compute the backward difference of an input tensor along a given dimension.
+
+        Args:
+            x (torch.Tensor): Input tensor.
+            dim (int, optional): The dimension along which to compute the difference.
+            padding_value (float, optional): The value to use for padding.
+
+        Returns:
+            torch.Tensor: The backward difference of the input tensor.
+        """
+        diff = torch.roll(x, shifts=-1, dims=dim) - x
+        diff[..., -1] = padding_value  # pad with specified value
+        return diff
+
+    if forward:
+        return forward_diff(input, dim=dim)
+    else:
+        return backward_diff(input, dim=dim)
     
         
 def update_cfg(cfg, geom = 'geom', device='cpu'):

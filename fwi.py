@@ -12,6 +12,7 @@ from wavetorch.optimizer import NonlinearConjugateGradient as NCG
 from wavetorch.shape import Shape
 # from skopt import Optimizer
 from yaml import load, dump
+torch.backends.cudnn.benchmark = True
 
 try:
     from yaml import CLoader as Loader, CDumper as Dumper

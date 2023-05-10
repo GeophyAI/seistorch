@@ -1,6 +1,7 @@
 """Perform full waveform inversion."""
 import argparse
 import os
+import requests
 import time
 from functools import partial
 
@@ -16,19 +17,18 @@ from wavetorch.loss import Loss
 # from tensorflow.keras.models import load_model
 from wavetorch.model import build_model
 from wavetorch.optimizer import NonlinearConjugateGradient as NCG
-from wavetorch.optimizer import gram_schmidt_orthogonalization
+from wavetorch.optimizer import Adahessian
 from wavetorch.shape import Shape
 from wavetorch.utils import cpu_fft, ricker_wave, roll, to_tensor
 from torchviz import make_dot
+# The flag below controls whether to allow TF32 on matmul. This flag defaults to False
+# in PyTorch 1.12 and later.
+torch.backends.cuda.matmul.allow_tf32 = True
 
-# from torch.autograd import forward_ad
+# The flag below controls whether to allow TF32 on cuDNN. This flag defaults to True.
+torch.backends.cudnn.allow_tf32 = True# from torch.autograd import forward_ad
+from torch.cuda.amp import autocast, GradScaler
 
-
-try:
-    from yaml import CDumper as Dumper
-    from yaml import CLoader as Loader
-except ImportError:
-    from yaml import Loader, Dumper
 
 from wavetorch.setup_source_probe import (get_sources_coordinate_list,
                                           setup_src_coords_customer)
@@ -123,13 +123,19 @@ if __name__ == '__main__':
                     {'params': model.cell.get_parameters('vs'), 'lr':LEARNING_RATE/1.73},
                     {'params': model.cell.get_parameters('rho'), 'lr':0.}], 
                     betas=(0.9, 0.999), eps=1e-16)
+            optimizer = Adahessian(
+                        [
+                    {'params': model.cell.get_parameters('vp'), 'lr':LEARNING_RATE},
+                    {'params': model.cell.get_parameters('vs'), 'lr':LEARNING_RATE/1.73},
+                    {'params': model.cell.get_parameters('rho'), 'lr':0.}],
+                        betas= (0.9, 0.999),
+                        eps= 1e-16,
+                        weight_decay=0.0,
+                        hessian_power=1.0)
+
             
     if args.opt == "ncg":
         optimizer = NCG(model.parameters(), lr=10., max_iter_line_search=10)
-
-            # opt_bayesian = Optimizer(dimensions=[(-10.0, 10.0)]*shape.numel, 
-            #                             base_estimator="gp", n_initial_points=0, acq_func="EI")
-
 
     """Define the learning rate decay"""
     if args.opt!="ncg":
@@ -191,18 +197,31 @@ if __name__ == '__main__':
 
             """Calculate one shotye gradient"""
             def closure():
-                optimizer.zero_grad()
+                optimizer.zero_grad(set_to_none=True)
                 # Get the super shot gather
                 model.reset_sources(sources)
                 #ypred = model(coding_wavelet, obs_y=coding_obs, criterion=criterion, opt=optimizer)
-                ypred = model(coding_wavelet)
-                loss = criterion(ypred, coding_obs)
-                loss.backward()
-
-                return loss#.item()
+                with autocast():
+                    ypred = model(coding_wavelet)
+                    loss = criterion(ypred, coding_obs)
+                """Hessian START"""
+                grad_params = torch.autograd.grad(loss, [model.cell.geom.vp, model.cell.geom.vs], create_graph=True)
+                
+                hessian_diag = []
+                for grad_param in grad_params:
+                    hessian_param_diag = []
+                    for i in tqdm.trange(grad_param.numel()):  # Assume grad_param is a 1-D tensor
+                        if grad_param[i].requires_grad:
+                            hessian_i = torch.autograd.grad(grad_param[i], [model.cell.geom.vp, model.cell.geom.vs], retain_graph=True)
+                            hessian_param_diag.append(hessian_i[i].item())
+                        else:
+                            hessian_param_diag.append(0)
+                    hessian_diag.append(torch.tensor(hessian_param_diag))
+                """Hessian END"""
+                #loss.backward()
+                return loss
 
             # Run the closure
-            # loss[idx_freq][epoch] = closure(sources)
             if args.opt == "ncg":
                 loss[idx_freq][epoch] = optimizer.step(closure).item()
             else:
@@ -212,10 +231,10 @@ if __name__ == '__main__':
             if args.opt!="ncg":
                 lr_scheduler.step()
             pbar.update(1)
-
             # Save vel and grad
             np.save(os.path.join(cfg['geom']['inv_savePath'], "loss.npy"), loss)
             model.cell.geom.save_model(cfg['geom']['inv_savePath'], 
                                         paras=["vel", "grad"], 
                                         freq_idx=idx_freq, 
                                         epoch=epoch)
+            
