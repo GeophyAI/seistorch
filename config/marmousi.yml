@@ -1,7 +1,7 @@
 # Random seed for pytorch and all shuffle functions
 seed: 20230503
 
-name: coding_fwi
+name: efwi
 
 # Data type to use for tensors, either float32 or float64
 dtype: float32
@@ -16,15 +16,15 @@ training:
   batch_size: 20
 
   # Number of training epochs
-  N_epochs: 50
+  N_epochs: 80
 
   # Optimizer learning rate
-  lr: 5
+  lr: 10
 
-  lr_decay: 0.95
+  lr_decay: 0.5
 
-  # when >2, can save gpu memory
-  save_interval: 1
+  # when 1<save_interval<nt, can save gpu memory
+  save_interval: 9999
 
   # Filter order
   filter_ord: 3
@@ -32,13 +32,14 @@ training:
 geom:
 
   # The observer data
-  obsPath: /public1/home/wangsw/FWI/EFWI/Marmousi/marmousi1_20m/data/marmousi_obn.npy
+  obsPath: /public1/home/wangsw/FWI/EFWI/Marmousi/marmousi1_20m/data/marmousi.npy
 
   # Wave speed model from disk_file for forward modeling
   truePath:
     vp: /public1/home/wangsw/FWI/EFWI/Marmousi/marmousi1_20m/velocity/true_vp.npy
     vs: /public1/home/wangsw/FWI/EFWI/Marmousi/marmousi1_20m/velocity/true_vs.npy
     rho: /public1/home/wangsw/FWI/EFWI/Marmousi/marmousi1_20m/velocity/rho.npy
+    #/public1/home/wangsw/FWI/EFWI/Marmousi/marmousi1_20m//velocity/rho_const.npy
     Q: 
     #/public1/home/wangsw/FWI/EFWI/Marmousi/marmousi1_20m//velocity/q_const.npy
 
@@ -51,8 +52,8 @@ geom:
   
   # Inital Wave speed model from disk_file
   initPath: 
-    vp: /public1/home/wangsw/FWI/EFWI/Marmousi/marmousi1_20m/velocity/linear_vp.npy
-    vs: /public1/home/wangsw/FWI/EFWI/Marmousi/marmousi1_20m/velocity/linear_vs.npy
+    vp: /public1/home/wangsw/FWI/EFWI/Marmousi/marmousi1_20m/velocity/init_vp.npy
+    vs: /public1/home/wangsw/FWI/EFWI/Marmousi/marmousi1_20m/velocity/init_vs.npy
     rho: /public1/home/wangsw/FWI/EFWI/Marmousi/marmousi1_20m/velocity/rho.npy
     Q:
 
@@ -60,18 +61,21 @@ geom:
     vp: true
     vs: true
     rho: true
-    q: false
+    Q: false
 
   # using checkpoint for saving memory
   ckpt: true
 
   # Save the results of FWI
-  inv_savePath: /public1/home/wangsw/FWI/EFWI/Marmousi/marmousi1_20m/compare_loss/huber
+  inv_savePath: /public1/home/wangsw/FWI/EFWI/Marmousi/marmousi1_20m/autodiff
 
   multiscale: 
-    - 3.0
     - 5.0
-    - 8.0
+
+  use_design_region: true
+
+  # Initialization of the design region, either 'rand', 'half', or 'blank'
+  init: blank
 
   # Time Sampling step
   dt: 0.001
@@ -101,7 +105,7 @@ geom:
   px:
     
   # Probe y-coordinates in grid cells
-  py: 24
+  py: 1
 
   # Spacing, in number grid cells, between probe points
   pd: 1

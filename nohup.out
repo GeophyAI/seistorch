@@ -1,0 +1,8 @@
+Traceback (most recent call last):
+  File "/home/les_01/wangsw/fwi/codingfwi.py", line 23, in <module>
+    from torchviz import make_dot
+ModuleNotFoundError: No module named 'torchviz'
+Traceback (most recent call last):
+  File "/home/les_01/wangsw/fwi/codingfwi.py", line 23, in <module>
+    from torchviz import make_dot
+ModuleNotFoundError: No module named 'torchviz'
