@@ -13,10 +13,10 @@ training:
 
   minibatch: true
 
-  batch_size: 20
+  batch_size: 5
 
   # Number of training epochs
-  N_epochs: 50
+  N_epochs: 1
 
   # Optimizer learning rate
   lr: 5
@@ -32,7 +32,7 @@ training:
 geom:
 
   # The observer data
-  obsPath: /public1/home/wangsw/FWI/EFWI/Marmousi/marmousi1_20m/data/marmousi_obn.npy
+  obsPath: /public1/home/wangsw/FWI/EFWI/Marmousi/marmousi1_20m/data/marmousi_test.npy
 
   # Wave speed model from disk_file for forward modeling
   truePath:
@@ -41,6 +41,10 @@ geom:
     rho: /public1/home/wangsw/FWI/EFWI/Marmousi/marmousi1_20m/velocity/rho.npy
     Q: 
     #/public1/home/wangsw/FWI/EFWI/Marmousi/marmousi1_20m//velocity/q_const.npy
+
+  sources: ./geometry/marmousi_obn/sources.pkl
+
+  receivers: ./geometry/marmousi_obn/receivers.pkl
 
   source_type:
     - vz
@@ -63,15 +67,13 @@ geom:
     q: false
 
   # using checkpoint for saving memory
-  ckpt: true
+  ckpt: false
 
   # Save the results of FWI
   inv_savePath: /public1/home/wangsw/FWI/EFWI/Marmousi/marmousi1_20m/compare_loss/huber
 
   multiscale: 
     - 3.0
-    - 5.0
-    - 8.0
 
   # Time Sampling step
   dt: 0.001
@@ -89,7 +91,7 @@ geom:
   Nreceivers: 561
 
   # Total Shots
-  Nshots: 111
+  Nshots: 10
 
   # Probe init_x coordinate in grid cells
   ipx: 1

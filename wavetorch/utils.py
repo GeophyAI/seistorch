@@ -1,4 +1,5 @@
 import os
+import pickle
 import socket
 import struct
 from typing import Any, Iterable, List, Tuple
@@ -169,7 +170,25 @@ def update_cfg(cfg, geom = 'geom', device='cpu'):
     cfg.update({'device': device})
     return cfg
 
-    
+def write_pkl(path: str, data: list):
+    # Open the file in binary mode and write the list using pickle
+    with open(path, 'wb') as f:
+        pickle.dump(data, f)
+
+def read_pkl(path: str):
+    # Open the file in binary mode and load the list using pickle
+    with open(path, 'rb') as f:
+        data = pickle.load(f)
+    return data
+
+def get_src_and_rec(cfg):
+    source_locs = read_pkl(cfg["geom"]["sources"])
+    recev_locs = read_pkl(cfg["geom"]["receivers"])
+    assert len(source_locs)==len(recev_locs), \
+        "The lenght of sources and recev_locs must be equal."
+    return source_locs, recev_locs
+
+
 def get_localrank(host_file, rank=0):
     with open(host_file, "r") as f:
         texts = f.readlines()

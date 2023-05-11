@@ -54,27 +54,26 @@ import argparse
 
 
 F = 0
-epoch = 79
+epoch = 0
 PMLN = 50
 # # epoch = args.epoch
 
 # # F=args.frequency_index
 # #root_path = r"/public1/home/wangsw/FWI/EFWI/Marmousi/marmousi_10m/l1reg"
-root_path = r"/public1/home/wangsw/FWI/EFWI/Marmousi/marmousi1_20m/compare_loss/l2"
+root_path = r"/public1/home/wangsw/FWI/EFWI/Marmousi/marmousi1_20m/TEST"
 loss = root_path.split("/")[-1]
 coding = "."
-#grad_vp = np.load("{root_path}/gradvsE00S70.npy")
-# grad_vp = np.load(f"{root_path}/{coding}/gradvpF{F:02d}E{epoch:02d}.npy")[PMLN:-PMLN,PMLN:-PMLN]
-# grad_vs = np.load(f"{root_path}/{coding}/gradvsF{F:02d}E{epoch:02d}.npy")[PMLN:-PMLN,PMLN:-PMLN]
-# print(grad_vs.min(), grad_vs.max(), grad_vp.max(), grad_vp.min())
-# fig,axes = plt.subplots(1,2, figsize=(10,3))
-# vmin, vmax = np.percentile(grad_vp, [2, 98])
-# ax0=axes[0].imshow(grad_vp.squeeze(), vmin=vmin, vmax=vmax, aspect='auto', cmap=plt.cm.jet)
-# vmin, vmax = np.percentile(grad_vs, [2, 98])
-# ax1=axes[1].imshow(grad_vs.squeeze(), vmin=vmin, vmax=vmax, aspect='auto', cmap=plt.cm.jet)
-# plt.colorbar(ax1)
-# plt.colorbar(ax0)
-# plt.show()
+grad_vp = np.load(f"{root_path}/{coding}/gradvpF{F:02d}E{epoch:02d}.npy")[PMLN:-PMLN,PMLN:-PMLN]
+grad_vs = np.load(f"{root_path}/{coding}/gradvsF{F:02d}E{epoch:02d}.npy")[PMLN:-PMLN,PMLN:-PMLN]
+print(grad_vs.min(), grad_vs.max(), grad_vp.max(), grad_vp.min())
+fig,axes = plt.subplots(1,2, figsize=(10,3))
+vmin, vmax = np.percentile(grad_vp, [2, 98])
+ax0=axes[0].imshow(grad_vp.squeeze(), vmin=vmin, vmax=vmax, aspect='auto', cmap=plt.cm.jet)
+vmin, vmax = np.percentile(grad_vs, [2, 98])
+ax1=axes[1].imshow(grad_vs.squeeze(), vmin=vmin, vmax=vmax, aspect='auto', cmap=plt.cm.jet)
+plt.colorbar(ax1)
+plt.colorbar(ax0)
+plt.show()
 
 # Acoustic case
 true_vp = np.load("/public1/home/wangsw/FWI/EFWI/Marmousi/marmousi1_20m/velocity/true_vp.npy")
@@ -91,7 +90,7 @@ axes[1].set_title(loss+"_vs")
 plt.colorbar(ax0);plt.colorbar(ax1)
 plt.tight_layout()
 plt.show()
-# fig.savefig(f"./figures/{loss}.png")
+fig.savefig(f"./figures/{loss}.png")
 
 # true_vp = np.load("/public1/home/wangsw/FWI/EFWI/Marmousi/marmousi_10m/velocity/true_vp.npy")
 # true_vs = np.load("/public1/home/wangsw/FWI/EFWI/Marmousi/marmousi_10m/velocity/true_vs.npy")

@@ -4,13 +4,14 @@ import wavetorch
 import numpy as np
 import argparse, os, sys, time, tqdm, torch, socket
 from mpi4py import MPI
-from wavetorch.utils import ricker_wave, to_tensor, cpu_fft
+from wavetorch.utils import ricker_wave, to_tensor, cpu_fft, get_src_and_rec
 # from tensorflow.keras.models import load_model
 from wavetorch.model import build_model
 from wavetorch.loss import Loss
 from wavetorch.optimizer import NonlinearConjugateGradient as NCG
 from wavetorch.shape import Shape
 # from skopt import Optimizer
+from wavetorch.setup_source_probe import setup_src_coords, setup_rec_coords
 from yaml import load, dump
 torch.backends.cudnn.benchmark = True
 
@@ -86,6 +87,7 @@ if __name__ == '__main__':
     FILTER_ORDER = cfg['training']['filter_ord']
     ### Get source-x and source-y coordinate in grid cells
     source_x_list, source_y_list = get_sources_coordinate_list(cfg)
+    src_list, rec_list = get_src_and_rec(cfg)
 
     use_mpi = size > 1
     if (use_mpi and rank!=0) or (not use_mpi):
@@ -154,7 +156,7 @@ if __name__ == '__main__':
                 # Forward modeling
                 with torch.no_grad():
                     shot = task
-                    source = setup_src_coords_customer(source_x_list[shot], source_y_list[shot], cfg['geom']['Nx'], cfg['geom']['Ny'], cfg['geom']['pml']['N'])
+                    source = setup_src_coords(src_list[shot], cfg['geom']['pml']['N'])
                     model.reset_sources(source)
                     y = model(x)
                     record[:] = y.cpu().detach().numpy()

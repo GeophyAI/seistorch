@@ -15,8 +15,6 @@ class WaveSource(torch.nn.Module):
 		return super().__repr__() + '\nSource location: x:{} z:{}'.format(self.y, self.x)
 
 	def forward(self, Y, X, dt=1.0):
-		# Y[:, self.x, self.y] = Y[:, self.x, self.y] + dt**2 * X.expand_as(Y[:, self.x, self.y])
-
 		# Thanks to Erik Peterson for this fix
 		X_expanded = torch.zeros(Y.size()).detach()
 		X_expanded[:, self.x, self.y] = X

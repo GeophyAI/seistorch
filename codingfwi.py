@@ -1,9 +1,7 @@
 """Perform full waveform inversion."""
 import argparse
 import os
-import requests
 import time
-from functools import partial
 
 import numpy as np
 import setproctitle
@@ -17,9 +15,9 @@ from wavetorch.loss import Loss
 # from tensorflow.keras.models import load_model
 from wavetorch.model import build_model
 from wavetorch.optimizer import NonlinearConjugateGradient as NCG
-from wavetorch.optimizer import Adahessian
 from wavetorch.shape import Shape
-from wavetorch.utils import cpu_fft, ricker_wave, roll, to_tensor
+from wavetorch.utils import cpu_fft, ricker_wave, roll, to_tensor, get_src_and_rec
+from wavetorch.setup_source_probe import setup_src_coords, setup_rec_coords
 # from torchviz import make_dot
 # The flag below controls whether to allow TF32 on matmul. This flag defaults to False
 # in PyTorch 1.12 and later.
@@ -97,7 +95,10 @@ if __name__ == '__main__':
         os.makedirs(ROOTPATH, exist_ok=True)
         print(f"The results will be saving at '{ROOTPATH}'")
     ### Get source-x and source-y coordinate in grid cells
+
     source_x_list, source_y_list = get_sources_coordinate_list(cfg)
+
+    src_list, rec_list = get_src_and_rec(cfg)
 
     model.to(args.dev)
     model.train()
@@ -174,20 +175,16 @@ if __name__ == '__main__':
             else:
                 shots = np.arange(NSHOTS)
             sources = []
-
+            receivers = []
             # Get the coding shot numbers and coding data
             for i, shot in enumerate(shots):
-                src = setup_src_coords_customer(source_x_list[shot],
-                                                source_y_list[shot],
-                                                cfg['geom']['Nx'],
-                                                cfg['geom']['Ny'],
-                                                cfg['geom']['pml']['N'])
+                src = setup_src_coords(src_list[shot], cfg['geom']['pml']['N'])
                 sources.append(src)
                 wave_temp, d_temp = roll(lp_wavelet, filtered_data[shot])
                 coding_wavelet[i] = to_tensor(wave_temp).to(args.dev)
                 coding_obs += to_tensor(d_temp).to(args.dev)
 
-            """Calculate one shotye gradient"""
+            """Calculate encoding gradient"""
             def closure():
                 optimizer.zero_grad(set_to_none=True)
                 # Get the super shot gather

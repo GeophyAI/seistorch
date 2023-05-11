@@ -7,31 +7,31 @@ import numpy as np
 
 """Objective loss function"""
 path = r"/public1/home/wangsw/FWI/EFWI/Marmousi/marmousi1_20m/compare_loss"
-path = r"/public1/home/wangsw/FWI/EFWI/Marmousi/marmousi1_20m/compare_lr"
+# path = r"/public1/home/wangsw/FWI/EFWI/Marmousi/marmousi1_20m/compare_lr"
 
-#losses = ["l1", "l2", "envelope", "wd", "cc", "ncc", "huber"]
-losses = ["lr2", "lr3"]
+losses = ["l1", "l2", "envelope", "wd", "cc", "ncc", "huber"]
+# losses = ["lr2", "lr3"]
 
 # "Objective function"
-LOSS = []
-for loss_name in losses:
-    loss_path = os.path.join(path, loss_name, "loss.npy")
-    LOSS.append(np.load(loss_path))
+# LOSS = []
+# for loss_name in losses:
+#     loss_path = os.path.join(path, loss_name, "loss.npy")
+#     LOSS.append(np.load(loss_path))
 
-fig,ax=plt.subplots(1,1, figsize=(10,8))
-for _loss in LOSS:
-    for i in range(_loss.shape[0]):
-        _loss[i] /= _loss[i][0]
-    ax.plot(_loss.flatten())
-plt.legend(losses)
-plt.show()
+# fig,ax=plt.subplots(1,1, figsize=(10,8))
+# for _loss in LOSS:
+#     for i in range(_loss.shape[0]):
+#         _loss[i] /= _loss[i][0]
+#     ax.plot(_loss.flatten())
+# plt.legend(losses)
+# plt.show()
 
 "Model error"
 true_vp = np.load("/public1/home/wangsw/FWI/EFWI/Marmousi/marmousi1_20m/velocity/true_vp.npy")[:,50:-50]
 true_vs = np.load("/public1/home/wangsw/FWI/EFWI/Marmousi/marmousi1_20m/velocity/true_vs.npy")[:,50:-50]
 
-FMAX = 1
-EPOCHMAX = 80
+FMAX = 2
+EPOCHMAX = 50
 PMLN = 50
 VP_ERROR = []
 VS_ERROR = []
@@ -62,7 +62,7 @@ VS_ERROR = np.array(VS_ERROR)
 # VS_ERROR = np.load(os.path.join(path, "vs_error.npy"))
 
 "Show the vp model error"
-fig,ax=plt.subplots(1,1, figsize=(10,8))
+fig,ax=plt.subplots(1,1, figsize=(5,4))
 for i, loss_name in enumerate(losses):
     ax.plot(VP_ERROR[i])
 plt.legend(losses)

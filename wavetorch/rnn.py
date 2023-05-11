@@ -83,13 +83,15 @@ class WaveRNN(torch.nn.Module):
             
         # Loop through time
         x = x.to(device)
+        save_for_backward = []
 
         for i, xi in enumerate(x.chunk(x.size(1), dim=1)):
 
             # Propagate the fields
             wavefield = [self.__getattribute__(name) for name in wavefield_names]
             wavefield = self.cell(wavefield, model_paras, t=i, it=save_interval, omega=omega)
-            
+            if i == xi.size(0)-1 or i == xi.size(0)-2:
+                save_for_backward.append(wavefield.copy())
             # Set the data to vars
             for name, data in zip(wavefield_names, wavefield):
                 # self.__getattribute__(name).copy_(data)
