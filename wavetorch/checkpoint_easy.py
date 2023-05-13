@@ -1,9 +1,7 @@
 import torch
 import warnings
 import weakref
-import itertools
 from typing import Any, Iterable, List, Tuple
-from .utils import save_boundaries, restore_boundaries
 
 __all__ = [
     "checkpoint", "checkpoint_sequential", "CheckpointFunction",
@@ -53,13 +51,6 @@ def get_device_states(*args) -> Tuple[List[int], List[torch.Tensor]]:
 
     return fwd_gpu_devices, fwd_gpu_states
 
-def flatten_list(tuple_list):
-    flattened_list = list(itertools.chain(*tuple_list))
-    return flattened_list
-
-def packup_boundaries(flattened_list, tuple_size):
-    bd_tuple = (tuple(flattened_list[i:i+tuple_size]) for i in range(0, len(flattened_list), tuple_size))
-    return bd_tuple
 
 def set_device_states(devices, states) -> None:
     for device, state in zip(devices, states):
@@ -77,91 +68,77 @@ def _get_autocast_kwargs():
 
     return gpu_autocast_kwargs, cpu_autocast_kwargs
 
-def set_requires_grad(nested_list, requires_grad_iter):
-    for i, item in enumerate(nested_list):
-        if isinstance(item, list):
-            set_requires_grad(item, requires_grad_iter)
-        elif isinstance(item, torch.Tensor):
-            nested_list[i] = item.requires_grad_(next(requires_grad_iter))
-
-def requires_grad_generator(requires_grad_list):
-    for requires_grad in requires_grad_list:
-        yield requires_grad
-
-def nested_grads(nested_list):
-    result = []
-    for item in nested_list:
-        if isinstance(item, list):
-            result.append(nested_grads(item))
-        elif isinstance(item, torch.Tensor):
-            result.append(item.grad)
-        else:
-            result.append(None)
-    return result
-
 class CheckpointFunction(torch.autograd.Function):
-
-    wavefields = []
     @staticmethod
-    def forward(ctx, 
-                run_function, 
-                back_function, 
-                save_condition, 
-                para_counts, 
-                *args):
-        # check_backward_validity(args)
-        ctx.requires_grad_list = [arg.requires_grad for arg in itertools.chain(args)]
+    def forward(ctx, run_function, preserve_rng_state, save_condition, *args):
+        check_backward_validity(args)
+        ctx.requires_grad_list = [arg.requires_grad for arg in args]
         ctx.run_function = run_function
-        ctx.back_function = back_function        
+        ctx.preserve_rng_state = preserve_rng_state
         ctx.save_condition = save_condition
+        ctx.gpu_autocast_kwargs, ctx.cpu_autocast_kwargs = _get_autocast_kwargs()
+        if preserve_rng_state:
+            ctx.fwd_cpu_state = torch.get_rng_state()
+            ctx.had_cuda_in_fwd = False
+            if torch.cuda._initialized:
+                ctx.had_cuda_in_fwd = True
+                ctx.fwd_gpu_devices, ctx.fwd_gpu_states = get_device_states(*args)
+
+        ctx.inputs = []
+        ctx.tensor_indices = []
+        tensor_inputs = []
+        for i, arg in enumerate(args):
+            if torch.is_tensor(arg):
+                tensor_inputs.append(arg)
+                ctx.tensor_indices.append(i)
+                ctx.inputs.append(None)
+            else:
+                ctx.inputs.append(arg)
+
+        if save_condition:
+            ctx.save_for_backward(*tensor_inputs)
+        else:
+            ctx.non_checkpoint_tensors = tuple(t.cpu() for t in tensor_inputs)
 
         with torch.no_grad():
             outputs = run_function(*args)
-
-        ctx.models = args[:para_counts]
-        ctx.geoms = args[::-1][0:3][::-1]
-
-        boundarys = [save_boundaries(output) for output in outputs]
-
-        ctx.save_for_backward(*itertools.chain(*boundarys))
-        # Save the wavefields of the last time step
-        is_last_time_step = save_condition
-        ctx.lastframe = outputs if is_last_time_step else None
         return outputs
 
     @staticmethod
     def backward(ctx, *args):
-
         if not torch.autograd._is_checkpoint_valid():
             raise RuntimeError(
                 "Checkpointing is not compatible with .grad() or when an `inputs` parameter"
                 " is passed to .backward(). Please use .backward() and do not pass its `inputs`"
                 " argument.")
+        inputs = list(ctx.inputs)
+        tensor_indices = ctx.tensor_indices
 
-        # Get the boundarys:
-        if ctx.lastframe is not None:
-            wavefields = ctx.lastframe
+        if ctx.save_condition:
+            tensors = ctx.saved_tensors
         else:
-            wavefields = CheckpointFunction.wavefields
+            tensors = tuple(t.cuda() for t in ctx.non_checkpoint_tensors)
 
-        inputs = ctx.models + tuple(wavefields) + ctx.geoms
-        
-        inputs = [inp.detach().requires_grad_(value) for inp, value in zip(inputs, ctx.requires_grad_list)]
+        for i, idx in enumerate(tensor_indices):
+            inputs[idx] = tensors[i]
 
-        # set_requires_grad(inputs, requires_grad_generator(ctx.requires_grad_list))
+        rng_devices = []
+        if ctx.preserve_rng_state and ctx.had_cuda_in_fwd:
+            rng_devices = ctx.fwd_gpu_devices
+        with torch.random.fork_rng(devices=rng_devices, enabled=ctx.preserve_rng_state):
+            if ctx.preserve_rng_state:
+                torch.set_rng_state(ctx.fwd_cpu_state)
+                if ctx.had_cuda_in_fwd:
+                    set_device_states(ctx.fwd_gpu_devices, ctx.fwd_gpu_states)
+            detached_inputs = detach_variable(tuple(inputs))
+            detached_inputs = [inp.requires_grad_(value) for inp,value in zip(detached_inputs, ctx.requires_grad_list)]
+            with torch.enable_grad(), \
+                 torch.cuda.amp.autocast(**ctx.gpu_autocast_kwargs), \
+                 torch.cpu.amp.autocast(**ctx.cpu_autocast_kwargs):
+                outputs = ctx.run_function(*detached_inputs)
 
-        # Inputs for backwards
-        boundaries = packup_boundaries(ctx.saved_tensors, 4)
-        inputs = inputs + [boundaries]
-        
-        with torch.enable_grad():
-            outputs = ctx.back_function(*inputs)
-        
         if isinstance(outputs, torch.Tensor):
             outputs = (outputs,)
-
-        CheckpointFunction.wavefields.clear()
-        CheckpointFunction.wavefields.extend(list(outputs))
 
         outputs_with_grad = []
         args_with_grad = []
@@ -175,14 +152,13 @@ class CheckpointFunction(torch.autograd.Function):
                 "none of output has requires_grad=True,"
                 " this checkpoint() is not necessary")
         torch.autograd.backward(outputs_with_grad, args_with_grad)
-        
         grads = tuple(inp.grad if isinstance(inp, torch.Tensor) else None
-                      for inp in inputs[:len(ctx.requires_grad_list)])
+                      for inp in detached_inputs)
 
-        return (None, None, None, None) + grads
+        return (None, None, None) + grads
  
 
-def checkpoint(function, backfunction, save_condition, para_counts, *args, use_reentrant: bool = True, **kwargs):
+def checkpoint(function, save_condition, *args, use_reentrant: bool = True, **kwargs):
     r"""Checkpoint a model or part of the model
 
     Checkpointing works by trading compute for memory. Rather than storing all
@@ -267,7 +243,7 @@ def checkpoint(function, backfunction, save_condition, para_counts, *args, use_r
         raise ValueError("Unexpected keyword arguments: " + ",".join(arg for arg in kwargs))
 
     if use_reentrant:
-        return CheckpointFunction.apply(function, backfunction, save_condition, para_counts, *args)
+        return CheckpointFunction.apply(function, preserve, save_condition, *args)
     else:
         return _checkpoint_without_reentrant(
             function,

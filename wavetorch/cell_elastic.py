@@ -2,11 +2,92 @@ import torch
 from .utils import to_tensor
 from .utils import diff_using_roll
 from .checkpoint import checkpoint as ckpt
+from .utils import restore_boundaries
 
+NPML = 50
+N = 2
 
-NEW_DIFF = True
+def _time_step_backward(*args):
 
-def _time_step(vp, vs, rho, vx, vz, txx, tzz, txz, dt, h, d):
+    vp, vs, rho = args[0:3]
+    vx, vz, txx, tzz, txz = args[3:8]
+    dt, h, d = args[8:11]
+    vx_bd, vz_bd, txx_bd, tzz_bd, txz_bd = args[-1]
+
+    vp = vp.unsqueeze(0)
+    vs = vs.unsqueeze(0)
+    rho = rho.unsqueeze(0)
+    d = d.unsqueeze(0)
+
+    """Update velocity components"""
+    lame_lambda = rho*(vp.pow(2)-2*vs.pow(2))
+    lame_mu = rho*(vs.pow(2))
+
+    # Define the region where the computation is performed
+    compute_region_slice = (slice(None), slice(NPML, -NPML), slice(NPML, -NPML))
+    update_region_slice = (slice(None), slice(NPML+N, -NPML-N), slice(NPML+N, -NPML-N))
+
+    # Create a copy of the original tensors
+    vx_copy, vz_copy = vx.clone(), vz.clone()
+
+    # Replace the original tensors with their sub-tensors within the computation region
+    rho = rho[compute_region_slice]
+    vx, vz = vx_copy[compute_region_slice], vz_copy[compute_region_slice]
+    d = d[compute_region_slice]
+
+    # The rest of your computation code...
+    txx_x = diff_using_roll(txx, 2)[compute_region_slice]
+    txz_z = diff_using_roll(txz, 1, False)[compute_region_slice]
+    tzz_z = diff_using_roll(tzz, 1, False)[compute_region_slice]
+    txz_x = diff_using_roll(txz, 2, False)[compute_region_slice]
+
+    c = 0.5*dt*d
+    y_vx = (1+c)**-1*(-dt*rho.pow(-1)*h.pow(-1)*(txx_x+txz_z)+(1-c)*vx)
+    y_vz = (1+c)**-1*(-dt*rho.pow(-1)*h.pow(-1)*(txz_x+tzz_z)+(1-c)*vz)
+
+    # Write back the results to the original tensors, but only within the update region
+    vx_copy[update_region_slice] = y_vx[(slice(None), slice(N,-N), slice(N,-N))]
+    vz_copy[update_region_slice] = y_vz[(slice(None), slice(N,-N), slice(N,-N))]
+
+    # Restore the boundary
+    vx_copy = restore_boundaries(vx_copy, vx_bd, NPML, N)
+    vz_copy = restore_boundaries(vz_copy, vz_bd, NPML, N)
+
+    # Create a copy of the original tensors
+    txx_copy, tzz_copy, txz_copy = txx.clone(), tzz.clone(), txz.clone()
+
+    # Replace the original tensors with their sub-tensors within the computation region
+    lame_lambda, lame_mu = lame_lambda[compute_region_slice], lame_mu[compute_region_slice]
+    vx, vz = vx_copy[compute_region_slice], vz_copy[compute_region_slice]
+    txx, tzz, txz = txx_copy[compute_region_slice], tzz_copy[compute_region_slice], txz_copy[compute_region_slice]
+
+    # The rest of your computation code...
+    vx_x = diff_using_roll(vx, 2, False)
+    vz_z = diff_using_roll(vz, 1)
+    vx_z = diff_using_roll(vx, 1)
+    vz_x = diff_using_roll(vz, 2)
+
+    c = 0.5*dt*d
+    y_txx  = (1+c)**-1*(-dt*h.pow(-1)*((lame_lambda+2*lame_mu)*vx_x+lame_lambda*vz_z)+(1-c)*txx)
+    y_tzz  = (1+c)**-1*(-dt*h.pow(-1)*((lame_lambda+2*lame_mu)*vz_z+lame_lambda*vx_x)+(1-c)*tzz)
+    y_txz = (1+c)**-1*(-dt*lame_mu*h.pow(-1)*(vz_x+vx_z)+(1-c)*txz)
+
+    # Write back the results to the original tensors, but only within the update region
+    txx_copy[update_region_slice] = y_txx[(slice(None), slice(N,-N), slice(N,-N))]
+    tzz_copy[update_region_slice] = y_tzz[(slice(None), slice(N,-N), slice(N,-N))]
+    txz_copy[update_region_slice] = y_txz[(slice(None), slice(N,-N), slice(N,-N))]
+
+    # Restore the boundary
+    txx_copy = restore_boundaries(txx_copy, txx_bd, NPML, N)
+    tzz_copy = restore_boundaries(tzz_copy, tzz_bd, NPML, N)
+    txz_copy = restore_boundaries(txz_copy, txz_bd, NPML, N)
+
+    return vx_copy, vz_copy, txx_copy, tzz_copy, txz_copy
+
+def _time_step(*args):
+    vp, vs, rho = args[0:3]
+    vx, vz, txx, tzz, txz = args[3:8]
+    dt, h, d = args[8:11]
     lame_lambda = rho*(vp.pow(2)-2*vs.pow(2))
     lame_mu = rho*(vs.pow(2))
 
@@ -35,172 +116,6 @@ def _time_step(vp, vs, rho, vx, vz, txx, tzz, txz, dt, h, d):
 
     return y_vx, y_vz, y_txx, y_tzz, y_txz
 
-def _time_step_vel(rho, vx, vz, txx, tzz, txz, dt, h, d):
-    
-    nz, nx = rho.shape
-    if NEW_DIFF:
-        txx_x = diff_using_roll(txx, 2)
-        txz_z = diff_using_roll(txz, 1, False)
-        tzz_z = diff_using_roll(tzz, 1, False)
-        txz_x = diff_using_roll(txz, 2, False)
-    else:
-        txx_x = torch.diff(txx, append=(torch.zeros(1, nz, 1).to(txx.device)), dim=2)
-        txz_z = torch.diff(txz, prepend=(torch.zeros(1, 1, nx).to(txx.device)), dim=1)
-        tzz_z = torch.diff(tzz, prepend=(torch.zeros(1, 1, nx).to(txx.device)), dim=1)
-        txz_x = torch.diff(txz, prepend=(torch.zeros(1, nz, 1).to(txx.device)), dim=2)
-
-    # c = a+d*b**-1
-    c = 0.5*dt*d
-    # Update y_vx
-    y_vx = (1+c)**-1*(dt*rho.pow(-1)*h.pow(-1)*(txx_x+txz_z)+(1-c)*vx)
-    # Update y_vz
-    y_vz = (1+c)**-1*(dt*rho.pow(-1)*h.pow(-1)*(txz_x+tzz_z)+(1-c)*vz)
-
-    return y_vx, y_vz
-
-def _time_step_stress(lame_lambda, lame_mu, vx, vz, txx, tzz, txz, dt, h, d):
-    
-    nz, nx = lame_lambda.shape
-
-    if NEW_DIFF:
-        vx_x = diff_using_roll(vx, 2, False)
-        vz_z = diff_using_roll(vz, 1)
-        vx_z = diff_using_roll(vx, 1)
-        vz_x = diff_using_roll(vz, 2)
-    else:
-        vx_x = torch.diff(vx, prepend=(torch.zeros(1, nz, 1).to(txx.device)), dim=2)
-        vz_z = torch.diff(vz, append=(torch.zeros(1, 1, nx).to(txx.device)), dim=1)
-        vx_z = torch.diff(vx, append=(torch.zeros(1, 1, nx).to(txx.device)), dim=1)
-        vz_x = torch.diff(vz, append=(torch.zeros(1, nz, 1).to(txx.device)), dim=2)
-    # c = (1+0.5*dt*d)**-1
-    c = 0.5*dt*d
-    # Equation A-8
-    y_txx  = (1+c)**-1*(dt*h.pow(-1)*((lame_lambda+2*lame_mu)*vx_x+lame_lambda*vz_z)+(1-c)*txx)
-    # Equation A-9
-    y_tzz  = (1+c)**-1*(dt*h.pow(-1)*((lame_lambda+2*lame_mu)*vz_z+lame_lambda*vx_x)+(1-c)*tzz)
-    # Equation A-10
-    y_txz = (1+c)**-1*(dt*lame_mu*h.pow(-1)*(vz_x+vx_z)+(1-c)*txz)
-    
-    return y_txx, y_tzz, y_txz
-
-
-class TimeStep(torch.autograd.Function):
-
-    @staticmethod
-    def forward(ctx, vx, vz, txx, tzz, txz,
-                vp, vs, rho,
-                dt, h, d, t, it):
-        
-        # lame_lambda = rho*(vp.pow(2)-2*vs.pow(2))
-        # lame_mu = rho*(vs.pow(2))
-        ctx.models = [vp, vs, rho]
-        ctx.paras = [dt, h, d]
-        ctx.save_gpu = it > 1
-
-        if t%it==0:
-            ctx.save_for_backward(vx, vz)
-
-        y_txx, y_tzz, y_txz = _time_step_stress(rho*(vp.pow(2)-2*vs.pow(2)),  rho*(vs.pow(2)), vx, vz, txx, tzz, txz, dt, h, d)
-        y_vx, y_vz = _time_step_vel(rho, vx, vz, y_txx, y_tzz, y_txz, dt, h, d)
-
-        return y_vx, y_vz, y_txx, y_tzz, y_txz
-    
-    @staticmethod
-    def backward(ctx, grad_y_vx, grad_y_vz, grad_y_txx, grad_y_tzz, grad_y_txz):
-
-        vp, vs, rho = ctx.models
-        dt, h, d = ctx.paras
-        # If save_gpu is True and cannot access to ctx.saved_tensors,
-        # Then the gradient of model parameters are all set to zeros.
-        # If not save_gpu, or save_gpu and the ctx.saved_tensors can
-        # be accessed, then calculate the gradient
-        if ctx.save_gpu and (not ctx.saved_tensors):
-            _o = torch.zeros_like(grad_y_vx)
-        elif (not ctx.save_gpu) or (ctx.save_gpu and ctx.saved_tensors):
-            vx, vz = ctx.saved_tensors
-            nz, nx = vp.shape
-            device = rho.device
-
-            # x---dim=2 
-            # z---dim=1
-            # prepend--- False
-            # append---  True
-            if NEW_DIFF:
-                vx_x = diff_using_roll(vx, 2, False)
-                vx_z = diff_using_roll(vx, 1)
-
-                vz_z = diff_using_roll(vz, 1)
-                vz_x = diff_using_roll(vz, 2)
-            else:
-                vx_x = torch.diff(vx, prepend=(torch.zeros(1, nz, 1).to(device)), dim=2)
-                vx_z = torch.diff(vx, append=(torch.zeros(1, 1, nx).to(device)), dim=1)
-
-                vz_z = torch.diff(vz, append=(torch.zeros(1, 1, nx).to(device)), dim=1)
-                vz_x = torch.diff(vz, append=(torch.zeros(1, nz, 1).to(device)), dim=2)
-
-
-        grad_rho = grad_vp = grad_vs = None
-        grad_vx = grad_vz = grad_txx = grad_tzz = grad_txz = grad_dt = grad_h = grad_d = None
-        c = 0.5*dt*d
-        lame_lambda = rho*(vp.pow(2)-2*vs.pow(2))
-        lame_mu = rho*(vs.pow(2))
-        device = rho.device
-        nz, nx = vp.shape
-        if NEW_DIFF:
-            grad_y_txx_x = diff_using_roll(grad_y_txx, 2)
-            grad_y_tzz_z = diff_using_roll(grad_y_tzz, 1, False)
-
-            grad_y_txz_x = diff_using_roll(grad_y_txz, 2, False)
-            grad_y_txz_z = diff_using_roll(grad_y_txz, 1, False)
-            grad_y_txx_z = diff_using_roll(grad_y_txx, 1, False)
-            grad_y_tzz_x = diff_using_roll(grad_y_tzz, 2)
-        else:
-            grad_y_txx_x = torch.diff(grad_y_txx, append=(torch.zeros(1, nz, 1).to(device)), dim=2)
-            grad_y_tzz_z = torch.diff(grad_y_tzz, prepend=(torch.zeros(1, 1, nx).to(device)), dim=1)
-            grad_y_txz_x = torch.diff(grad_y_txz, prepend=(torch.zeros(1, nz, 1).to(device)), dim=2)
-            grad_y_txz_z = torch.diff(grad_y_txz, prepend=(torch.zeros(1, 1, nx).to(device)), dim=1)
-            
-            grad_y_txx_z = torch.diff(grad_y_txx, prepend=(torch.zeros(1, 1, nx).to(device)), dim=1)
-            grad_y_tzz_x = torch.diff(grad_y_tzz, append=(torch.zeros(1, nz, 1).to(device)), dim=2)
-
-        if ctx.needs_input_grad[0]: # vx
-            grad_vx = (1+c)**-1*(dt*h**-1*rho**-1*((lame_lambda+2*lame_mu)*grad_y_txx_x\
-                                                   +lame_mu*grad_y_txz_z+lame_lambda*grad_y_tzz_x)\
-                    +(1-c)*grad_y_vx)
-            grad_vx_x = torch.diff(grad_vx, prepend=(torch.zeros(1, nz, 1).to(device)), dim=2)
-            grad_vx_z = torch.diff(grad_vx, append=(torch.zeros(1, 1, nx).to(device)), dim=1)
-
-        if ctx.needs_input_grad[1]: # vz
-            grad_vz = (1+c)**-1*(dt*h**-1*rho**-1*((lame_lambda+2*lame_mu)*grad_y_tzz_z\
-                                                   +lame_mu*grad_y_txz_x+lame_lambda*grad_y_txx_z)\
-                    +(1-c)*grad_y_vz)
-            grad_vz_x = torch.diff(grad_vz, append=(torch.zeros(1, nz, 1).to(device)), dim=2)
-            grad_vz_z = torch.diff(grad_vz, append=(torch.zeros(1, 1, nx).to(device)), dim=1)
-            
-        if ctx.needs_input_grad[2]: # txx
-            grad_txx = (1+c)**-1*(dt*h**-1*grad_vx_x+(1-c)*grad_y_txx)
-
-        if ctx.needs_input_grad[3]: # tzz
-            grad_tzz = (1+c)**-1*(dt*h**-1*grad_vz_z+(1-c)*grad_y_tzz)
-
-        if ctx.needs_input_grad[4]: # txz
-            grad_txz = (1+c)**-1*(dt*h**-1*(grad_vz_x+grad_vx_z)+(1-c)*grad_y_txz)
-
-        if ctx.save_gpu and (not ctx.saved_tensors):
-            return grad_vx, grad_vz, grad_txx, grad_tzz, grad_txz, _o, _o, _o, None, None, None, None, None
-
-        if ctx.needs_input_grad[0] and ctx.needs_input_grad[1] and ctx.needs_input_grad[5]: # Vp
-            grad_lambda = -(vx_x+vz_z)*(grad_txx+grad_tzz)*h**-1
-            grad_mu = -(2*(grad_y_txx*vx_x+grad_tzz*vz_z)+grad_y_txz*(vz_x+vx_z))
-            grad_vp = 2*rho*vp*grad_lambda
-            
-        if ctx.needs_input_grad[0] and ctx.needs_input_grad[1] and ctx.needs_input_grad[6]: # Vs
-            grad_vs = -4*rho*vs*grad_lambda+2*rho*vs*grad_mu
-
-        if ctx.needs_input_grad[7]: # Rho
-            pass
-
-        return grad_vx, grad_vz, grad_txx, grad_tzz, grad_txz, grad_vp, grad_vs, grad_rho, grad_dt, grad_h, grad_d, None, None
 
 class WaveCell(torch.nn.Module):
     """The recurrent neural network cell implementing the scalar wave equation"""
@@ -233,21 +148,18 @@ class WaveCell(torch.nn.Module):
         rho : 
             Projected density, required for nonlinear response (this gets passed in to avoid generating it on each time step, saving memory for backprop)
         """
-        t = kwargs['t']
-        it = kwargs['it']
-        vx, vz, txx, tzz, txz = wavefields
-        vp, vs, rho = model_vars
+        save_condition=kwargs["is_last_frame"]
+        # vx, vz, txx, tzz, txz = wavefields
+        # vp, vs, rho = model_vars
 
         checkpoint = self.geom.checkpoint
         forward = not self.geom.inversion
         inversion = self.geom.inversion
 
         if checkpoint and inversion:
-            hidden = ckpt(_time_step, t%it==0, vp, vs, rho, vx, vz, txx, tzz, txz, self.dt, self.geom.h, self.geom.d)
+            hidden = ckpt(_time_step, _time_step_backward, save_condition, len(model_vars), *model_vars, *wavefields, *[self.dt, self.geom.h, self.geom.d])
         if forward or (inversion and not checkpoint):
-            hidden = _time_step(vp, vs, rho, vx, vz, txx, tzz, txz, self.dt, self.geom.h, self.geom.d)
-        if not self.geom.autodiff:
-            hidden = TimeStep.apply(vx, vz, txx, tzz, txz, vp, vs, rho, 
-                                    self.dt, self.geom.h, self.geom.d, t, it)
+            print("forward")
+            hidden = _time_step(*model_vars, *wavefields, *[self.dt, self.geom.h, self.geom.d])
 
         return hidden

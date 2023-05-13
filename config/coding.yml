@@ -16,7 +16,7 @@ training:
   batch_size: 5
 
   # Number of training epochs
-  N_epochs: 1
+  N_epochs: 100
 
   # Optimizer learning rate
   lr: 5
@@ -24,7 +24,7 @@ training:
   lr_decay: 0.95
 
   # when >2, can save gpu memory
-  save_interval: 1
+  save_interval: 10
 
   # Filter order
   filter_ord: 3
@@ -32,32 +32,35 @@ training:
 geom:
 
   # The observer data
-  obsPath: /public1/home/wangsw/FWI/EFWI/Marmousi/marmousi1_20m/data/marmousi_test.npy
+  obsPath: /mnt/data/wangsw/inversion/marmousi_20m/data/marmousi_acoustic_test.npy
 
   # Wave speed model from disk_file for forward modeling
   truePath:
-    vp: /public1/home/wangsw/FWI/EFWI/Marmousi/marmousi1_20m/velocity/true_vp.npy
-    vs: /public1/home/wangsw/FWI/EFWI/Marmousi/marmousi1_20m/velocity/true_vs.npy
-    rho: /public1/home/wangsw/FWI/EFWI/Marmousi/marmousi1_20m/velocity/rho.npy
+    vp: /mnt/data/wangsw/inversion/marmousi_20m/velocity/true_vp.npy
+    vs: 
+    #/mnt/data/wangsw/inversion/marmousi_20m/velocity/true_vs.npy
+    rho:
+    # /mnt/data/wangsw/inversion/marmousi_20m/velocity/rho.npy
     Q: 
-    #/public1/home/wangsw/FWI/EFWI/Marmousi/marmousi1_20m//velocity/q_const.npy
+    #/mnt/data/wangsw/inversion/marmousi_20m/data//velocity/q_const.npy
 
   sources: ./geometry/marmousi_obn/sources.pkl
 
   receivers: ./geometry/marmousi_obn/receivers.pkl
 
   source_type:
-    - vz
+    - h1
 
   receiver_type:
-    - vx
-    - vz
+    - h1
   
   # Inital Wave speed model from disk_file
   initPath: 
-    vp: /public1/home/wangsw/FWI/EFWI/Marmousi/marmousi1_20m/velocity/linear_vp.npy
-    vs: /public1/home/wangsw/FWI/EFWI/Marmousi/marmousi1_20m/velocity/linear_vs.npy
-    rho: /public1/home/wangsw/FWI/EFWI/Marmousi/marmousi1_20m/velocity/rho.npy
+    vp: /mnt/data/wangsw/inversion/marmousi_20m/velocity/linear_vp.npy
+    vs: 
+    #/mnt/data/wangsw/inversion/marmousi_20m/velocity/linear_vs.npy
+    rho: 
+    #/mnt/data/wangsw/inversion/marmousi_20m/velocity/rho.npy
     Q:
 
   invlist:
@@ -67,10 +70,10 @@ geom:
     q: false
 
   # using checkpoint for saving memory
-  ckpt: false
+  ckpt: true
 
   # Save the results of FWI
-  inv_savePath: /public1/home/wangsw/FWI/EFWI/Marmousi/marmousi1_20m/compare_loss/huber
+  inv_savePath: /mnt/data/wangsw/inversion/marmousi_20m/Test
 
   multiscale: 
     - 3.0

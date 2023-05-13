@@ -1,0 +1,4 @@
+Configuration: config/coding.yml
+Using CUDA for calculation
+Using adam
+Data filtering: frequency:3.0

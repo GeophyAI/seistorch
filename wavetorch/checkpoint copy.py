@@ -103,14 +103,9 @@ class CheckpointFunction(torch.autograd.Function):
 
     wavefields = []
     @staticmethod
-    def forward(ctx, 
-                run_function, 
-                back_function, 
-                save_condition, 
-                para_counts, 
-                *args):
+    def forward(ctx, run_function, back_function, preserve_rng_state, save_condition, *args):
         # check_backward_validity(args)
-        ctx.requires_grad_list = [arg.requires_grad for arg in itertools.chain(args)]
+        ctx.requires_grad_list = [arg.requires_grad for arg in itertools.chain(*args)]
         ctx.run_function = run_function
         ctx.back_function = back_function        
         ctx.save_condition = save_condition
@@ -118,10 +113,13 @@ class CheckpointFunction(torch.autograd.Function):
         with torch.no_grad():
             outputs = run_function(*args)
 
-        ctx.models = args[:para_counts]
-        ctx.geoms = args[::-1][0:3][::-1]
+        ctx.models = args[0]
+        ctx.geoms = args[2]
 
         boundarys = [save_boundaries(output) for output in outputs]
+        #boundars = [(top_vx, bottom_vx, left_vx, right_vx), 
+        #            ..., 
+        #            (top_txz, bottom_txz, left_txz, right_txz)]
 
         ctx.save_for_backward(*itertools.chain(*boundarys))
         # Save the wavefields of the last time step
@@ -131,12 +129,11 @@ class CheckpointFunction(torch.autograd.Function):
 
     @staticmethod
     def backward(ctx, *args):
-
-        if not torch.autograd._is_checkpoint_valid():
-            raise RuntimeError(
-                "Checkpointing is not compatible with .grad() or when an `inputs` parameter"
-                " is passed to .backward(). Please use .backward() and do not pass its `inputs`"
-                " argument.")
+        # if not torch.autograd._is_checkpoint_valid():
+        #     raise RuntimeError(
+        #         "Checkpointing is not compatible with .grad() or when an `inputs` parameter"
+        #         " is passed to .backward(). Please use .backward() and do not pass its `inputs`"
+        #         " argument.")
 
         # Get the boundarys:
         if ctx.lastframe is not None:
@@ -144,11 +141,9 @@ class CheckpointFunction(torch.autograd.Function):
         else:
             wavefields = CheckpointFunction.wavefields
 
-        inputs = ctx.models + tuple(wavefields) + ctx.geoms
-        
-        inputs = [inp.detach().requires_grad_(value) for inp, value in zip(inputs, ctx.requires_grad_list)]
+        inputs = [ctx.models] + [tuple(wavefields)] + [ctx.geoms]
 
-        # set_requires_grad(inputs, requires_grad_generator(ctx.requires_grad_list))
+        set_requires_grad(inputs, requires_grad_generator(ctx.requires_grad_list))
 
         # Inputs for backwards
         boundaries = packup_boundaries(ctx.saved_tensors, 4)
@@ -176,13 +171,12 @@ class CheckpointFunction(torch.autograd.Function):
                 " this checkpoint() is not necessary")
         torch.autograd.backward(outputs_with_grad, args_with_grad)
         
-        grads = tuple(inp.grad if isinstance(inp, torch.Tensor) else None
-                      for inp in inputs[:len(ctx.requires_grad_list)])
+        grads = tuple(nested_grads(inputs[:3]))
 
         return (None, None, None, None) + grads
  
 
-def checkpoint(function, backfunction, save_condition, para_counts, *args, use_reentrant: bool = True, **kwargs):
+def checkpoint(function, backfunction, save_condition, *args, use_reentrant: bool = True, **kwargs):
     r"""Checkpoint a model or part of the model
 
     Checkpointing works by trading compute for memory. Rather than storing all
@@ -267,7 +261,7 @@ def checkpoint(function, backfunction, save_condition, para_counts, *args, use_r
         raise ValueError("Unexpected keyword arguments: " + ",".join(arg for arg in kwargs))
 
     if use_reentrant:
-        return CheckpointFunction.apply(function, backfunction, save_condition, para_counts, *args)
+        return CheckpointFunction.apply(function, backfunction, preserve, save_condition, *args)
     else:
         return _checkpoint_without_reentrant(
             function,
