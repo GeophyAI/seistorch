@@ -79,7 +79,7 @@ if __name__ == '__main__':
         setproctitle.setproctitle("TaskAssign")
 
     """Short cuts of the configures"""
-    ELASTIC = cfg['equation'] == 'elastic'
+    ELASTIC = cfg['equation'] in ['elastic', 'aec']
     ACOUSTIC = cfg['equation'] == 'acoustic'
     EPOCHS = cfg['training']['N_epochs']
     NSHOTS = cfg['geom']['Nshots']

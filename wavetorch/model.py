@@ -48,12 +48,11 @@ def build_model(config_path, device = "cuda", mode="forward"):
 
     # Set up probes
     probes = setup_probe_coords_customer(cfg)
-
     # Set up geometry
     geom  = WaveGeometryFreeForm(**cfg)
     geom.inversion = mode == "inversion"
     # Add the key 'equation' to the configure file
-    cfg['equation'] = geom.equation
+    #cfg['equation'] = geom.equation
 
     # Branch
 

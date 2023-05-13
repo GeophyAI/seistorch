@@ -140,10 +140,11 @@ class WaveGeometryFreeForm(WaveGeometry):
         self.inversion = False
 
         super().__init__(domain_shape, h, abs_N)
+        self.equation = kwargs["equation"]
 
         self._init_model(kwargs['VEL_PATH'], kwargs['geom']['invlist'])
         # Determine the equation type elastic or acoustic
-        self.equation = self.determine_eq_type()
+        #self.equation = self.determine_eq_type()
 
         
     def _init_model(self, modelPath: dict, invlist: dict):
@@ -155,10 +156,26 @@ class WaveGeometryFreeForm(WaveGeometry):
         """
         for mname, mpath in modelPath.items():
             # If path is not None, read it and add to graph
+
             if mpath:
                 assert os.path.exists(mpath), f"Cannot find model '{mpath}'"
-                self.model_parameters.append(mname)
-                self.__setattr__(mname, self.add_parameter(mpath, invlist[mname]))
+                if mname in self.valid_model_paras[self.equation]:
+                    self.model_parameters.append(mname)
+                    self.__setattr__(mname, self.add_parameter(mpath, invlist[mname]))
+                else:
+                    print(f"'{mname}' found, but get equation {self.equation} and skipped")
+            elif mname in self.valid_model_paras[self.equation]:
+                print(f"'{mname}' is not found, but required by equation {self.equation}")
+                exit()
+
+
+    @property
+    def valid_model_paras(self,):
+
+        return {"acoustic": ["vp"],
+                "elastic": ["vp", "vs", "rho"],
+                "aec": ["vp", "vs", "rho"]}
+
 
     def determine_eq_type(self,):
         paras = self.model_parameters

@@ -9,11 +9,13 @@ dtype: float32
 # Using autodiff or not
 autodiff: true
 
+equation: aec
+
 training:
 
   minibatch: true
 
-  batch_size: 5
+  batch_size: 20
 
   # Number of training epochs
   N_epochs: 100
@@ -32,15 +34,13 @@ training:
 geom:
 
   # The observer data
-  obsPath: /mnt/data/wangsw/inversion/marmousi_20m/data/marmousi_acoustic_test.npy
+  obsPath: /mnt/data/wangsw/inversion/marmousi_20m/data/marmousi_aec_obn.npy
 
   # Wave speed model from disk_file for forward modeling
   truePath:
     vp: /mnt/data/wangsw/inversion/marmousi_20m/velocity/true_vp.npy
-    vs: 
-    #/mnt/data/wangsw/inversion/marmousi_20m/velocity/true_vs.npy
-    rho:
-    # /mnt/data/wangsw/inversion/marmousi_20m/velocity/rho.npy
+    vs: /mnt/data/wangsw/inversion/marmousi_20m/velocity/true_vs.npy
+    rho: /mnt/data/wangsw/inversion/marmousi_20m/velocity/rho.npy
     Q: 
     #/mnt/data/wangsw/inversion/marmousi_20m/data//velocity/q_const.npy
 
@@ -49,18 +49,18 @@ geom:
   receivers: ./geometry/marmousi_obn/receivers.pkl
 
   source_type:
-    - h1
+    - p
 
   receiver_type:
-    - h1
+    - p
+    - vx
+    - vz
   
   # Inital Wave speed model from disk_file
   initPath: 
     vp: /mnt/data/wangsw/inversion/marmousi_20m/velocity/linear_vp.npy
-    vs: 
-    #/mnt/data/wangsw/inversion/marmousi_20m/velocity/linear_vs.npy
-    rho: 
-    #/mnt/data/wangsw/inversion/marmousi_20m/velocity/rho.npy
+    vs: /mnt/data/wangsw/inversion/marmousi_20m/velocity/linear_vs.npy
+    rho: /mnt/data/wangsw/inversion/marmousi_20m/velocity/rho.npy
     Q:
 
   invlist:
@@ -94,7 +94,7 @@ geom:
   Nreceivers: 561
 
   # Total Shots
-  Nshots: 10
+  Nshots: 111
 
   # Probe init_x coordinate in grid cells
   ipx: 1

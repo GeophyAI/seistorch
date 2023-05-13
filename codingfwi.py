@@ -81,7 +81,7 @@ if __name__ == '__main__':
     setproctitle.setproctitle("coding_fwi")
 
     """Short cuts of the configures"""
-    ELASTIC = cfg['equation'] == 'elastic'
+    ELASTIC = cfg['equation'] in ['elastic', 'aec']
     ACOUSTIC = cfg['equation'] == 'acoustic'
     EPOCHS = cfg['training']['N_epochs']
     NSHOTS = cfg['geom']['Nshots']

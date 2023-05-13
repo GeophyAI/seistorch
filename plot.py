@@ -13,19 +13,19 @@ import argparse
 
 # args = parser.parse_args() 
 
-d = np.load("/mnt/data/wangsw/inversion/marmousi_20m/data/marmousi_acoustic_test.npy")
-print(d.shape, d.max(), d.min())
-dx = d[...,0]
-dz = d[...,0]
-no = -1
-fig,axes = plt.subplots(1,2, figsize=(10,5))
-vmin, vmax = np.percentile(dx[no], [2, 98])
-axes[0].imshow(dx[no].squeeze(), vmin=vmin, vmax=vmax, aspect='auto', cmap=plt.cm.seismic)
-vmin, vmax = np.percentile(dz[no], [2, 98])
-axes[1].imshow(dz[no].squeeze(), vmin=vmin, vmax=vmax, aspect='auto', cmap=plt.cm.seismic)
-plt.show()
-plt.savefig("test.png")
-exit()
+# d = np.load("/mnt/data/wangsw/inversion/marmousi_20m/data/marmousi_acoustic_test.npy")
+# print(d.shape, d.max(), d.min())
+# dx = d[...,0]
+# dz = d[...,0]
+# no = -1
+# fig,axes = plt.subplots(1,2, figsize=(10,5))
+# vmin, vmax = np.percentile(dx[no], [2, 98])
+# axes[0].imshow(dx[no].squeeze(), vmin=vmin, vmax=vmax, aspect='auto', cmap=plt.cm.seismic)
+# vmin, vmax = np.percentile(dz[no], [2, 98])
+# axes[1].imshow(dz[no].squeeze(), vmin=vmin, vmax=vmax, aspect='auto', cmap=plt.cm.seismic)
+# plt.show()
+# plt.savefig("test.png")
+# exit()
 # loss = np.load("/public1/home/wangsw/FWI/AFWI/Hessian_free/loss.npy")
 # print(loss.shape)
 # print(loss[0][0])
@@ -53,7 +53,7 @@ exit()
 # plt.show()
 
 F = 0
-epoch = 99
+epoch = 0
 PMLN = 50
 # # epoch = args.epoch
 

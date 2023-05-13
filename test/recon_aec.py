@@ -1,10 +1,17 @@
-import torch
-from .utils import to_tensor, diff_using_roll
-from .utils import save_boundaries, restore_boundaries
-from .checkpoint import checkpoint as ckpt
 
-NPML=50
-N=2
+import torch
+import numpy as np
+import matplotlib.pyplot as plt
+import sys
+sys.path.append("../")
+from wavetorch.utils import diff_using_roll, ricker_wave, to_tensor
+from wavetorch.utils import save_boundaries, restore_boundaries
+from wavetorch.cell_elastic import _time_step
+
+import torch
+
+NPML = 50
+N = 2
 
 def _time_step_backward(*args):
 
@@ -13,10 +20,10 @@ def _time_step_backward(*args):
     dt, h, d = args[9:12]
     p_bd, vx_bd, vz_bd, txx_bd, tzz_bd, txz_bd = args[-1]
 
-    vp = vp.unsqueeze(0)
-    vs = vs.unsqueeze(0)
-    rho = rho.unsqueeze(0)
-    d = d.unsqueeze(0)
+    # vp = vp.unsqueeze(0)
+    # vs = vs.unsqueeze(0)
+    # rho = rho.unsqueeze(0)
+    # d = d.unsqueeze(0)
 
     """Update velocity components"""
     lame_lambda = rho*(vp.pow(2)-2*vs.pow(2))
@@ -89,7 +96,6 @@ def _time_step_backward(*args):
 
     return p_copy, vx_copy, vz_copy, txx_copy, tzz_copy, txz_copy
     
-    
 # def _time_step(vp, vs, rho, p, vx, vz, txx, tzz, txz, dt, h, d):
 def _time_step(*args):
 
@@ -131,49 +137,72 @@ def _time_step(*args):
 
     return y_p, y_vx, y_vz, y_txx, y_tzz, y_txz
 
+dev = torch.cuda.current_device() if torch.cuda.is_available() else "cpu"
 
-class WaveCell(torch.nn.Module):
-    """The recurrent neural network cell implementing the scalar wave equation"""
+pmld = np.load("/home/wangsw/Desktop/wangsw/fwi/pmld.npy")
+pmld = np.expand_dims(pmld, 0)
+pmld = torch.from_numpy(pmld).to(dev)
+nt = 2001
 
-    def __init__(self, geometry):
+fm = 5
+dt = to_tensor(0.001)
+dt2 = 0.001
+dh = to_tensor(10).to(dev)
+src_x = pmld.shape[2]//2
+src_z = 53#pmld.shape[1]//2
 
-        super().__init__()
+vp = np.load("/mnt/data/wangsw/inversion/marmousi_20m/velocity/true_vp.npy")#torch.ones_like(pmld).to(dev)*2500
+vs = np.load("/mnt/data/wangsw/inversion/marmousi_20m/velocity/true_vs.npy")#torch.ones_like(pmld).to(dev)*2500/1.73
+src = ricker_wave(fm, dt2, nt).to(dev)
 
-        # Set values
-        self.geom = geometry
-        self.register_buffer("dt", to_tensor(self.geom.dt))
+vp =np.pad(vp, ((NPML,NPML), (NPML,NPML)), mode="edge")
+vp = np.expand_dims(vp, 0)
+vp = to_tensor(vp).to(dev)
 
-    def parameters(self, recursive=True):
-        for param in self.geom.parameters():
-            yield param
+vs =np.pad(vs, ((NPML,NPML), (NPML,NPML)), mode="edge")
+vs = np.expand_dims(vs, 0)
+vs = to_tensor(vs).to(dev)
 
-    def get_parameters(self, key=None, recursive=True):
-        yield self.geom.__getattr__(key)
+rho = torch.ones_like(pmld).to(dev)*2000
 
-    def forward(self, wavefields, model_vars, **kwargs):
-        """Take a step through time
-        Parameters
-        ----------
-        vx, vz, txx, tzz, txz : 
-             wave field one time step ago
-        vp  :
-            Vp velocity.
-        vs  :
-            Vs velocity.
-        rho : 
-            Projected density, required for nonlinear response (this gets passed in to avoid generating it on each time step, saving memory for backprop)
-        """
-        save_condition=kwargs["is_last_frame"]
+"""Forward"""
+boundarys = []
+wavefield = [torch.zeros_like(pmld).to(dev) for _ in range(6)]
+save_for_backward = []
+forwards = []
+for i in range(nt):
+    wavefield = _time_step(vp, vs, rho, *wavefield, dt, dh, pmld)
+    wavefield[0][...,src_z,src_x] += src[i]
 
-        checkpoint = self.geom.checkpoint
-        forward = not self.geom.inversion
-        inversion = self.geom.inversion
-        geoms = self.dt, self.geom.h, self.geom.d
+    boundarys.append([save_boundaries(_wavefield.cpu(), NPML, N) for _wavefield in wavefield])
+    # print([b.size() for b in boundarys[i][0]])
 
-        if checkpoint and inversion:
-            hidden = ckpt(_time_step, _time_step_backward, save_condition, len(model_vars), *model_vars, *wavefields, *geoms)
+    if i %400==0:
+        forwards.append(wavefield[1][0][50:-50,50:-50].cpu().detach().numpy())
 
-        if forward or (inversion and not checkpoint):
-            hidden = _time_step(*model_vars, *wavefields, *geoms)
+    if i==nt-1:
+        save_for_backward.append(wavefield)
+# wavefield = [torch.zeros_like(pmld) for _ in range(5)]
+print("Backward")
+wavefield = list(save_for_backward[0])
+backwards = []
+"Backward"
+for i in range(nt-1, -1, -1):
+    wavefield = _time_step_backward(vp, vs, rho, *wavefield, dt, dh, pmld, boundarys[i])
 
-        return hidden
+    if i%400==0:
+        backwards.append(wavefield[1][0][50:-50,50:-50].cpu().detach().numpy())
+
+
+fig, axes = plt.subplots(1,3, figsize=(8,3))
+no=3
+_forward = forwards[no]
+_backward = backwards[5-no]
+shows = [_forward, _backward, _forward-_backward]
+vmin,vmax=np.percentile(shows[0], [2,98])
+for d, ax in zip(shows, axes.ravel()):
+    ax.imshow(d, vmin=vmin, vmax=vmax, cmap=plt.cm.gray, aspect="auto")
+plt.show()
+
+
+        
