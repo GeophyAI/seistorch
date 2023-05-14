@@ -52,14 +52,14 @@ import argparse
 # plt.colorbar(ax0)
 # plt.show()
 
-F = 0
-epoch = 0
+F = 1
+epoch = 49
 PMLN = 50
 # # epoch = args.epoch
 
 # # F=args.frequency_index
 # #root_path = r"/public1/home/wangsw/FWI/EFWI/Marmousi/marmousi_10m/l1reg"
-root_path = r"/mnt/data/wangsw/inversion/marmousi_20m/aec_all"
+root_path = r"/mnt/data/wangsw/inversion/marmousi_20m/elastic_testcode"
 loss = root_path.split("/")[-1]
 coding = "."
 grad_vp = np.load(f"{root_path}/{coding}/gradvpF{F:02d}E{epoch:02d}.npy")[PMLN:-PMLN,PMLN:-PMLN]
