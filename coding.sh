@@ -4,5 +4,5 @@ python codingfwi.py config/coding.yml \
 --opt adam \
 --loss l2 \
 --mode inversion \
---save-path /mnt/data/wangsw/inversion/marmousi_20m/Test \
+--save-path /mnt/data/wangsw/inversion/marmousi_20m/aec_all \
 --use-cuda

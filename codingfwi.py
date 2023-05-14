@@ -116,6 +116,9 @@ if __name__ == '__main__':
     with open(os.path.join(ROOTPATH, "configure.yml"), "w") as f:
         dump(cfg, f)
 
+
+    loss_weights = torch.autograd.Variable(torch.ones(3), requires_grad=True)
+
     """Define Optimizer"""
     if args.opt=='adam':
         if ACOUSTIC:
@@ -124,7 +127,8 @@ if __name__ == '__main__':
             optimizer = torch.optim.Adam([
                     {'params': model.cell.get_parameters('vp'), 'lr':LEARNING_RATE},
                     {'params': model.cell.get_parameters('vs'), 'lr':LEARNING_RATE/1.73},
-                    {'params': model.cell.get_parameters('rho'), 'lr':0.}], 
+                    {'params': model.cell.get_parameters('rho'), 'lr':0.},
+                    {'params': [loss_weights], 'lr': 0.01}], 
                     betas=(0.9, 0.999), eps=1e-16)
             
     if args.opt == "ncg":
@@ -151,7 +155,6 @@ if __name__ == '__main__':
     loss = np.zeros((len(cfg['geom']['multiscale']), EPOCHS), np.float32)
     # The gradient in rank0 is a 3D array.
     grad2d = np.zeros(shape.grad2d, np.float32)
-
     """Loop over all scale"""
     for idx_freq, freq in enumerate(cfg['geom']['multiscale']):
 
@@ -166,6 +169,7 @@ if __name__ == '__main__':
         pbar = tqdm.trange(EPOCHS)
         """Loop over all epoches"""
         for epoch in range(EPOCHS):
+
             # Zero the obs tensor
             coding_obs.zero_()
             coding_wavelet.zero_()
@@ -185,12 +189,23 @@ if __name__ == '__main__':
                 coding_obs += to_tensor(d_temp).to(args.dev)
 
             """Calculate encoding gradient"""
-            def closure():
+            def closure(loss_weights):
                 optimizer.zero_grad(set_to_none=True)
                 # Get the super shot gather
                 model.reset_sources(sources)
                 ypred = model(coding_wavelet)
                 loss = criterion(ypred, coding_obs)
+
+                # loss_p = criterion(ypred[..., 0], coding_obs[..., 0])
+                # loss_vx = criterion(ypred[..., 1], coding_obs[..., 1])
+                # loss_vz = criterion(ypred[..., 2], coding_obs[..., 2])
+                # loss_weights = torch.nn.functional.softmax(loss_weights, dim=0)
+                # loss = loss_weights[0]*loss_p \
+                #      + loss_weights[1]*loss_vx \
+                #      + loss_weights[2]*loss_vz 
+                # loss = 0.01*loss_p \
+                #      + 1.0*loss_vx \
+                #      + 1.0*loss_vz 
                 """Hessian START"""
                 # grad_params = torch.autograd.grad(loss, [model.cell.geom.vp, model.cell.geom.vs], create_graph=True)
                 
@@ -212,7 +227,7 @@ if __name__ == '__main__':
             if args.opt == "ncg":
                 loss[idx_freq][epoch] = optimizer.step(closure).item()
             else:
-                loss[idx_freq][epoch] = closure().item()
+                loss[idx_freq][epoch] = closure(loss_weights).item()
                 optimizer.step()
 
             if args.opt!="ncg":

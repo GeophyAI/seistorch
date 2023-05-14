@@ -3,7 +3,10 @@ import torch.nn.functional as F
 from torch.nn.functional import pairwise_distance
 from scipy.signal import hilbert
 
-loss_dict =  ["wd", "ncc", "mse", "envelope", "cc", "huber", "phase", "l2", "l1"]
+loss_dict = ["wd", "ncc", "mse", "envelope",
+             "cc", "huber", "phase", "l2", "l1", "cl"]
+
+
 class Loss:
 
     def __init__(self, loss="mse"):
@@ -12,10 +15,13 @@ class Loss:
 
     def loss(self,):
         return self.__getattribute__(self.loss_name)()
-    
+
+    def cl(self,):
+        return Correlation()
+
     def l2(self,):
         return torch.nn.MSELoss()
-    
+
     def l1(self,):
         return torch.nn.L1Loss()
 
@@ -24,19 +30,22 @@ class Loss:
 
     def ncc(self,):
         return NormalizedCrossCorrelation()
-    
+
+    def mae(self,):
+        return torch.nn.L1Loss()
+
     def mse(self,):
         return torch.nn.MSELoss()
-    
+
     def envelope(self,):
         return Envelope()
-    
+
     def cc(self,):
         return CrossCorrelation()
-    
+
     def phase(self,):
         return Phase()
-    
+
     def huber(self,):
         return Huber()
 
@@ -80,15 +89,17 @@ class NormalizedCrossCorrelation(torch.nn.Module):
 
         return loss
 
+
 class ElasticLoss(torch.nn.Module):
     def __init__(self):
         super().__init__()
-    
+
     def forward(self, x, y):
         loss = 0
         for _x, _y in zip(x, y):
             loss += torch.mean(torch.pow(_x-_y, 2))
         return loss
+
 
 class Wasserstein(torch.nn.Module):
     def __init__(self):
@@ -122,6 +133,7 @@ class Wasserstein(torch.nn.Module):
 
         return loss
 
+
 class Phase(torch.nn.Module):
     def __init__(self):
         super(Phase, self).__init__()
@@ -129,10 +141,10 @@ class Phase(torch.nn.Module):
     def hilbert(self, data):
         """
         Compute the Hilbert transform of the input data tensor.
-        
+
         Args:
             data (torch.Tensor): The input data tensor.
-        
+
         Returns:
             torch.Tensor: The Hilbert transform of the input data tensor.
         """
@@ -162,7 +174,8 @@ class Phase(torch.nn.Module):
     def instantaneous_phase(self, seismograms):
         hilbert_transform = self.hilbert(seismograms)
 
-        analytic_signal = seismograms + hilbert_transform.to(seismograms.device) * 1j
+        analytic_signal = seismograms + \
+            hilbert_transform.to(seismograms.device) * 1j
         phase = torch.angle(analytic_signal)
         return phase
 
@@ -172,6 +185,7 @@ class Phase(torch.nn.Module):
 
         loss = F.mse_loss(pred_phase, obs_phase)
         return loss
+
 
 class Envelope(torch.nn.Module):
     """
@@ -188,10 +202,10 @@ class Envelope(torch.nn.Module):
     def hilbert(self, data):
         """
         Compute the Hilbert transform of the input data tensor.
-        
+
         Args:
             data (torch.Tensor): The input data tensor.
-        
+
         Returns:
             torch.Tensor: The Hilbert transform of the input data tensor.
         """
@@ -217,14 +231,14 @@ class Envelope(torch.nn.Module):
         hilbert_data = hilbert_data[:nt]
 
         return hilbert_data.real
-        
+
     def envelope(self, seismograms):
         """
         Compute the envelope of the input seismograms tensor.
-        
+
         Args:
             seismograms (torch.Tensor): The input seismograms tensor.
-        
+
         Returns:
             torch.Tensor: The envelope of the input seismograms tensor.
         """
@@ -232,18 +246,19 @@ class Envelope(torch.nn.Module):
         hilbert_transform = self.hilbert(seismograms)
 
         # Compute the envelope
-        analytic_signal = seismograms + hilbert_transform.to(seismograms.device) * 1j
+        analytic_signal = seismograms + \
+            hilbert_transform.to(seismograms.device) * 1j
         envelope = torch.abs(analytic_signal)
         return envelope
 
     def envelope_mse_loss(self, pred_seismograms, obs_seismograms):
         """
         Compute the envelope-based mean squared error loss between pred_seismograms and obs_seismograms.
-        
+
         Args:
             pred_seismograms (torch.Tensor): The predicted seismograms tensor.
             obs_seismograms (torch.Tensor): The observed seismograms tensor.
-        
+
         Returns:
             torch.Tensor: The computed envelope-based mean squared error loss.
         """
@@ -256,16 +271,33 @@ class Envelope(torch.nn.Module):
     def forward(self, x, y):
         """
         Compute the envelope-based mean squared error loss for the given input tensors x and y.
-        
+
         Args:
             x (torch.Tensor): The first input tensor.
             y (torch.Tensor): The second input tensor.
-        
+
         Returns:
             torch.Tensor: The computed envelope-based mean squared error loss.
         """
         loss = self.envelope_mse_loss(x, y)
         return loss
+
+
+class Correlation(torch.nn.Module):
+    def __init__(self):
+        super(Correlation, self).__init__()
+
+    def forward(self, pred, target):
+        pred_mean = torch.mean(pred, dim=0, keepdim=True)
+        target_mean = torch.mean(target, dim=0, keepdim=True)
+        pred_std = torch.std(pred, dim=0, keepdim=True)
+        target_std = torch.std(target, dim=0, keepdim=True)
+
+        correlation = torch.mean(
+            (pred - pred_mean) * (target - target_mean), dim=0) / (pred_std * target_std)
+
+        return -correlation.mean()  # Minimizing -correlation maximizes correlation
+
 
 class CrossCorrelation(torch.nn.Module):
     """
@@ -282,11 +314,11 @@ class CrossCorrelation(torch.nn.Module):
     def cross_correlation_loss(self, pred_seismograms, obs_seismograms):
         """
         Compute the cross-correlation loss between the input tensors pred_seismograms and obs_seismograms.
-        
+
         Args:
             pred_seismograms (torch.Tensor): The predicted seismograms tensor.
             obs_seismograms (torch.Tensor): The observed seismograms tensor.
-        
+
         Returns:
             torch.Tensor: The computed cross-correlation loss.
         """
@@ -294,7 +326,8 @@ class CrossCorrelation(torch.nn.Module):
         nt, ntraces, _ = pred_seismograms.shape
 
         # Normalize each trace in the predicted seismograms
-        pred_normalized = pred_seismograms / (pred_seismograms.norm(dim=0) + 1e-8)
+        pred_normalized = pred_seismograms / \
+            (pred_seismograms.norm(dim=0) + 1e-8)
         # Normalize each trace in the observed seismograms
         obs_normalized = obs_seismograms / (obs_seismograms.norm(dim=0) + 1e-8)
 
@@ -308,16 +341,17 @@ class CrossCorrelation(torch.nn.Module):
     def forward(self, x, y):
         """
         Compute the cross-correlation loss for the given input tensors x and y.
-        
+
         Args:
             x (torch.Tensor): The first input tensor.
             y (torch.Tensor): The second input tensor.
-        
+
         Returns:
             torch.Tensor: The computed cross-correlation loss.
         """
         loss = self.cross_correlation_loss(x, y)
-        return loss 
+        return loss
+
 
 class Huber(torch.nn.Module):
     def __init__(self, delta=1.0):
@@ -327,6 +361,7 @@ class Huber(torch.nn.Module):
     def forward(self, x, y):
         loss = F.smooth_l1_loss(x, y, reduction='mean', beta=self.delta)
         return loss
+
 
 class WaveformDifference(torch.nn.Module):
     def __init__(self):
@@ -351,7 +386,8 @@ class WaveformDifference(torch.nn.Module):
         batch_size, _, sequence_length = distances.size()
 
         # Initialize the DTW matrix
-        dtw_matrix = torch.zeros((batch_size, sequence_length, sequence_length), device=distances.device)
+        dtw_matrix = torch.zeros(
+            (batch_size, sequence_length, sequence_length), device=distances.device)
 
         # Fill the first row and first column of the DTW matrix
         dtw_matrix[:, 0, 0] = distances[:, 0, 0]
@@ -371,4 +407,3 @@ class WaveformDifference(torch.nn.Module):
         # Return the minimum distance along the bottom-right diagonal of the DTW matrix
         dtw_distance = dtw_matrix[:, sequence_length-1, sequence_length-1]
         return dtw_distance
-

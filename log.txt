@@ -2,3 +2,87 @@ Configuration: config/coding.yml
 Using CUDA for calculation
 Using adam
 Data filtering: frequency:3.0
+ModuleList(
+  (0): WaveSource()
+  Source location: x:511 z:51
+  (1): WaveSource()
+  Source location: x:376 z:51
+  (2): WaveSource()
+  Source location: x:146 z:51
+  (3): WaveSource()
+  Source location: x:191 z:51
+  (4): WaveSource()
+  Source location: x:541 z:51
+  (5): WaveSource()
+  Source location: x:441 z:51
+  (6): WaveSource()
+  Source location: x:471 z:51
+  (7): WaveSource()
+  Source location: x:186 z:51
+  (8): WaveSource()
+  Source location: x:346 z:51
+  (9): WaveSource()
+  Source location: x:496 z:51
+  (10): WaveSource()
+  Source location: x:421 z:51
+  (11): WaveSource()
+  Source location: x:296 z:51
+  (12): WaveSource()
+  Source location: x:91 z:51
+  (13): WaveSource()
+  Source location: x:451 z:51
+  (14): WaveSource()
+  Source location: x:406 z:51
+  (15): WaveSource()
+  Source location: x:461 z:51
+  (16): WaveSource()
+  Source location: x:236 z:51
+  (17): WaveSource()
+  Source location: x:126 z:51
+  (18): WaveSource()
+  Source location: x:281 z:51
+  (19): WaveSource()
+  Source location: x:256 z:51
+)
+ModuleList(
+  (0): WaveSource()
+  Source location: x:176 z:51
+  (1): WaveSource()
+  Source location: x:126 z:51
+  (2): WaveSource()
+  Source location: x:386 z:51
+  (3): WaveSource()
+  Source location: x:551 z:51
+  (4): WaveSource()
+  Source location: x:231 z:51
+  (5): WaveSource()
+  Source location: x:556 z:51
+  (6): WaveSource()
+  Source location: x:331 z:51
+  (7): WaveSource()
+  Source location: x:166 z:51
+  (8): WaveSource()
+  Source location: x:366 z:51
+  (9): WaveSource()
+  Source location: x:116 z:51
+  (10): WaveSource()
+  Source location: x:451 z:51
+  (11): WaveSource()
+  Source location: x:241 z:51
+  (12): WaveSource()
+  Source location: x:296 z:51
+  (13): WaveSource()
+  Source location: x:206 z:51
+  (14): WaveSource()
+  Source location: x:521 z:51
+  (15): WaveSource()
+  Source location: x:311 z:51
+  (16): WaveSource()
+  Source location: x:226 z:51
+  (17): WaveSource()
+  Source location: x:96 z:51
+  (18): WaveSource()
+  Source location: x:351 z:51
+  (19): WaveSource()
+  Source location: x:446 z:51
+)

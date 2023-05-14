@@ -13,11 +13,11 @@ import argparse
 
 # args = parser.parse_args() 
 
-# d = np.load("/mnt/data/wangsw/inversion/marmousi_20m/data/marmousi_acoustic_test.npy")
+# d = np.load("/mnt/data/wangsw/inversion/marmousi_20m/data/marmousi_aec_obn.npy")
 # print(d.shape, d.max(), d.min())
 # dx = d[...,0]
-# dz = d[...,0]
-# no = -1
+# dz = d[...,2]
+# no = 55
 # fig,axes = plt.subplots(1,2, figsize=(10,5))
 # vmin, vmax = np.percentile(dx[no], [2, 98])
 # axes[0].imshow(dx[no].squeeze(), vmin=vmin, vmax=vmax, aspect='auto', cmap=plt.cm.seismic)
@@ -59,7 +59,7 @@ PMLN = 50
 
 # # F=args.frequency_index
 # #root_path = r"/public1/home/wangsw/FWI/EFWI/Marmousi/marmousi_10m/l1reg"
-root_path = r"/mnt/data/wangsw/inversion/marmousi_20m/Test/"
+root_path = r"/mnt/data/wangsw/inversion/marmousi_20m/aec_all"
 loss = root_path.split("/")[-1]
 coding = "."
 grad_vp = np.load(f"{root_path}/{coding}/gradvpF{F:02d}E{epoch:02d}.npy")[PMLN:-PMLN,PMLN:-PMLN]

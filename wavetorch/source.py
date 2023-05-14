@@ -16,26 +16,9 @@ class WaveSource(torch.nn.Module):
 
 	def forward(self, Y, X, dt=1.0):
 		# Thanks to Erik Peterson for this fix
-		X_expanded = torch.zeros(Y.size()).detach()
-		X_expanded[:, self.x, self.y] = X
-		X_expanded = X_expanded.to(Y.device)
-		return Y + dt ** 2 * X_expanded
+		Y[:, self.x, self.y] += X
+		return Y
 
 	def plot(self, ax, color='r'):
 		marker, = ax.plot(self.x.numpy(), self.y.numpy(), 'o', markeredgecolor=color, markerfacecolor='none', markeredgewidth=1.0, markersize=4)
 		return marker
-
-
-class WaveLineSource(WaveSource):
-	def __init__(self, r0, c0, r1, c1):
-		x, y = skimage.draw.line(r0, c0, r1, c1)
-
-		self.r0 = r0
-		self.c0 = c0
-		self.r1 = r1
-		self.c1 = c1
-		super().__init__(x, y)
-
-	def plot(self, ax, color='r'):
-		line, = ax.plot([self.r0, self.r1], [self.c0, self.c1], '-', color=color, lw=2)
-		return line

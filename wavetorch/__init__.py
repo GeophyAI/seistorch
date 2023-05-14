@@ -2,7 +2,7 @@ from . import cell_elastic, geom, source, probe, utils, setup_source_probe, mode
 from .cell_elastic import WaveCell as WaveCellElastic
 from .geom import WaveGeometryFreeForm
 from .probe import WaveProbe, WaveIntensityProbe
-from .source import WaveSource, WaveLineSource
+from .source import WaveSource
 from .rnn import WaveRNN
 from .model import build_model
 from .loss import NormalizedCrossCorrelation, ElasticLoss

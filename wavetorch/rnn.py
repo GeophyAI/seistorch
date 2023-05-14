@@ -2,6 +2,7 @@ import numpy as np
 import torch
 
 from .wavefield import Wavefield
+from .source import WaveSource
 
 
 class WaveRNN(torch.nn.Module):
@@ -83,7 +84,8 @@ class WaveRNN(torch.nn.Module):
             
         # Loop through time
         x = x.to(device)
-        # save_for_backward = []
+        super_source = WaveSource([s.x for s in self.sources], 
+                                  [s.y for s in self.sources]).to(device)
 
         for i, xi in enumerate(x.chunk(x.size(1), dim=1)):
 
@@ -97,11 +99,9 @@ class WaveRNN(torch.nn.Module):
                 self.__setattr__(name, data)
 
             # Add source
-            for source, _s in zip(self.sources, xi.chunk(xi.size(0), dim=0)):
-                for source_type in self.cell.geom.source_type:
-                    #self.h1[:,source.x, source.y] += _s.squeeze(-1)
-                    self.__setattr__(source_type, source(self.__getattribute__(source_type), _s.squeeze(-1)))
-
+            for source_type in self.cell.geom.source_type:
+                self.__setattr__(source_type, super_source(self.__getattribute__(source_type), xi.view(xi.size(1), -1)))
+        
             if len(self.probes) > 0:
                 # Measure probe(s)
                 for probe in self.probes:
