@@ -9,7 +9,7 @@ dtype: float32
 # Using autodiff or not
 autodiff: true
 
-equation: aec
+equation: elastic
 
 training:
 
@@ -34,7 +34,7 @@ training:
 geom:
 
   # The observer data
-  obsPath: /mnt/data/wangsw/inversion/marmousi_20m/data/marmousi_aec_obn.npy
+  obsPath: /mnt/data/wangsw/inversion/marmousi_20m/data/marmousi_elastic_obn.npy
 
   # Wave speed model from disk_file for forward modeling
   truePath:
@@ -49,10 +49,9 @@ geom:
   receivers: ./geometry/marmousi_obn/receivers.pkl
 
   source_type:
-    - p
+    - vz
 
   receiver_type:
-    - p
     - vx
     - vz
   
@@ -77,6 +76,7 @@ geom:
 
   multiscale: 
     - 3.0
+    - 5.0
 
   # Time Sampling step
   dt: 0.001

@@ -2,7 +2,7 @@
 python codingfwi.py config/coding.yml \
 --gpuid 0 \
 --opt adam \
---loss l2 \
+--loss envelope \
 --mode inversion \
---save-path /mnt/data/wangsw/inversion/marmousi_20m/aec_all \
+--save-path /mnt/data/wangsw/inversion/marmousi_20m/elastic_testcode \
 --use-cuda
