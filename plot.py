@@ -52,8 +52,8 @@ import argparse
 # plt.colorbar(ax0)
 # plt.show()
 
-F = 1
-epoch = 49
+F = 0
+epoch = 0
 PMLN = 50
 # # epoch = args.epoch
 

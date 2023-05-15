@@ -12,7 +12,8 @@ def _time_step_backward(*args):
     vp, vs, rho = args[0:3]
     vx, vz, txx, tzz, txz = args[3:8]
     dt, h, d = args[8:11]
-    vx_bd, vz_bd, txx_bd, tzz_bd, txz_bd = args[-1]
+    vx_bd, vz_bd, txx_bd, tzz_bd, txz_bd = args[-2]
+    src_type, src_func, src_values = args[-1]
 
     vp = vp.unsqueeze(0)
     vs = vs.unsqueeze(0)
@@ -42,6 +43,7 @@ def _time_step_backward(*args):
     txz_x = diff_using_roll(txz, 2, False)[compute_region_slice]
 
     c = 0.5*dt*d
+
     y_vx = (1+c)**-1*(-dt*rho.pow(-1)*h.pow(-1)*(txx_x+txz_z)+(1-c)*vx)
     y_vz = (1+c)**-1*(-dt*rho.pow(-1)*h.pow(-1)*(txz_x+tzz_z)+(1-c)*vz)
 
@@ -82,6 +84,10 @@ def _time_step_backward(*args):
     tzz_copy = restore_boundaries(tzz_copy, tzz_bd, NPML, N)
     txz_copy = restore_boundaries(txz_copy, txz_bd, NPML, N)
 
+    for s_type in src_type:
+        source_var = eval(s_type+"_copy")
+        source_var = src_func(source_var, src_values, -1)
+        
     return vx_copy, vz_copy, txx_copy, tzz_copy, txz_copy
 
 def _time_step(*args):
@@ -149,6 +155,7 @@ class WaveCell(torch.nn.Module):
             Projected density, required for nonlinear response (this gets passed in to avoid generating it on each time step, saving memory for backprop)
         """
         save_condition=kwargs["is_last_frame"]
+        source_term = kwargs["source"]
         # vx, vz, txx, tzz, txz = wavefields
         # vp, vs, rho = model_vars
 
@@ -157,9 +164,8 @@ class WaveCell(torch.nn.Module):
         inversion = self.geom.inversion
 
         if checkpoint and inversion:
-            hidden = ckpt(_time_step, _time_step_backward, save_condition, len(model_vars), *model_vars, *wavefields, *[self.dt, self.geom.h, self.geom.d])
+            hidden = ckpt(_time_step, _time_step_backward, source_term, save_condition, len(model_vars), *model_vars, *wavefields, *[self.dt, self.geom.h, self.geom.d])
         if forward or (inversion and not checkpoint):
-            print("forward")
             hidden = _time_step(*model_vars, *wavefields, *[self.dt, self.geom.h, self.geom.d])
 
         return hidden

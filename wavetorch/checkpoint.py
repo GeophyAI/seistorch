@@ -2,6 +2,7 @@ import torch
 import warnings
 import weakref
 import itertools
+import numpy as np
 from typing import Any, Iterable, List, Tuple
 from .utils import save_boundaries, restore_boundaries
 
@@ -102,18 +103,25 @@ def nested_grads(nested_list):
 class CheckpointFunction(torch.autograd.Function):
 
     wavefields = []
+    counts = 0
+    # _sources = []
+    # _bound = []
     @staticmethod
     def forward(ctx, 
                 run_function, 
-                back_function, 
+                back_function,
+                source_function, 
                 save_condition, 
                 para_counts, 
                 *args):
+        CheckpointFunction.counts+=1
         # check_backward_validity(args)
         ctx.requires_grad_list = [arg.requires_grad for arg in itertools.chain(args)]
         ctx.run_function = run_function
         ctx.back_function = back_function        
         ctx.save_condition = save_condition
+        ctx.source_function = source_function
+        # CheckpointFunction._sources.append(source_function[-1])
 
         with torch.no_grad():
             outputs = run_function(*args)
@@ -122,15 +130,16 @@ class CheckpointFunction(torch.autograd.Function):
         ctx.geoms = args[::-1][0:3][::-1]
 
         boundarys = [save_boundaries(output) for output in outputs]
-
+        # CheckpointFunction._bound.append(boundarys)
         ctx.save_for_backward(*itertools.chain(*boundarys))
         # Save the wavefields of the last time step
-        is_last_time_step = save_condition
-        ctx.lastframe = outputs if is_last_time_step else None
+        ctx.is_last_time_step = save_condition
+        ctx.lastframe = outputs if ctx.is_last_time_step else None
         return outputs
 
     @staticmethod
     def backward(ctx, *args):
+        CheckpointFunction.counts-=1
 
         if not torch.autograd._is_checkpoint_valid():
             raise RuntimeError(
@@ -139,27 +148,30 @@ class CheckpointFunction(torch.autograd.Function):
                 " argument.")
 
         # Get the boundarys:
-        if ctx.lastframe is not None:
-            wavefields = ctx.lastframe
+        if ctx.is_last_time_step:
+            CheckpointFunction.wavefields = list(ctx.lastframe)
+            return (None, None, None, None, None) + tuple(None for _ in range(len(ctx.requires_grad_list)))
         else:
             wavefields = CheckpointFunction.wavefields
-
+        
         inputs = ctx.models + tuple(wavefields) + ctx.geoms
         
         inputs = [inp.detach().requires_grad_(value) for inp, value in zip(inputs, ctx.requires_grad_list)]
 
-        # set_requires_grad(inputs, requires_grad_generator(ctx.requires_grad_list))
-
         # Inputs for backwards
         boundaries = packup_boundaries(ctx.saved_tensors, 4)
-        inputs = inputs + [boundaries]
-        
+        inputs = inputs + [boundaries] + [ctx.source_function]
         with torch.enable_grad():
             outputs = ctx.back_function(*inputs)
-        
+
         if isinstance(outputs, torch.Tensor):
             outputs = (outputs,)
 
+        # Substract the source term
+        np.save(f"/mnt/data/wangsw/inversion/marmousi_20m/elastic_testcode/backward/recon{np.random.randint(0, 100000000, 1)[0]}.npy",
+                 outputs[0][0].cpu().detach().numpy())
+        
+        # Update wavefields
         CheckpointFunction.wavefields.clear()
         CheckpointFunction.wavefields.extend(list(outputs))
 
@@ -179,10 +191,10 @@ class CheckpointFunction(torch.autograd.Function):
         grads = tuple(inp.grad if isinstance(inp, torch.Tensor) else None
                       for inp in inputs[:len(ctx.requires_grad_list)])
 
-        return (None, None, None, None) + grads
+        return (None, None, None, None, None) + grads
  
 
-def checkpoint(function, backfunction, save_condition, para_counts, *args, use_reentrant: bool = True, **kwargs):
+def checkpoint(function, backfunction, source_function, save_condition, para_counts, *args, use_reentrant: bool = True, **kwargs):
     r"""Checkpoint a model or part of the model
 
     Checkpointing works by trading compute for memory. Rather than storing all
@@ -267,7 +279,7 @@ def checkpoint(function, backfunction, save_condition, para_counts, *args, use_r
         raise ValueError("Unexpected keyword arguments: " + ",".join(arg for arg in kwargs))
 
     if use_reentrant:
-        return CheckpointFunction.apply(function, backfunction, save_condition, para_counts, *args)
+        return CheckpointFunction.apply(function, backfunction, source_function, save_condition, para_counts, *args)
     else:
         return _checkpoint_without_reentrant(
             function,

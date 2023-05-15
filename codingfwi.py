@@ -190,8 +190,8 @@ if __name__ == '__main__':
 
             """Calculate encoding gradient"""
             def closure(loss_weights):
-                optimizer.zero_grad(set_to_none=True)
-                # Get the super shot gather
+                optimizer.zero_grad()#set_to_none=True
+                # Get the super shot gathersh
                 model.reset_sources(sources)
                 ypred = model(coding_wavelet)
                 loss = criterion(ypred, coding_obs)

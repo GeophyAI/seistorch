@@ -80,7 +80,7 @@ def ricker_wave(fm, dt, T, delay = 500, dtype='tensor'):
         temp = (1-2*np.power(c, 2)) * np.exp(-np.power(c, 2))
         ricker.append(temp)
     if dtype == 'numpy':
-        return np.array(ricker)
+        return np.array(ricker).astype(np.float32)
     else:
         return torch.from_numpy(np.array(ricker).astype(np.float32))
 

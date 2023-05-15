@@ -91,22 +91,28 @@ class WaveRNN(torch.nn.Module):
 
             # Propagate the fields
             wavefield = [self.__getattribute__(name) for name in wavefield_names]
-            wavefield = self.cell(wavefield, model_paras, is_last_frame=(i==x.size(1)-1), omega=omega)
 
+            wavefield = self.cell(wavefield, 
+                                  model_paras, 
+                                  is_last_frame=(i==x.size(1)-1), 
+                                  omega=omega, 
+                                  source=[self.cell.geom.source_type, super_source, xi.view(xi.size(1), -1)])
+            
+            np.save(f"/mnt/data/wangsw/inversion/marmousi_20m/elastic_testcode/forward/forward{np.random.randint(0, 1e6, 1)[0]}.npy",
+                 wavefield[0].cpu().detach().numpy())
+            
             # Set the data to vars
             for name, data in zip(wavefield_names, wavefield):
-                # self.__getattribute__(name).copy_(data)
                 self.__setattr__(name, data)
 
             # Add source
             for source_type in self.cell.geom.source_type:
                 self.__setattr__(source_type, super_source(self.__getattribute__(source_type), xi.view(xi.size(1), -1)))
-        
-            if len(self.probes) > 0:
-                # Measure probe(s)
-                for probe in self.probes:
-                    for receiver, p_all_sub in zip(self.cell.geom.receiver_type, p_all):
-                        p_all_sub.append(probe(self.__getattribute__(receiver)))
+            # print(self.vz.size(), xi.view(xi.size(1), -1).size())
+            # Measure probe(s)
+            for probe in self.probes:
+                for receiver, p_all_sub in zip(self.cell.geom.receiver_type, p_all):
+                    p_all_sub.append(probe(self.__getattribute__(receiver)))
 
         # Combine outputs into a single tensor
         y = torch.concat([torch.stack(y, dim=1).permute(1, 2, 0) for y in p_all], dim = 2)
