@@ -13,10 +13,10 @@ import argparse
 
 # args = parser.parse_args() 
 
-# d = np.load("/mnt/data/wangsw/inversion/marmousi_20m/data/marmousi_aec_obn.npy")
+# d = np.load("/mnt/data/wangsw/inversion/marmousi_10m/data/marmousi_elastic_obn.npy")
 # print(d.shape, d.max(), d.min())
 # dx = d[...,0]
-# dz = d[...,2]
+# dz = d[...,1]
 # no = 55
 # fig,axes = plt.subplots(1,2, figsize=(10,5))
 # vmin, vmax = np.percentile(dx[no], [2, 98])
@@ -24,7 +24,7 @@ import argparse
 # vmin, vmax = np.percentile(dz[no], [2, 98])
 # axes[1].imshow(dz[no].squeeze(), vmin=vmin, vmax=vmax, aspect='auto', cmap=plt.cm.seismic)
 # plt.show()
-# plt.savefig("test.png")
+# plt.savefig("test_15hz.png")
 # exit()
 # loss = np.load("/public1/home/wangsw/FWI/AFWI/Hessian_free/loss.npy")
 # print(loss.shape)
@@ -52,14 +52,14 @@ import argparse
 # plt.colorbar(ax0)
 # plt.show()
 
-F = 1
+F = 0
 epoch = 49
 PMLN = 50
 # # epoch = args.epoch
 
 # # F=args.frequency_index
 # #root_path = r"/public1/home/wangsw/FWI/EFWI/Marmousi/marmousi_10m/l1reg"
-root_path = r"/mnt/data/wangsw/inversion/marmousi_20m/elastic_testcode"
+root_path = r"/mnt/data/wangsw/inversion/marmousi_10m/compare_init/good_init_lowfreq"
 loss = root_path.split("/")[-1]
 coding = "."
 grad_vp = np.load(f"{root_path}/{coding}/gradvpF{F:02d}E{epoch:02d}.npy")[PMLN:-PMLN,PMLN:-PMLN]
