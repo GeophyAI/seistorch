@@ -88,10 +88,13 @@ def cpu_fft(d, dt, N = 5, low = 5, if_plot = True, axis = -1, mode = 'lowpass'):
     """
         implementation of fft.
     """
-    wn = 2*low/(1/dt)
-    b, a = signal.butter(N, wn, mode)
-    d_filter = signal.filtfilt(b, a, d, axis = axis)
-    return d_filter.astype(np.float32)
+    if low == "all":
+        return d
+    else:
+        wn = 2*low/(1/dt)
+        b, a = signal.butter(N, wn, mode)
+        d_filter = signal.filtfilt(b, a, d, axis = axis)
+        return d_filter.astype(np.float32)
     
 def pad_by_value(d, pad, mode = 'double'):
     """pad the input by <pad>

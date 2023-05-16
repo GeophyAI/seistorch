@@ -1,3 +1,5 @@
+# This file is modified from torch.utils.checkpoint.checkpoint
+# for making it available for seismic inversion.
 import torch
 import warnings
 import weakref

@@ -86,7 +86,6 @@ if __name__ == '__main__':
     LEARNING_RATE = cfg['training']['lr']
     FILTER_ORDER = cfg['training']['filter_ord']
     ### Get source-x and source-y coordinate in grid cells
-    source_x_list, source_y_list = get_sources_coordinate_list(cfg)
     src_list, rec_list = get_src_and_rec(cfg)
 
     use_mpi = size > 1
@@ -291,11 +290,7 @@ if __name__ == '__main__':
                             break
                         sources = []
                         shot = task
-                        src = setup_src_coords_customer(source_x_list[shot],
-                                                        source_y_list[shot],
-                                                        cfg['geom']['Nx'],
-                                                        cfg['geom']['Ny'],
-                                                        cfg['geom']['pml']['N'])
+                        src = setup_src_coords(src_list[shot], cfg['geom']['pml']['N'])
                         sources.append(src)
 
                         """Calculate one shot gradient"""

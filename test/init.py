@@ -21,19 +21,20 @@ from scipy.ndimage import gaussian_filter, gaussian_filter1d
 # plt.imshow(vel, aspect="auto", cmap=plt.cm.seismic)
 # plt.show()
 
-true = np.load("/public1/home/wangsw/FWI/EFWI/Marmousi/marmousi1_20m/velocity/true_vp.npy")
+true = np.load("/mnt/data/wangsw/inversion/marmousi_10m/velocity/true_vp.npy")
 nz, nx = true.shape
 print(true.min(), true.max())
 linear = np.copy(true)
-up = (4400-1500)/(nz-24)
-for i in range(nz-24):
-    linear[24+i] = 1500+i*up
+water_depth = 48
+up = (4400-1500)/(nz-water_depth)
+for i in range(nz-water_depth):
+    linear[water_depth+i] = 1500+i*up
 ax=plt.imshow(linear)
-np.save("/public1/home/wangsw/FWI/EFWI/Marmousi/marmousi1_20m/velocity/linear_vp.npy", linear)
+np.save("/mnt/data/wangsw/inversion/marmousi_10m/velocity/linear_vp.npy", linear)
 linear_vs = linear/1.73
-linear_vs[0:24,:] = 0
+linear_vs[0:water_depth,:] = 0
 print(linear_vs.max(), linear_vs.min())
-np.save("/public1/home/wangsw/FWI/EFWI/Marmousi/marmousi1_20m/velocity/linear_vs.npy", linear_vs)
+np.save("/mnt/data/wangsw/inversion/marmousi_10m/velocity/linear_vs.npy", linear_vs)
 
 # rho = np.ones_like(true)*2000
 # q = np.ones_like(true)*100

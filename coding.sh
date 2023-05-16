@@ -2,7 +2,7 @@
 python codingfwi.py config/coding.yml \
 --gpuid 0 \
 --opt adam \
---loss envelope \
+--loss l2 \
 --mode inversion \
---save-path /mnt/data/wangsw/inversion/marmousi_20m/compare_init/good_init \
+--save-path /mnt/data/wangsw/inversion/marmousi_10m/compare_init/good_init_lowfreq \
 --use-cuda

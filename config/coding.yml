@@ -23,7 +23,7 @@ training:
   # Optimizer learning rate
   lr: 5
 
-  lr_decay: 0.95
+  lr_decay: 0.75
 
   # when >2, can save gpu memory
   save_interval: 10
@@ -34,19 +34,19 @@ training:
 geom:
 
   # The observer data
-  obsPath: /mnt/data/wangsw/inversion/marmousi_20m/data/marmousi_elastic_obn.npy
+  obsPath: /mnt/data/wangsw/inversion/marmousi_10m/data/marmousi_elastic_obn.npy
 
   # Wave speed model from disk_file for forward modeling
   truePath:
-    vp: /mnt/data/wangsw/inversion/marmousi_20m/velocity/true_vp.npy
-    vs: /mnt/data/wangsw/inversion/marmousi_20m/velocity/true_vs.npy
-    rho: /mnt/data/wangsw/inversion/marmousi_20m/velocity/rho.npy
+    vp: /mnt/data/wangsw/inversion/marmousi_10m/velocity/true_vp.npy
+    vs: /mnt/data/wangsw/inversion/marmousi_10m/velocity/true_vs.npy
+    rho: /mnt/data/wangsw/inversion/marmousi_10m/velocity/rho.npy
     Q: 
-    #/mnt/data/wangsw/inversion/marmousi_20m/data//velocity/q_const.npy
+    #/mnt/data/wangsw/inversion/marmousi_10m/data//velocity/q_const.npy
 
-  sources: ./geometry/marmousi_obn/sources.pkl
+  sources: ./geometry/marmousi_obn_10m/sources.pkl
 
-  receivers: ./geometry/marmousi_obn/receivers.pkl
+  receivers: ./geometry/marmousi_obn_10m/receivers.pkl
 
   source_type:
     - vz
@@ -57,9 +57,9 @@ geom:
   
   # Inital Wave speed model from disk_file
   initPath: 
-    vp: /mnt/data/wangsw/inversion/marmousi_20m/velocity/linear_vp.npy
-    vs: /mnt/data/wangsw/inversion/marmousi_20m/velocity/linear_vs.npy
-    rho: /mnt/data/wangsw/inversion/marmousi_20m/velocity/rho.npy
+    vp: /mnt/data/wangsw/inversion/marmousi_10m/velocity/init_vp.npy
+    vs: /mnt/data/wangsw/inversion/marmousi_10m/velocity/init_vs.npy
+    rho: /mnt/data/wangsw/inversion/marmousi_10m/velocity/rho.npy
     Q:
 
   invlist:
@@ -72,11 +72,14 @@ geom:
   ckpt: true
 
   # Save the results of FWI
-  inv_savePath: /mnt/data/wangsw/inversion/marmousi_20m/Test
+  inv_savePath: /mnt/data/wangsw/inversion/marmousi_10m/Test
 
-  multiscale: 
+  multiscale:
     - 3.0
     - 5.0
+    - 8.0
+    - 10.0
+
 
   # Time Sampling step
   dt: 0.001
@@ -85,13 +88,13 @@ geom:
   nt: 4000
 
   # Main frequency of ricker wave
-  fm: 5.
+  fm: 15.0
 
   # Spatial grid step size
-  h: 20.0
+  h: 10.0
 
   # Total receivers
-  Nreceivers: 561
+  Nreceivers: 1122
 
   # Total Shots
   Nshots: 111

@@ -95,7 +95,7 @@ if __name__ == '__main__':
         os.makedirs(ROOTPATH, exist_ok=True)
         print(f"The results will be saving at '{ROOTPATH}'")
     ### Get source-x and source-y coordinate in grid cells
-    
+
     src_list, rec_list = get_src_and_rec(cfg)
 
     model.to(args.dev)
@@ -159,7 +159,6 @@ if __name__ == '__main__':
         print(f"Data filtering: frequency:{freq}")
         # Filter both record and ricker
         filtered_data[:] = cpu_fft(full_band_data.copy(), cfg['geom']['dt'], N=FILTER_ORDER, low=freq, axis = 1, mode='lowpass')
-
         # Low pass filtered wavelet
         if isinstance(x, torch.Tensor): x = x.numpy()
         lp_wavelet = cpu_fft(x.copy(), cfg['geom']['dt'], N=FILTER_ORDER, low=freq, axis=0, mode='lowpass')
