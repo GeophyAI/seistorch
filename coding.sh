@@ -4,5 +4,5 @@ python codingfwi.py config/coding.yml \
 --opt adam \
 --loss envelope \
 --mode inversion \
---save-path /mnt/data/wangsw/inversion/marmousi_20m/elastic_testcode \
+--save-path /mnt/data/wangsw/inversion/marmousi_20m/compare_init/good_init \
 --use-cuda

@@ -52,8 +52,8 @@ import argparse
 # plt.colorbar(ax0)
 # plt.show()
 
-F = 0
-epoch = 0
+F = 1
+epoch = 49
 PMLN = 50
 # # epoch = args.epoch
 
@@ -89,7 +89,11 @@ axes[1].set_title(loss+"_vs")
 plt.colorbar(ax0);plt.colorbar(ax1)
 plt.tight_layout()
 plt.show()
-fig.savefig(f"./figures/{loss}.png")
+
+loss = np.load(f"{root_path}/loss.npy")
+plt.plot(loss.flatten())
+plt.show()
+# fig.savefig(f"./figures/{loss}.png")
 
 # true_vp = np.load("/public1/home/wangsw/FWI/EFWI/Marmousi/marmousi_10m/velocity/true_vp.npy")
 # true_vs = np.load("/public1/home/wangsw/FWI/EFWI/Marmousi/marmousi_10m/velocity/true_vs.npy")

@@ -15,10 +15,10 @@ training:
 
   minibatch: true
 
-  batch_size: 1
+  batch_size: 20
 
   # Number of training epochs
-  N_epochs: 1
+  N_epochs: 50
 
   # Optimizer learning rate
   lr: 5
@@ -76,6 +76,7 @@ geom:
 
   multiscale: 
     - 3.0
+    - 5.0
 
   # Time Sampling step
   dt: 0.001
@@ -103,21 +104,12 @@ geom:
 
   # Probe x-coordinates in grid cells
   px:
-    
+  
   # Probe y-coordinates in grid cells
   py: 24
 
   # Spacing, in number grid cells, between probe points
   pd: 1
-
-  # Source x-coordinate in grid cells
-  src_x: 1
-
-  # Source y-coordinate in grid cells
-  src_y: 3
-
-  # Spacing, in number grid cells, between source points
-  src_d: 5
 
   pml:
     N: 50    # PML thickness in number of grid cells

@@ -87,7 +87,7 @@ def _time_step_backward(*args):
     for s_type in src_type:
         source_var = eval(s_type+"_copy")
         source_var = src_func(source_var, src_values, -1)
-        
+
     return vx_copy, vz_copy, txx_copy, tzz_copy, txz_copy
 
 def _time_step(*args):
@@ -162,10 +162,11 @@ class WaveCell(torch.nn.Module):
         checkpoint = self.geom.checkpoint
         forward = not self.geom.inversion
         inversion = self.geom.inversion
+        geoms = self.dt, self.geom.h, self.geom.d
 
         if checkpoint and inversion:
-            hidden = ckpt(_time_step, _time_step_backward, source_term, save_condition, len(model_vars), *model_vars, *wavefields, *[self.dt, self.geom.h, self.geom.d])
+            hidden = ckpt(_time_step, _time_step_backward, source_term, save_condition, len(model_vars), *model_vars, *wavefields, *geoms)
         if forward or (inversion and not checkpoint):
-            hidden = _time_step(*model_vars, *wavefields, *[self.dt, self.geom.h, self.geom.d])
+            hidden = _time_step(*model_vars, *wavefields, *geoms)
 
         return hidden

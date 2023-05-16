@@ -97,10 +97,7 @@ class WaveRNN(torch.nn.Module):
                                   is_last_frame=(i==x.size(1)-1), 
                                   omega=omega, 
                                   source=[self.cell.geom.source_type, super_source, xi.view(xi.size(1), -1)])
-            
-            np.save(f"/mnt/data/wangsw/inversion/marmousi_20m/elastic_testcode/forward/forward{np.random.randint(0, 1e6, 1)[0]}.npy",
-                 wavefield[0].cpu().detach().numpy())
-            
+
             # Set the data to vars
             for name, data in zip(wavefield_names, wavefield):
                 self.__setattr__(name, data)

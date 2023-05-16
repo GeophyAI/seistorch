@@ -95,9 +95,7 @@ if __name__ == '__main__':
         os.makedirs(ROOTPATH, exist_ok=True)
         print(f"The results will be saving at '{ROOTPATH}'")
     ### Get source-x and source-y coordinate in grid cells
-
-    source_x_list, source_y_list = get_sources_coordinate_list(cfg)
-
+    
     src_list, rec_list = get_src_and_rec(cfg)
 
     model.to(args.dev)

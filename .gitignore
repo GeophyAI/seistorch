@@ -1,5 +1,8 @@
 .vscode
-test
-figures
-config
+*.yml
+*.png
 wavetorch/__pycache__
+test
+config
+figures
+plot.py
