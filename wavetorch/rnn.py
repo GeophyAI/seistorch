@@ -78,9 +78,6 @@ class WaveRNN(torch.nn.Module):
         
         # Pack parameters
         model_paras = [self.__getattr__(name) for name in self.cell.geom.model_parameters]
-        
-        # Short cut of the save intervel
-        save_interval = self.cell.geom.save_interval
             
         # Loop through time
         x = x.to(device)

@@ -31,8 +31,6 @@ parser.add_argument('--num_threads', type=int, default=2,
                     help='Number of threads to use')
 parser.add_argument('--use-cuda', action='store_true',
                     help='Use CUDA to perform computations')
-parser.add_argument('--encoding', action='store_true',
-                    help='Use phase encoding to accelerate performance')
 parser.add_argument('--name', type=str, default=time.strftime('%Y%m%d%H%M%S'),
                     help='Name to use when saving or loading the model file. If not specified when saving a time and date stamp is used')
 parser.add_argument('--opt', choices=['adam', 'lbfgs', 'ncg'], default='adam',

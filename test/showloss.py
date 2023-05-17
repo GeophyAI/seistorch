@@ -6,11 +6,11 @@ import numpy as np
 
 
 """Objective loss function"""
-path = r"/public1/home/wangsw/FWI/EFWI/Marmousi/marmousi1_20m/compare_loss"
-# path = r"/public1/home/wangsw/FWI/EFWI/Marmousi/marmousi1_20m/compare_lr"
+# path = r"/public1/home/wangsw/FWI/EFWI/Marmousi/marmousi1_20m/compare_loss"
+path = r"/mnt/data/wangsw/inversion/marmousi_10m/compare_loss/"
 
-losses = ["l1", "l2", "envelope", "wd", "cc", "ncc", "huber"]
-# losses = ["lr2", "lr3"]
+losses = ["l1",  "envelope", "wd", "cl"]
+# losses = ["lr3", "lr5", "lr7", "lr10"]
 
 # "Objective function"
 # LOSS = []
@@ -27,8 +27,8 @@ losses = ["l1", "l2", "envelope", "wd", "cc", "ncc", "huber"]
 # plt.show()
 
 "Model error"
-true_vp = np.load("/public1/home/wangsw/FWI/EFWI/Marmousi/marmousi1_20m/velocity/true_vp.npy")[:,50:-50]
-true_vs = np.load("/public1/home/wangsw/FWI/EFWI/Marmousi/marmousi1_20m/velocity/true_vs.npy")[:,50:-50]
+true_vp = np.load("/mnt/data/wangsw/inversion/marmousi_10m/velocity/true_vp.npy")[:,50:-50]
+true_vs = np.load("/mnt/data/wangsw/inversion/marmousi_10m/velocity/true_vs.npy")[:,50:-50]
 
 FMAX = 2
 EPOCHMAX = 50
@@ -65,6 +65,11 @@ VS_ERROR = np.array(VS_ERROR)
 fig,ax=plt.subplots(1,1, figsize=(5,4))
 for i, loss_name in enumerate(losses):
     ax.plot(VP_ERROR[i])
+plt.legend(losses)
+plt.show()
+fig,ax=plt.subplots(1,1, figsize=(5,4))
+for i, loss_name in enumerate(losses):
+    ax.plot(VS_ERROR[i])
 plt.legend(losses)
 plt.show()
 

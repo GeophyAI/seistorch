@@ -46,9 +46,13 @@ parser.add_argument('--name', type=str, default=time.strftime('%Y%m%d%H%M%S'),
 parser.add_argument('--opt', choices=['adam', 'lbfgs', 'ncg'], default='adam',
                     help='optimizer (adam)')
 parser.add_argument('--loss', default='mse',
-                    help='loss')
+                    help='loss function')
 parser.add_argument('--save-path', default='',
                     help='the root path for saving results')
+parser.add_argument('--global-lr', type=int, default=-1,
+                    help='learning rate')
+parser.add_argument('--batchsize', type=int, default=-1,
+                    help='learning rate')
 parser.add_argument('--mode', choices=['inversion'], default='inversion',
                     help='forward modeling, inversion or reverse time migration mode')
 
@@ -85,17 +89,18 @@ if __name__ == '__main__':
     ACOUSTIC = cfg['equation'] == 'acoustic'
     EPOCHS = cfg['training']['N_epochs']
     NSHOTS = cfg['geom']['Nshots']
-    LEARNING_RATE = cfg['training']['lr']
+    LEARNING_RATE = cfg['training']['lr'] if args.global_lr < 0 else args.global_lr
     FILTER_ORDER = cfg['training']['filter_ord']
     MINIBATCH = cfg['training']['minibatch']
-    BATCHSIZE = cfg['training']['batch_size']
+    BATCHSIZE = cfg['training']['batch_size'] if args.batchsize < 0 else args.batchsize
     ROOTPATH = args.save_path if args.save_path else cfg["geom"]["inv_savePath"] 
     # Check the working folder
     if not os.path.exists(ROOTPATH):
         os.makedirs(ROOTPATH, exist_ok=True)
-        print(f"The results will be saving at '{ROOTPATH}'")
+    print(f"The results will be saving at '{ROOTPATH}'")
+    print(f"LEARNING_RATE of VP: {LEARNING_RATE}")
+    print(f"BATCHSIZE: {args.batchsize}")
     ### Get source-x and source-y coordinate in grid cells
-
     src_list, rec_list = get_src_and_rec(cfg)
 
     model.to(args.dev)
@@ -113,7 +118,6 @@ if __name__ == '__main__':
     """Write configure file to the inversion folder"""
     with open(os.path.join(ROOTPATH, "configure.yml"), "w") as f:
         dump(cfg, f)
-
 
     loss_weights = torch.autograd.Variable(torch.ones(3), requires_grad=True)
 

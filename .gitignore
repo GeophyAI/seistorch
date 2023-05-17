@@ -1,5 +1,4 @@
 .vscode
-*.yml
 *.png
 wavetorch/__pycache__
 test

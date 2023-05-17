@@ -23,10 +23,8 @@ training:
   # Optimizer learning rate
   lr: 5
 
+  # Milestone decay for lr
   lr_decay: 0.75
-
-  # when >2, can save gpu memory
-  save_interval: 10
 
   # Filter order
   filter_ord: 3
@@ -57,8 +55,8 @@ geom:
   
   # Inital Wave speed model from disk_file
   initPath: 
-    vp: /mnt/data/wangsw/inversion/marmousi_10m/velocity/init_vp.npy
-    vs: /mnt/data/wangsw/inversion/marmousi_10m/velocity/init_vs.npy
+    vp: /mnt/data/wangsw/inversion/marmousi_10m/velocity/linear_vp.npy
+    vs: /mnt/data/wangsw/inversion/marmousi_10m/velocity/linear_vs.npy
     rho: /mnt/data/wangsw/inversion/marmousi_10m/velocity/rho.npy
     Q:
 
@@ -78,8 +76,6 @@ geom:
     - 3.0
     - 5.0
     - 8.0
-    - 10.0
-
 
   # Time Sampling step
   dt: 0.001
