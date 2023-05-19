@@ -154,7 +154,9 @@ if __name__ == '__main__':
                 with torch.no_grad():
                     shot = task
                     source = setup_src_coords(src_list[shot], cfg['geom']['pml']['N'])
+                    probes = setup_rec_coords(rec_list[shot], cfg['geom']['pml']['N'])
                     model.reset_sources(source)
+                    model.reset_probes(probes)
                     y = model(x)
                     record[:] = y.cpu().detach().numpy()
 
@@ -289,6 +291,7 @@ if __name__ == '__main__':
                         sources = []
                         shot = task
                         src = setup_src_coords(src_list[shot], cfg['geom']['pml']['N'])
+                        probes = setup_rec_coords(rec_list[shot], cfg['geom']['pml']['N'])
                         sources.append(src)
 
                         """Calculate one shot gradient"""
@@ -299,6 +302,7 @@ if __name__ == '__main__':
                             """But only one shot here when traditional workflow is using"""
                             for _src, shot_num in zip(srcs, shot_nums_cur_epoch):
                                 model.reset_sources(_src)
+                                model.reset_probes(probes)
                                 ypred = model(lp_wavelet)
                                 target = to_tensor(filtered_data[shot_num]).to(ypred.device)#.unsqueeze(0)
                                 loss = criterion(ypred, target)

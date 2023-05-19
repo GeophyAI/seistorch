@@ -14,10 +14,10 @@ class WaveRNN(torch.nn.Module):
 
         self.check()
 
-        if type(probes) is list:
-            self.probes = torch.nn.ModuleList(probes)
-        else:
-            self.probes = torch.nn.ModuleList([probes])
+        # if type(probes) is list:
+        #     self.probes = torch.nn.ModuleList(probes)
+        # else:
+        #     self.probes = torch.nn.ModuleList([probes])
 
 
     def reset_sources(self, sources):

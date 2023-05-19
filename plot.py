@@ -52,14 +52,14 @@ import argparse
 # plt.colorbar(ax0)
 # plt.show()
 
-F = 2
-epoch = 49
+F = 0
+epoch = 0
 PMLN = 50
 # # epoch = args.epoch
 
 # # F=args.frequency_index
 # #root_path = r"/public1/home/wangsw/FWI/EFWI/Marmousi/marmousi_10m/l1reg"
-root_path = r"/mnt/data/wangsw/inversion/marmousi_10m/compare_loss/wd"
+root_path = r"/mnt/data/wangsw/inversion/marmousi_10m/compare_loss_goodinit/wd"
 loss = root_path.split("/")[-1]
 coding = "."
 grad_vp = np.load(f"{root_path}/{coding}/gradvpF{F:02d}E{epoch:02d}.npy")[PMLN:-PMLN,PMLN:-PMLN]
@@ -113,4 +113,16 @@ plt.show()
 # plt.tight_layout()
 # plt.show()
 
+d = np.load("/mnt/data/wangsw/inversion/marmousi_10m/data/marmousi_elastic_obn.npy")[1,...,0]
+d2 = np.load("/mnt/data/wangsw/inversion/marmousi_10m/data/marmousi_elastic_obn_test.npy")[1,...,0]
 
+fig,axes = plt.subplots(1,3, figsize=(10,3))
+vmin, vmax = np.percentile(d, [1, 99])
+ax0=axes[0].imshow(d.squeeze(), vmin=vmin, vmax=vmax, aspect='auto', cmap=plt.cm.jet)
+vmin, vmax = np.percentile(d2, [1, 99])
+ax1=axes[1].imshow(d2.squeeze(), vmin=vmin, vmax=vmax, aspect='auto', cmap=plt.cm.jet)
+ax1=axes[2].imshow(d-d2.squeeze(), vmin=vmin, vmax=vmax, aspect='auto', cmap=plt.cm.jet)
+
+plt.colorbar(ax1)
+plt.colorbar(ax0)
+plt.show()

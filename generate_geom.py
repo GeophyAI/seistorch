@@ -19,7 +19,7 @@ receiver_counts = 561*2
 
 for shot in range(shots):
     recv_z = [48 for i in range(receiver_counts)]
-    recv_x = [i for i in range(receiver_counts)]
+    recv_x = [i+1 for i in range(receiver_counts)]
     receivers.append([recv_x, recv_z])
 
 def write_pkl(path: str, data: list):

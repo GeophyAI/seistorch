@@ -105,6 +105,9 @@ if __name__ == '__main__':
 
     model.to(args.dev)
     model.train()
+    # In coding fwi, the probes are set only once.
+    probes = setup_rec_coords(rec_list[0], cfg['geom']['pml']['N'])
+    model.reset_probes(probes)
 
     """# Read the wavelet"""
     x = ricker_wave(cfg['geom']['fm'], cfg['geom']['dt'], cfg['geom']['nt'])
@@ -124,14 +127,14 @@ if __name__ == '__main__':
     """Define Optimizer"""
     if args.opt=='adam':
         if ACOUSTIC:
-            optimizer = torch.optim.Adam(model.parameters(), lr=LEARNING_RATE, eps=1e-16)
+            optimizer = torch.optim.Adam(model.parameters(), lr=LEARNING_RATE, eps=1e-20)
         if ELASTIC: 
             optimizer = torch.optim.Adam([
                     {'params': model.cell.get_parameters('vp'), 'lr':LEARNING_RATE},
                     {'params': model.cell.get_parameters('vs'), 'lr':LEARNING_RATE/1.73},
                     {'params': model.cell.get_parameters('rho'), 'lr':0.},
                     {'params': [loss_weights], 'lr': 0.01}], 
-                    betas=(0.9, 0.999), eps=1e-16)
+                    betas=(0.9, 0.999), eps=1e-20)
             
     if args.opt == "ncg":
         optimizer = NCG(model.parameters(), lr=10., max_iter_line_search=10)
@@ -188,6 +191,7 @@ if __name__ == '__main__':
                 wave_temp, d_temp = roll(lp_wavelet, filtered_data[shot])
                 coding_wavelet[i] = to_tensor(wave_temp).to(args.dev)
                 coding_obs += to_tensor(d_temp).to(args.dev)
+
 
             """Calculate encoding gradient"""
             def closure(loss_weights):

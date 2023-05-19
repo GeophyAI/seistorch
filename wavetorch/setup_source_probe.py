@@ -7,8 +7,8 @@ def setup_src_coords(coords, Npml):
     src_x, src_y = coords
     return WaveSource(src_y+Npml, src_x+Npml)
 
-def setup_rec_coords(rec_x, rec_y, Npml):
-
+def setup_rec_coords(coords, Npml):
+    rec_x, rec_y = coords
     y = [py+Npml for py in rec_y]
     x = [px+Npml for px in rec_x]
 

@@ -27,24 +27,24 @@ training:
   lr_decay: 0.75
 
   # Filter order
-  filter_ord: 5
+  filter_ord: 3
 
 geom:
 
   # The observer data
-  obsPath: /mnt/data/wangsw/inversion/marmousi_10m/data/marmousi_elastic_obn.npy
+  obsPath: /mnt/data/wangsw/inversion/marmousi_20m/data/marmousi_elastic_obn.npy
 
   # Wave speed model from disk_file for forward modeling
   truePath:
-    vp: /mnt/data/wangsw/inversion/marmousi_10m/velocity/true_vp.npy
-    vs: /mnt/data/wangsw/inversion/marmousi_10m/velocity/true_vs.npy
-    rho: /mnt/data/wangsw/inversion/marmousi_10m/velocity/rho.npy
+    vp: /mnt/data/wangsw/inversion/marmousi_20m/velocity/true_vp.npy
+    vs: /mnt/data/wangsw/inversion/marmousi_20m/velocity/true_vs.npy
+    rho: /mnt/data/wangsw/inversion/marmousi_20m/velocity/rho.npy
     Q: 
-    #/mnt/data/wangsw/inversion/marmousi_10m/data//velocity/q_const.npy
+    #/mnt/data/wangsw/inversion/marmousi_20m/data//velocity/q_const.npy
 
-  sources: ./geometry/marmousi_obn_10m/sources.pkl
+  sources: ./geometry/marmousi_obn_20m/sources.pkl
 
-  receivers: ./geometry/marmousi_obn_10m/receivers.pkl
+  receivers: ./geometry/marmousi_obn_20m/receivers.pkl
 
   source_type:
     - vz
@@ -55,9 +55,9 @@ geom:
   
   # Inital Wave speed model from disk_file
   initPath: 
-    vp: /mnt/data/wangsw/inversion/marmousi_10m/velocity/init_vp.npy
-    vs: /mnt/data/wangsw/inversion/marmousi_10m/velocity/init_vs.npy
-    rho: /mnt/data/wangsw/inversion/marmousi_10m/velocity/rho.npy
+    vp: /mnt/data/wangsw/inversion/marmousi_20m/velocity/init_vp.npy
+    vs: /mnt/data/wangsw/inversion/marmousi_20m/velocity/init_vs.npy
+    rho: /mnt/data/wangsw/inversion/marmousi_20m/velocity/rho.npy
     Q:
 
   invlist:
@@ -70,13 +70,12 @@ geom:
   ckpt: true
 
   # Save the results of FWI
-  inv_savePath: /mnt/data/wangsw/inversion/marmousi_10m/Test
+  inv_savePath: /mnt/data/wangsw/inversion/marmousi_20m/Test
 
   multiscale:
     - 3.0
     - 5.0
     - 8.0
-    - all
 
   # Time Sampling step
   dt: 0.001
@@ -95,6 +94,21 @@ geom:
 
   # Total Shots
   Nshots: 111
+
+  # Probe init_x coordinate in grid cells
+  ipx: 1
+
+  # Source init_x coordinate in grid cells
+  isx: 1
+
+  # Probe x-coordinates in grid cells
+  px:
+  
+  # Probe y-coordinates in grid cells
+  py: 24
+
+  # Spacing, in number grid cells, between probe points
+  pd: 1
 
   pml:
     N: 50    # PML thickness in number of grid cells

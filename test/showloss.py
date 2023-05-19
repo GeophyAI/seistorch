@@ -7,30 +7,30 @@ import numpy as np
 
 """Objective loss function"""
 # path = r"/public1/home/wangsw/FWI/EFWI/Marmousi/marmousi1_20m/compare_loss"
-path = r"/mnt/data/wangsw/inversion/marmousi_10m/compare_loss/"
+path = r"/mnt/data/wangsw/inversion/marmousi_10m/compare_loss_goodinit/"
 
-losses = ["l1",  "envelope", "wd", "cl"]
+losses = ["l1", "l2", "wd"]
 # losses = ["lr3", "lr5", "lr7", "lr10"]
 
-# "Objective function"
-# LOSS = []
-# for loss_name in losses:
-#     loss_path = os.path.join(path, loss_name, "loss.npy")
-#     LOSS.append(np.load(loss_path))
+"Objective function"
+LOSS = []
+for loss_name in losses:
+    loss_path = os.path.join(path, loss_name, "loss.npy")
+    LOSS.append(np.load(loss_path))
 
-# fig,ax=plt.subplots(1,1, figsize=(10,8))
-# for _loss in LOSS:
-#     for i in range(_loss.shape[0]):
-#         _loss[i] /= _loss[i][0]
-#     ax.plot(_loss.flatten())
-# plt.legend(losses)
-# plt.show()
+fig,ax=plt.subplots(1,1, figsize=(10,8))
+for _loss in LOSS:
+    for i in range(_loss.shape[0]):
+        _loss[i] /= _loss[i][0]
+    ax.plot(_loss.flatten())
+plt.legend(losses)
+plt.show()
 
 "Model error"
 true_vp = np.load("/mnt/data/wangsw/inversion/marmousi_10m/velocity/true_vp.npy")[:,50:-50]
 true_vs = np.load("/mnt/data/wangsw/inversion/marmousi_10m/velocity/true_vs.npy")[:,50:-50]
 
-FMAX = 2
+FMAX = 3
 EPOCHMAX = 50
 PMLN = 50
 VP_ERROR = []

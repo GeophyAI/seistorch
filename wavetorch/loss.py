@@ -170,42 +170,21 @@ class Phase(torch.nn.Module):
         hilbert_data = hilbert_data[:nt]
 
         return hilbert_data.real   
-    
-    def hilbert2d(self, data):
-        # 计算输入数据的希尔伯特变换
-        nt, nd, _ = data.shape
-        
-        # 使用PyTorch进行FFT
-        data_fft = torch.fft.fft2(data, dim=(0, 1))
-        
-        # 构造希尔伯特滤波器
-        nfft = data_fft.shape[0]
-        h = torch.zeros(nfft, device=data.device)
-        h[0] = 1
-        h[1:(nfft // 2)] = 2
-        if nfft % 2 == 0:
-            h[nfft // 2] = 1
-        
-        # 添加维度使 h 和 data_fft 形状相同
-        h = h.unsqueeze(1).unsqueeze(2)
-        
-        # 应用滤波器并计算逆FFT
-        hilbert_data_fft = data_fft * h
-        hilbert_data = torch.fft.ifft2(hilbert_data_fft, dim=(0, 1))
-        
-        # 截断结果至原始长度
-        hilbert_data = hilbert_data[:nt, :nd]
-        
-        return hilbert_data.real
 
 
-    def instantaneous_phase(self, seismograms):
-        hilbert_transform = self.hilbert2d(seismograms)
+    def instantaneous_phase(self, seismograms, mask_value=1e-5):
+        # 生成一个mask用于去噪
+        mask = torch.ones_like(seismograms).to(seismograms.device)
+        mask[torch.abs(seismograms)<mask_value] = 0
+
+        hilbert_transform = self.hilbert(seismograms)
 
         analytic_signal = seismograms + \
             hilbert_transform.to(seismograms.device) * 1j
+        
         phase = torch.angle(analytic_signal)*180/3.14159
-        return phase
+
+        return phase*mask
 
     def forward(self, x, y):
         pred_phase = self.instantaneous_phase(x)

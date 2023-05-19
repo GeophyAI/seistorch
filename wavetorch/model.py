@@ -47,7 +47,7 @@ def build_model(config_path, device = "cuda", mode="forward"):
         np.random.seed(cfg['seed'])
 
     # Set up probes
-    probes = setup_probe_coords_customer(cfg)
+    # probes = setup_probe_coords_customer(cfg)
     # Set up geometry
     geom  = WaveGeometryFreeForm(**cfg)
     geom.inversion = mode == "inversion"
@@ -65,6 +65,6 @@ def build_model(config_path, device = "cuda", mode="forward"):
     
     cell = WaveCell[cfg['equation']](geom)
 
-    model = WaveRNN(cell, probes=probes)
+    model = WaveRNN(cell)
 
     return cfg, model
