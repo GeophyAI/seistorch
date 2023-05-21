@@ -3,6 +3,39 @@ import torch
 
 from .wavefield import Wavefield
 from .source import WaveSource
+from .utils import diff_using_roll
+
+def _time_step(*args):
+
+    vp, rho = args[0:2]
+    vx, vz, p = args[2:5]
+    dt, h, b = args[5:8]
+    # 更新速度场
+    c = 0.5*dt*b
+
+    p_x = diff_using_roll(p, 2, False)
+    p_z = diff_using_roll(p, 1, False)
+
+    y_vx = dt * diff_using_roll(p, 2, False) / h - dt  * vx
+    y_vz = dt * diff_using_roll(p, 1, False) / h - dt  * vz
+
+
+    # y_vx = (1+c)**-1*(dt*rho.pow(-1)*h.pow(-1)*p_x+(1-c)*vx)
+    # y_vz = (1+c)**-1*(dt*rho.pow(-1)*h.pow(-1)*p_z+(1-c)*vz)
+
+    # x -- 2
+    # z -- 1
+    # vx_x = diff_using_roll(y_vx, 2)
+    # vz_z = diff_using_roll(y_vz, 1)
+    # 更新力场
+    y_p = dt * vp**2 * (
+         diff_using_roll(y_vx, dim=2) / h +
+         diff_using_roll(y_vz, dim=1) / h
+    ) - dt * p
+
+    # y_p = (1+c)**-1*(vp**2*dt*rho.pow(-1)*h.pow(-1)*(vx_x+vz_z)+(1-c)*p)
+
+    return y_vx, y_vz, y_p
 
 
 class WaveRNN(torch.nn.Module):
@@ -75,10 +108,10 @@ class WaveRNN(torch.nn.Module):
         # Set model parameters
         for name in self.cell.geom.model_parameters:
             self.__setattr__(name, self.cell.geom.__getattr__(name))
-        
+
         # Pack parameters
         model_paras = [self.__getattr__(name) for name in self.cell.geom.model_parameters]
-            
+
         # Loop through time
         x = x.to(device)
         super_source = WaveSource([s.x for s in self.sources], 
@@ -86,6 +119,10 @@ class WaveRNN(torch.nn.Module):
 
         for i, xi in enumerate(x.chunk(x.size(1), dim=1)):
 
+            # if i %1==0:
+            #     np.save(f"/mnt/data/wangsw/inversion/marmousi_10m/inv_rho/l2/forward/forward{i:04d}.npy", 
+            #             self.p.cpu().detach().numpy())
+                
             # Propagate the fields
             wavefield = [self.__getattribute__(name) for name in wavefield_names]
 
@@ -95,14 +132,15 @@ class WaveRNN(torch.nn.Module):
                                   omega=omega, 
                                   source=[self.cell.geom.source_type, super_source, xi.view(xi.size(1), -1)])
 
+
             # Set the data to vars
             for name, data in zip(wavefield_names, wavefield):
                 self.__setattr__(name, data)
 
-            # Add source
+            # # Add source
             for source_type in self.cell.geom.source_type:
                 self.__setattr__(source_type, super_source(self.__getattribute__(source_type), xi.view(xi.size(1), -1)))
-            # print(self.vz.size(), xi.view(xi.size(1), -1).size())
+
             # Measure probe(s)
             for probe in self.probes:
                 for receiver, p_all_sub in zip(self.cell.geom.receiver_type, p_all):

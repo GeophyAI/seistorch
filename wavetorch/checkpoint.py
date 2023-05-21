@@ -105,6 +105,7 @@ def nested_grads(nested_list):
 class CheckpointFunction(torch.autograd.Function):
 
     wavefields = []
+    counts=0
     @staticmethod
     def forward(ctx, 
                 run_function, 
@@ -163,7 +164,12 @@ class CheckpointFunction(torch.autograd.Function):
 
         if isinstance(outputs, torch.Tensor):
             outputs = (outputs,)
-        
+
+        # CheckpointFunction.counts+=1
+        # if CheckpointFunction.counts %1==0:
+        #     np.save(f"/mnt/data/wangsw/inversion/marmousi_10m/inv_rho/l2/backward/backward{CheckpointFunction.counts:04d}.npy", 
+        #             outputs[-1].cpu().detach().numpy())
+                
         # Update wavefields
         CheckpointFunction.wavefields.clear()
         CheckpointFunction.wavefields.extend(list(outputs))

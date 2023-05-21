@@ -3,14 +3,12 @@ import torch.nn.functional as F
 from torch.nn.functional import pairwise_distance
 from scipy.signal import hilbert
 
-loss_dict = ["wd", "ncc", "mse", "envelope",
-             "cc", "huber", "phase", "l2", "l1", "cl"]
-
 
 class Loss:
 
     def __init__(self, loss="mse"):
-        assert loss in loss_dict, f"Cannot find loss named {loss}"
+        all_loss = [method for method in dir(self) if callable(getattr(self, method)) and not method.startswith('__')]
+        assert loss in all_loss, f"Cannot find loss named {loss}"
         self.loss_name = loss
 
     def loss(self,):
@@ -21,6 +19,9 @@ class Loss:
 
     def l2(self,):
         return torch.nn.MSELoss()
+    
+    def l2_reg(self, ):
+        return L2_Reg()
 
     def l1(self,):
         return torch.nn.L1Loss()
@@ -48,7 +49,22 @@ class Loss:
 
     def huber(self,):
         return Huber()
+    
+class L2_Reg(torch.nn.Module):
+    def __init__(self, beta=0.001):
+        """
+        Initializes the RegularizedLoss
 
+        Args:
+            dt (float): The time step. Default is 1.0.
+        """
+        self.beta = beta
+        super().__init__()
+
+    def forward(self, x, y, m):
+        mse_loss = torch.nn.MSELoss()(x, y)
+        reg_loss = self.beta * torch.norm(m.grad, p=2)
+        return mse_loss+reg_loss
 
 class NormalizedCrossCorrelation(torch.nn.Module):
     def __init__(self, dt=1.0):

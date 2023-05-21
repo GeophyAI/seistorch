@@ -9,6 +9,7 @@ class Shape():
         self.nshots = cfg['geom']['Nshots']
 
         self.channels = {'acoustic': 1,
+                         'acoustic1st': 1,
                          'elastic': 2, 
                          'aec': 3}[equation]
 
@@ -24,11 +25,13 @@ class Shape():
     def __init_lib__(self,):
         
         self.grad2d_lib = {'acoustic': self.__grad2d_acoustic, 
+                           'acoustic1st': self.__grad2d_acoustic, 
                            'viscoacoustic': self.__grad2d_acoustic, 
                            'elastic': self.__grad2d_elastic,
                            "aec" : self.__grad2d_elastic}
         
         self.grad3d_lib = {'acoustic': self.__grad3d_acoustic, 
+                           'acoustic1st': self.__grad3d_acoustic,
                            'viscoacoustic': self.__grad3d_acoustic, 
                            'elastic': self.__grad3d_elastic,
                            "aec" : self.__grad3d_elastic}

@@ -126,6 +126,13 @@ if __name__ == '__main__':
 
     """Define Optimizer"""
     if args.opt=='adam':
+        optimizer = torch.optim.Adam([
+                {'params': model.cell.get_parameters('vp'), 'lr':LEARNING_RATE}], 
+                betas=(0.9, 0.999), eps=1e-20)
+        # optimizer = torch.optim.Adam([
+        #         {'params': model.cell.get_parameters('vp'), 'lr':LEARNING_RATE},
+        #         {'params': model.cell.get_parameters('rho'), 'lr':LEARNING_RATE/1.73}], 
+        #         betas=(0.9, 0.999), eps=1e-20)
         if ACOUSTIC:
             optimizer = torch.optim.Adam(model.parameters(), lr=LEARNING_RATE, eps=1e-20)
         if ELASTIC: 
@@ -225,6 +232,7 @@ if __name__ == '__main__':
                 #             hessian_param_diag.append(0)
                 #     hessian_diag.append(torch.tensor(hessian_param_diag))
                 """Hessian END"""
+                # loss.backward(retain_graph=True)
                 loss.backward()
                 return loss
 

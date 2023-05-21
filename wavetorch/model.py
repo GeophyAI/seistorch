@@ -7,6 +7,7 @@ from .cell_elastic import WaveCell as WaveCellElastic
 from .cell_acoustic import WaveCell as WaveCellAcoustic
 from .cell_viscoacoustic import WaveCell as WaveCellViscoacoustic
 from .cell_aec import WaveCell as WaveCellAcousticElasticCoupled
+from .cell_acoustic1st import WaveCell as WaveCellAcoustic1st
 
 from .rnn import WaveRNN
 
@@ -51,17 +52,15 @@ def build_model(config_path, device = "cuda", mode="forward"):
     # Set up geometry
     geom  = WaveGeometryFreeForm(**cfg)
     geom.inversion = mode == "inversion"
-    # Add the key 'equation' to the configure file
-    #cfg['equation'] = geom.equation
 
     # Branch
-
-    assert cfg['equation'] in ['acoustic', 'elastic', 'viscoacoustic', 'aec'], f"Cannot find such equation type {cfg['equation']}"
+    assert cfg['equation'] in ['acoustic', 'acoustic1st', 'elastic', 'viscoacoustic', 'aec'], f"Cannot find such equation type {cfg['equation']}"
 
     WaveCell = {"elastic": WaveCellElastic, 
                 "aec": WaveCellAcousticElasticCoupled,
                 "acoustic": WaveCellAcoustic,
-                "viscoacoustic": WaveCellViscoacoustic}
+                "viscoacoustic": WaveCellViscoacoustic, 
+                "acoustic1st": WaveCellAcoustic1st}
     
     cell = WaveCell[cfg['equation']](geom)
 

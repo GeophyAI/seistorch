@@ -6,10 +6,7 @@ name: coding_fwi
 # Data type to use for tensors, either float32 or float64
 dtype: float32
 
-# Using autodiff or not
-autodiff: true
-
-equation: elastic
+equation: acoustic
 
 training:
 
@@ -27,12 +24,12 @@ training:
   lr_decay: 0.75
 
   # Filter order
-  filter_ord: 5
+  filter_ord: 3
 
 geom:
 
   # The observer data
-  obsPath: /mnt/data/wangsw/inversion/marmousi_10m/data/marmousi_elastic_obn.npy
+  obsPath: /mnt/data/wangsw/inversion/marmousi_10m/data/marmousi_acoustic_obn_constRHO.npy
 
   # Wave speed model from disk_file for forward modeling
   truePath:
@@ -47,11 +44,10 @@ geom:
   receivers: ./geometry/marmousi_obn_10m/receivers.pkl
 
   source_type:
-    - vz
+    - h1
 
   receiver_type:
-    - vx
-    - vz
+    - h1
   
   # Inital Wave speed model from disk_file
   initPath: 
@@ -62,8 +58,8 @@ geom:
 
   invlist:
     vp: true
-    vs: true
-    rho: true
+    vs: false
+    rho: false
     q: false
 
   # using checkpoint for saving memory

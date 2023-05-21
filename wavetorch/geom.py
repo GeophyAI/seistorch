@@ -51,6 +51,7 @@ class WaveGeometry(torch.nn.Module):
         """Initialize the distribution of the d for unsplit PML"""
         """[1], Wei Zhang, Yang Shen, doi:10.1190/1.3463431"""
         self._init_d(abs_N, cp=cp, order=pd)
+        #np.save("/home/wangsw/Desktop/wangsw/fwi/pmld.npy", self.d.cpu().detach().numpy())
 
     def _corners(self, abs_N, d, dx, dy):
         Nx, Ny = self.domain_shape
@@ -128,7 +129,7 @@ class WaveGeometryFreeForm(WaveGeometry):
         h = kwargs['geom']['h']
         abs_N = kwargs['geom']['pml']['N']
         domain_shape = kwargs['domain_shape']
-        self.autodiff = kwargs['autodiff']
+        self.autodiff = True
         self.dt = kwargs['geom']['dt']
         self.checkpoint = kwargs['geom']['ckpt']
         self.device = kwargs['device']
@@ -142,8 +143,6 @@ class WaveGeometryFreeForm(WaveGeometry):
         self.equation = kwargs["equation"]
 
         self._init_model(kwargs['VEL_PATH'], kwargs['geom']['invlist'])
-        # Determine the equation type elastic or acoustic
-        #self.equation = self.determine_eq_type()
 
         
     def _init_model(self, modelPath: dict, invlist: dict):
@@ -172,16 +171,9 @@ class WaveGeometryFreeForm(WaveGeometry):
     def valid_model_paras(self,):
 
         return {"acoustic": ["vp"],
+                "acoustic1st": ["vp", "rho"],
                 "elastic": ["vp", "vs", "rho"],
                 "aec": ["vp", "vs", "rho"]}
-
-
-    def determine_eq_type(self,):
-        paras = self.model_parameters
-        if len(paras)==1 and 'vp' in paras: return "acoustic"
-        if len(paras)==3 and 'Q'  in paras: return "viscoacoustic"
-        if len(paras)==3 and "vs" in paras: return "elastic"
-        # if len(paras)==3 and "vs" in paras: return "elastic"
     
     def __repr__(self):
         return f"Paramters of {self.model_parameters} have been defined."

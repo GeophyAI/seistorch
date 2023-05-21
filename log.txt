@@ -1,6 +1,7 @@
 Configuration: config/coding.yml
 Using CUDA for calculation
-Using adam
-Data filtering: frequency:3.0
-tensor([[ 0.0000e+00,  0.0000e+00,  0.0000e+00,  ..., -4.5768e-13,
-         -4.5145e-13, -4.4517e-13]], device='cuda:0')
+Optimizer: adam
+'vs' found, but get equation acoustic1st and skipped
+'vs' found, but get equation acoustic1st and skipped
+'vs' found, but get equation acoustic1st and skipped
+Modeling done, data will be writing to disk.
