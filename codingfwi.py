@@ -15,7 +15,7 @@ from wavetorch.loss import Loss
 # from tensorflow.keras.models import load_model
 from wavetorch.model import build_model
 from wavetorch.optimizer import NonlinearConjugateGradient as NCG
-from wavetorch.shape import Shape
+from wavetorch.eqconfigure import Shape
 from wavetorch.utils import cpu_fft, ricker_wave, roll, to_tensor, get_src_and_rec
 from wavetorch.setup_source_probe import setup_src_coords, setup_rec_coords
 # from torchviz import make_dot
@@ -25,10 +25,6 @@ torch.backends.cuda.matmul.allow_tf32 = True
 # The flag below controls whether to allow TF32 on cuDNN. This flag defaults to True.
 torch.backends.cudnn.allow_tf32 = True
 from torch.cuda.amp import autocast, GradScaler
-
-
-from wavetorch.setup_source_probe import (get_sources_coordinate_list,
-                                          setup_src_coords_customer)
 
 parser = argparse.ArgumentParser()
 parser.add_argument('config', type=str, 
@@ -108,7 +104,7 @@ if __name__ == '__main__':
     # In coding fwi, the probes are set only once.
     probes = setup_rec_coords(rec_list[0], cfg['geom']['pml']['N'])
     model.reset_probes(probes)
-
+    # print(probes)
     """# Read the wavelet"""
     x = ricker_wave(cfg['geom']['fm'], cfg['geom']['dt'], cfg['geom']['nt'])
 
@@ -165,8 +161,7 @@ if __name__ == '__main__':
     coding_obs = torch.zeros(shape.record2d, device=args.dev)
     coding_wavelet = torch.zeros((BATCHSIZE, shape.nt), device=args.dev)
     loss = np.zeros((len(cfg['geom']['multiscale']), EPOCHS), np.float32)
-    # The gradient in rank0 is a 3D array.
-    grad2d = np.zeros(shape.grad2d, np.float32)
+
     """Loop over all scale"""
     for idx_freq, freq in enumerate(cfg['geom']['multiscale']):
 
@@ -198,7 +193,6 @@ if __name__ == '__main__':
                 wave_temp, d_temp = roll(lp_wavelet, filtered_data[shot])
                 coding_wavelet[i] = to_tensor(wave_temp).to(args.dev)
                 coding_obs += to_tensor(d_temp).to(args.dev)
-
 
             """Calculate encoding gradient"""
             def closure(loss_weights):

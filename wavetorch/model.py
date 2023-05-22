@@ -1,22 +1,20 @@
 
-import torch
+import importlib
+
 import numpy as np
+import torch
 from yaml import load
-from .utils import set_dtype, update_cfg
-from .cell_elastic import WaveCell as WaveCellElastic
-from .cell_acoustic import WaveCell as WaveCellAcoustic
-from .cell_viscoacoustic import WaveCell as WaveCellViscoacoustic
-from .cell_aec import WaveCell as WaveCellAcousticElasticCoupled
-from .cell_acoustic1st import WaveCell as WaveCellAcoustic1st
 
-from .rnn import WaveRNN
-
+from .cell import WaveCell
 from .geom import WaveGeometryFreeForm
-from .setup_source_probe import setup_src_coords_customer, setup_probe_coords_customer, get_sources_coordinate_list
+from .rnn import WaveRNN
+from .utils import set_dtype, update_cfg
+
 try:
-    from yaml import CLoader as Loader, CDumper as Dumper
+    from yaml import CDumper as Dumper
+    from yaml import CLoader as Loader
 except ImportError:
-    from yaml import Loader, Dumper
+    from yaml import Dumper, Loader
 
 def build_model(config_path, device = "cuda", mode="forward"):
 
@@ -47,23 +45,22 @@ def build_model(config_path, device = "cuda", mode="forward"):
         torch.manual_seed(cfg['seed'])
         np.random.seed(cfg['seed'])
 
-    # Set up probes
-    # probes = setup_probe_coords_customer(cfg)
     # Set up geometry
     geom  = WaveGeometryFreeForm(**cfg)
     geom.inversion = mode == "inversion"
 
-    # Branch
-    assert cfg['equation'] in ['acoustic', 'acoustic1st', 'elastic', 'viscoacoustic', 'aec'], f"Cannot find such equation type {cfg['equation']}"
-
-    WaveCell = {"elastic": WaveCellElastic, 
-                "aec": WaveCellAcousticElasticCoupled,
-                "acoustic": WaveCellAcoustic,
-                "viscoacoustic": WaveCellViscoacoustic, 
-                "acoustic1st": WaveCellAcoustic1st}
-    
-    cell = WaveCell[cfg['equation']](geom)
-
+    # Import cells
+    module_name = f"wavetorch.equations.{cfg['equation']}"
+    try:
+        module = importlib.import_module(module_name)
+    except ImportError:
+        print(f"Cannot found cell '{module_name}'. Please check your equation in configure file.")
+    # Import the forward and backward functions with the specified equation
+    forward_func = getattr(module, "_time_step", None)
+    backward_func = getattr(module, "_time_step_backward", None)
+    # Build Cell
+    cell = WaveCell(geom, forward_func, backward_func)
+    # Build RNN
     model = WaveRNN(cell)
 
     return cfg, model

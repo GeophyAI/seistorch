@@ -18,7 +18,7 @@ receivers = []
 receiver_counts = 561*2
 
 for shot in range(shots):
-    recv_z = [48 for i in range(receiver_counts)]
+    recv_z = [3 for i in range(receiver_counts)]
     recv_x = [i+1 for i in range(receiver_counts)]
     receivers.append([recv_x, recv_z])
 
@@ -27,5 +27,5 @@ def write_pkl(path: str, data: list):
     with open(path, 'wb') as f:
         pickle.dump(data, f)
 
-write_pkl("./geometry/marmousi_obn_10m/sources.pkl", sources)
-write_pkl("./geometry/marmousi_obn_10m/receivers.pkl", receivers)
+write_pkl("./geometry/marmousi_surface_10m/sources.pkl", sources)
+write_pkl("./geometry/marmousi_surface_10m/receivers.pkl", receivers)

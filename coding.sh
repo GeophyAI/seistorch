@@ -2,9 +2,9 @@
 python codingfwi.py config/coding.yml \
 --gpuid 0 \
 --opt adam \
---loss ncc \
+--loss l2 \
 --mode inversion \
 --batchsize 20 \
 --global-lr 5 \
---save-path /mnt/data/wangsw/inversion/marmousi_10m/const_rho/ncc \
+--save-path /mnt/data/wangsw/inversion/marmousi_10m/elastic/l2 \
 --use-cuda

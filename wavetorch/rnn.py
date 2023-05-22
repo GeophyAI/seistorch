@@ -1,42 +1,8 @@
 import numpy as np
 import torch
 
-from .wavefield import Wavefield
+from .eqconfigure import Wavefield
 from .source import WaveSource
-from .utils import diff_using_roll
-
-def _time_step(*args):
-
-    vp, rho = args[0:2]
-    vx, vz, p = args[2:5]
-    dt, h, b = args[5:8]
-    # 更新速度场
-    c = 0.5*dt*b
-
-    p_x = diff_using_roll(p, 2, False)
-    p_z = diff_using_roll(p, 1, False)
-
-    y_vx = dt * diff_using_roll(p, 2, False) / h - dt  * vx
-    y_vz = dt * diff_using_roll(p, 1, False) / h - dt  * vz
-
-
-    # y_vx = (1+c)**-1*(dt*rho.pow(-1)*h.pow(-1)*p_x+(1-c)*vx)
-    # y_vz = (1+c)**-1*(dt*rho.pow(-1)*h.pow(-1)*p_z+(1-c)*vz)
-
-    # x -- 2
-    # z -- 1
-    # vx_x = diff_using_roll(y_vx, 2)
-    # vz_z = diff_using_roll(y_vz, 1)
-    # 更新力场
-    y_p = dt * vp**2 * (
-         diff_using_roll(y_vx, dim=2) / h +
-         diff_using_roll(y_vz, dim=1) / h
-    ) - dt * p
-
-    # y_p = (1+c)**-1*(vp**2*dt*rho.pow(-1)*h.pow(-1)*(vx_x+vz_z)+(1-c)*p)
-
-    return y_vx, y_vz, y_p
-
 
 class WaveRNN(torch.nn.Module):
     def __init__(self, cell, sources=None, probes=[]):
@@ -44,14 +10,8 @@ class WaveRNN(torch.nn.Module):
         super().__init__()
 
         self.cell = cell
-
+        #  Check the availability of the type of sources and probes.
         self.check()
-
-        # if type(probes) is list:
-        #     self.probes = torch.nn.ModuleList(probes)
-        # else:
-        #     self.probes = torch.nn.ModuleList([probes])
-
 
     def reset_sources(self, sources):
         if type(sources) is list:

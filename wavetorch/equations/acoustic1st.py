@@ -1,10 +1,4 @@
-import numpy as np
-import torch
-
-from .checkpoint import checkpoint as ckpt
-from .operators import _laplacian
-from .utils import to_tensor, diff_using_roll
-from .utils import restore_boundaries
+from .utils import restore_boundaries, diff_using_roll
 
 NPML = 50
 N = 2
@@ -99,50 +93,3 @@ def _time_step_backward(*args):
         source_var = src_func(source_var, src_values, -1)
 
     return vx_copy, vz_copy, p_copy
-
-
-class WaveCell(torch.nn.Module):
-    """The recurrent neural network cell implementing the scalar wave equation"""
-
-    def __init__(self, geometry):
-
-        super().__init__()
-
-        # Set values
-        self.geom = geometry
-        self.register_buffer("dt", to_tensor(self.geom.dt))
-
-    def parameters(self, recursive=True):
-        for param in self.geom.parameters():
-            yield param
-
-    def get_parameters(self, key=None, recursive=True):
-        yield self.geom.__getattr__(key)
-
-    def forward(self, wavefields, model_vars, **kwargs):
-        """Take a step through time
-        Parameters
-        ----------
-        vx, vz, txx, tzz, txz : 
-             wave field one time step ago
-        vp  :
-            Vp velocity.
-        vs  :
-            Vs velocity.
-        rho : 
-            Projected density, required for nonlinear response (this gets passed in to avoid generating it on each time step, saving memory for backprop)
-        """
-        save_condition=kwargs["is_last_frame"]
-        source_term = kwargs["source"]
-
-        checkpoint = self.geom.checkpoint
-        forward = not self.geom.inversion
-        inversion = self.geom.inversion
-        geoms = self.dt, self.geom.h, self.geom.d
-
-        if checkpoint and inversion:
-            hidden = ckpt(_time_step, _time_step_backward, source_term, save_condition, len(model_vars), *model_vars, *wavefields, *geoms)
-        if forward or (inversion and not checkpoint):
-            hidden = _time_step(*model_vars, *wavefields, *geoms)
-
-        return hidden

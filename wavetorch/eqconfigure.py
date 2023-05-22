@@ -1,3 +1,47 @@
+class Parameters:
+    """ 
+    Specify which model parameters are required by a given equation. 
+    """
+    @staticmethod
+    def valid_model_paras():
+
+        paras = {"aec":          ["vp", "vs", "rho"], 
+                 "acoustic":     ["vp"],
+                 "elastic":      ["vp", "vs", "rho"],
+                 "acoustic1st":  ["vp", "rho"],
+                }
+
+        return paras
+
+
+
+class Wavefield:
+    """ 
+    Specify which wavefield variables are required by a given equation. 
+    """
+    def __init__(self, equation="acoustic"):
+        self.wavefields = self.__getattribute__(equation)
+
+    @property
+    def acoustic(self,):
+        return ["h1", "h2"]
+
+    @property
+    def acoustic1st(self,):
+        return ["vx", "vz", "p"]
+    
+    @property
+    def elastic(self,):
+        return ["vx", "vz", "txx", "tzz", "txz"]
+    
+    @property
+    def viscoacoustic(self,):
+        return ["vx", "vz", "p", "r"]
+    
+    @property
+    def aec(self,):
+        return ["p", "vx", "vz", "txx", "tzz", "txz"]
+
 class Shape():
     def __init__(self, cfg, **kwargs):
 
@@ -20,8 +64,7 @@ class Shape():
         self.grad3d = self.grad3d_lib[equation]
         self.record3d = self.__record3d__
         self.record2d = self.__record2d__
-
-
+    
     def __init_lib__(self,):
         
         self.grad2d_lib = {'acoustic': self.__grad2d_acoustic, 

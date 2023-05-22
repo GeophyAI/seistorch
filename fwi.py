@@ -9,7 +9,7 @@ from wavetorch.utils import ricker_wave, to_tensor, cpu_fft, get_src_and_rec
 from wavetorch.model import build_model
 from wavetorch.loss import Loss
 from wavetorch.optimizer import NonlinearConjugateGradient as NCG
-from wavetorch.shape import Shape
+from wavetorch.eqconfigure import Shape
 # from skopt import Optimizer
 from wavetorch.setup_source_probe import setup_src_coords, setup_rec_coords
 from yaml import load, dump
@@ -19,8 +19,6 @@ try:
     from yaml import CLoader as Loader, CDumper as Dumper
 except ImportError:
     from yaml import Loader, Dumper
-
-from wavetorch.setup_source_probe import setup_src_coords_customer, get_sources_coordinate_list
 
 parser = argparse.ArgumentParser()
 parser.add_argument('config', type=str, 

@@ -1,7 +1,4 @@
-import torch
-from .utils import to_tensor, diff_using_roll
-from .utils import save_boundaries, restore_boundaries
-from .checkpoint import checkpoint as ckpt
+from .utils import restore_boundaries, diff_using_roll
 
 NPML=50
 N=2
@@ -95,7 +92,6 @@ def _time_step_backward(*args):
     return p_copy, vx_copy, vz_copy, txx_copy, tzz_copy, txz_copy
     
     
-# def _time_step(vp, vs, rho, p, vx, vz, txx, tzz, txz, dt, h, d):
 def _time_step(*args):
 
     vp, vs, rho = args[:3]
@@ -135,51 +131,3 @@ def _time_step(*args):
     y_vz = (1+c)**-1*(dt*rho.pow(-1)*h.pow(-1)*(txz_x+tzz_z-p_z)+(1-c)*vz)
 
     return y_p, y_vx, y_vz, y_txx, y_tzz, y_txz
-
-
-class WaveCell(torch.nn.Module):
-    """The recurrent neural network cell implementing the scalar wave equation"""
-
-    def __init__(self, geometry):
-
-        super().__init__()
-
-        # Set values
-        self.geom = geometry
-        self.register_buffer("dt", to_tensor(self.geom.dt))
-
-    def parameters(self, recursive=True):
-        for param in self.geom.parameters():
-            yield param
-
-    def get_parameters(self, key=None, recursive=True):
-        yield self.geom.__getattr__(key)
-
-    def forward(self, wavefields, model_vars, **kwargs):
-        """Take a step through time
-        Parameters
-        ----------
-        vx, vz, txx, tzz, txz : 
-             wave field one time step ago
-        vp  :
-            Vp velocity.
-        vs  :
-            Vs velocity.
-        rho : 
-            Projected density, required for nonlinear response (this gets passed in to avoid generating it on each time step, saving memory for backprop)
-        """
-        save_condition=kwargs["is_last_frame"]
-        source_term = kwargs["source"]
-
-        checkpoint = self.geom.checkpoint
-        forward = not self.geom.inversion
-        inversion = self.geom.inversion
-        geoms = self.dt, self.geom.h, self.geom.d
-
-        if checkpoint and inversion:
-            hidden = ckpt(_time_step, _time_step_backward, source_term, save_condition, len(model_vars), *model_vars, *wavefields, *geoms)
-
-        if forward or (inversion and not checkpoint):
-            hidden = _time_step(*model_vars, *wavefields, *geoms)
-
-        return hidden

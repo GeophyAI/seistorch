@@ -6,6 +6,7 @@ import numpy as np
 import torch
 from torch.nn.functional import conv2d
 
+from .eqconfigure import Parameters
 from .utils import load_file_by_type, to_tensor
 
 
@@ -141,7 +142,6 @@ class WaveGeometryFreeForm(WaveGeometry):
 
         super().__init__(domain_shape, h, abs_N)
         self.equation = kwargs["equation"]
-
         self._init_model(kwargs['VEL_PATH'], kwargs['geom']['invlist'])
 
         
@@ -152,28 +152,21 @@ class WaveGeometryFreeForm(WaveGeometry):
             modelPath (dict): The dictionary that contains the path of model files.
             invlist (dict): The dictionary that specify whether invert the model or not.
         """
+        valid_model_paras = Parameters.valid_model_paras()
+
         for mname, mpath in modelPath.items():
             # If path is not None, read it and add to graph
-
             if mpath:
                 assert os.path.exists(mpath), f"Cannot find model '{mpath}'"
-                if mname in self.valid_model_paras[self.equation]:
+                if mname in valid_model_paras[self.equation]:
                     self.model_parameters.append(mname)
                     self.__setattr__(mname, self.add_parameter(mpath, invlist[mname]))
                 else:
                     print(f"'{mname}' found, but get equation {self.equation} and skipped")
-            elif mname in self.valid_model_paras[self.equation]:
+            elif mname in valid_model_paras[self.equation]:
                 print(f"'{mname}' is not found, but required by equation {self.equation}")
                 exit()
 
-
-    @property
-    def valid_model_paras(self,):
-
-        return {"acoustic": ["vp"],
-                "acoustic1st": ["vp", "rho"],
-                "elastic": ["vp", "vs", "rho"],
-                "aec": ["vp", "vs", "rho"]}
     
     def __repr__(self):
         return f"Paramters of {self.model_parameters} have been defined."
