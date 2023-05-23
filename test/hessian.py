@@ -1,25 +1,15 @@
-import torch
-from torch.autograd.functional import hessian
+import matplotlib.pyplot as plt
+import numpy as np
 
-# Define a function that takes vp and vs as inputs and returns a scalar value
-def my_function(vp, vs):
-    # Define your function here
-    # For example, you can return the sum of vp and vs
-    return torch.sum(vp + vs)
+PMLN = 50
+grad = np.load("/mnt/data/wangsw/inversion/marmousi_10m/acoustic1st/wd/grad_params_vp.npy")[PMLN:-PMLN, PMLN:-PMLN]
+grad2 = np.load("/mnt/data/wangsw/inversion/marmousi_10m/acoustic1st/wd/gradvpF00E00.npy")[PMLN:-PMLN, PMLN:-PMLN]
+print(grad.shape)
 
-# Create input parameters
-vp = torch.tensor([[1.0, 2.0], [3.0, 4.0]], requires_grad=True)
-vs = torch.tensor([[5.0, 6.0], [7.0, 8.0]], requires_grad=True)
-
-# Calculate diagonal Hessian matrices
-hessian_vp = hessian(lambda x: my_function(x, vs), vp, create_graph=True)
-hessian_vs = hessian(lambda x: my_function(vp, x), vs, create_graph=True)
-
-# Extract diagonal elements
-hessian_vp_diag = torch.diagonal(hessian_vp)
-hessian_vs_diag = torch.diagonal(hessian_vs)
-
-print("Hessian_vp:", hessian_vp)
-print("Hessian_vs:", hessian_vs)
-print("Hessian_vp_diag:", hessian_vp_diag)
-print("Hessian_vs_diag:", hessian_vs_diag)
+fig, axes = plt.subplots(1,2, figsize=(10,5))
+vmin, vmax=np.percentile(grad, [2, 98])
+ax0=axes[0].imshow(grad, vmin=vmin, vmax=vmax, cmap=plt.cm.seismic, aspect='auto')
+ax1=axes[1].imshow(grad2, vmin=vmin, vmax=vmax, cmap=plt.cm.seismic, aspect='auto')
+plt.colorbar(ax0)
+plt.colorbar(ax1)
+plt.show()

@@ -7,6 +7,7 @@ import numpy as np
 import setproctitle
 import torch
 import tqdm
+import logging
 # from skopt import Optimizer
 from yaml import dump, load
 
@@ -93,6 +94,11 @@ if __name__ == '__main__':
     # Check the working folder
     if not os.path.exists(ROOTPATH):
         os.makedirs(ROOTPATH, exist_ok=True)
+    # Configure the logger
+    logging.basicConfig(level=logging.DEBUG,  # Set the log level to DEBUG (the lowest level)
+                        format='%(asctime)s - %(levelname)s - %(message)s',  # Set the log format
+                        filename=f'{ROOTPATH}/log.log',  # Specify the log file name
+                        filemode='w')  # Set the file mode to write mode
     print(f"The results will be saving at '{ROOTPATH}'")
     print(f"LEARNING_RATE of VP: {LEARNING_RATE}")
     print(f"BATCHSIZE: {args.batchsize}")
@@ -122,9 +128,9 @@ if __name__ == '__main__':
 
     """Define Optimizer"""
     if args.opt=='adam':
-        optimizer = torch.optim.Adam([
-                {'params': model.cell.get_parameters('vp'), 'lr':LEARNING_RATE}], 
-                betas=(0.9, 0.999), eps=1e-20)
+        # optimizer = torch.optim.Adam([
+        #         {'params': model.cell.get_parameters('vp'), 'lr':LEARNING_RATE}], 
+        #         betas=(0.9, 0.999), eps=1e-20)
         # optimizer = torch.optim.Adam([
         #         {'params': model.cell.get_parameters('vp'), 'lr':LEARNING_RATE},
         #         {'params': model.cell.get_parameters('rho'), 'lr':LEARNING_RATE/1.73}], 
@@ -165,7 +171,7 @@ if __name__ == '__main__':
     """Loop over all scale"""
     for idx_freq, freq in enumerate(cfg['geom']['multiscale']):
 
-        print(f"Data filtering: frequency:{freq}")
+        logging.info(f"Data filtering: frequency:{freq}")
         # Filter both record and ricker
         filtered_data[:] = cpu_fft(full_band_data.copy(), cfg['geom']['dt'], N=FILTER_ORDER, low=freq, axis = 1, mode='lowpass')
         # Low pass filtered wavelet
@@ -184,6 +190,7 @@ if __name__ == '__main__':
                 shots = np.random.choice(np.arange(NSHOTS), BATCHSIZE, replace=False)
             else:
                 shots = np.arange(NSHOTS)
+            logging.info(f"Encoding shots: {shots}")
             sources = []
             receivers = []
             # Get the coding shot numbers and coding data
@@ -201,32 +208,6 @@ if __name__ == '__main__':
                 model.reset_sources(sources)
                 ypred = model(coding_wavelet)
                 loss = criterion(ypred, coding_obs)
-
-                # loss_p = criterion(ypred[..., 0], coding_obs[..., 0])
-                # loss_vx = criterion(ypred[..., 1], coding_obs[..., 1])
-                # loss_vz = criterion(ypred[..., 2], coding_obs[..., 2])
-                # loss_weights = torch.nn.functional.softmax(loss_weights, dim=0)
-                # loss = loss_weights[0]*loss_p \
-                #      + loss_weights[1]*loss_vx \
-                #      + loss_weights[2]*loss_vz 
-                # loss = 0.01*loss_p \
-                #      + 1.0*loss_vx \
-                #      + 1.0*loss_vz 
-                """Hessian START"""
-                # grad_params = torch.autograd.grad(loss, [model.cell.geom.vp, model.cell.geom.vs], create_graph=True)
-                
-                # hessian_diag = []
-                # for grad_param in grad_params:
-                #     hessian_param_diag = []
-                #     for i in tqdm.trange(grad_param.numel()):  # Assume grad_param is a 1-D tensor
-                #         if grad_param[i].requires_grad:
-                #             hessian_i = torch.autograd.grad(grad_param[i], [model.cell.geom.vp, model.cell.geom.vs], retain_graph=True)
-                #             hessian_param_diag.append(hessian_i[i].item())
-                #         else:
-                #             hessian_param_diag.append(0)
-                #     hessian_diag.append(torch.tensor(hessian_param_diag))
-                """Hessian END"""
-                # loss.backward(retain_graph=True)
                 loss.backward()
                 return loss
 
@@ -236,6 +217,7 @@ if __name__ == '__main__':
             else:
                 loss[idx_freq][epoch] = closure(loss_weights).item()
                 optimizer.step()
+            logging.info(f"Freq {idx_freq:02d} Epoch {epoch:02d} loss: {loss[idx_freq][epoch]}")
 
             if args.opt!="ncg":
                 lr_scheduler.step()

@@ -16,15 +16,12 @@ def _time_step(*args):
 
     y_vx = (1+c)**-1*(dt * rho.pow(-1)* p_x / h + (1-c)*vx)
     y_vz = (1+c)**-1*(dt * rho.pow(-1)* p_z / h + (1-c)*vz)
-    # y_vx = (1+c)**-1*(dt * rho.pow(-1)* p_x / h - dt  * vx +(1-c)*vx)
-    # y_vz = (1+c)**-1*(dt * rho.pow(-1)* p_z / h - dt  * vz +(1-c)*vz)
 
     # x -- 2
     # z -- 1
     vx_x = diff_using_roll(y_vx, 2)
     vz_z = diff_using_roll(y_vz, 1)
 
-    # y_p = (1+c)**-1*(vp**2*dt*rho*h.pow(-1)*(vx_x+vz_z)-dt*p+(1-c)*p)
     y_p = (1+c)**-1*(vp**2*dt*rho*h.pow(-1)*(vx_x+vz_z)+(1-c)*p)
 
     return y_vx, y_vz, y_p

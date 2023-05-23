@@ -21,20 +21,20 @@ from scipy.ndimage import gaussian_filter, gaussian_filter1d
 # plt.imshow(vel, aspect="auto", cmap=plt.cm.seismic)
 # plt.show()
 
-true = np.load("/mnt/data/wangsw/inversion/marmousi_10m/velocity/true_vp.npy")
-nz, nx = true.shape
-print(true.min(), true.max())
-linear = np.copy(true)
-water_depth = 48
-up = (4400-1500)/(nz-water_depth)
-for i in range(nz-water_depth):
-    linear[water_depth+i] = 1500+i*up
-ax=plt.imshow(linear)
-np.save("/mnt/data/wangsw/inversion/marmousi_10m/velocity/linear_vp.npy", linear)
-linear_vs = linear/1.73
-linear_vs[0:water_depth,:] = 0
-print(linear_vs.max(), linear_vs.min())
-np.save("/mnt/data/wangsw/inversion/marmousi_10m/velocity/linear_vs.npy", linear_vs)
+# true = np.load("/mnt/data/wangsw/inversion/marmousi_10m/velocity/true_vp.npy")
+# nz, nx = true.shape
+# print(true.min(), true.max())
+# linear = np.copy(true)
+# water_depth = 48
+# up = (4400-1500)/(nz-water_depth)
+# for i in range(nz-water_depth):
+#     linear[water_depth+i] = 1500+i*up
+# ax=plt.imshow(linear)
+# np.save("/mnt/data/wangsw/inversion/marmousi_10m/velocity/linear_vp.npy", linear)
+# linear_vs = linear/1.73
+# linear_vs[0:water_depth,:] = 0
+# print(linear_vs.max(), linear_vs.min())
+# np.save("/mnt/data/wangsw/inversion/marmousi_10m/velocity/linear_vs.npy", linear_vs)
 
 # rho = np.ones_like(true)*2000
 # q = np.ones_like(true)*100
@@ -55,3 +55,14 @@ np.save("/mnt/data/wangsw/inversion/marmousi_10m/velocity/linear_vs.npy", linear
 # plt.show()
 # plt.imshow(init, aspect="auto", cmap=plt.cm.seismic)
 # plt.show()
+
+true = np.load("/mnt/data/wangsw/inversion/marmousi_10m/velocity/true_vp.npy")
+back_vp = np.ones_like(true)*1500
+back_vs = np.zeros_like(true)*1500
+back_vp[48:,:] = 2500
+back_vs[48:,:] = 2500/1.73
+np.save("/mnt/data/wangsw/inversion/marmousi_10m/velocity/background_vp.npy", back_vp)
+np.save("/mnt/data/wangsw/inversion/marmousi_10m/velocity/background_vs.npy", back_vs)
+
+
+
