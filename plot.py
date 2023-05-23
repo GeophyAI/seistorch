@@ -28,31 +28,7 @@ import argparse
 # plt.show()
 # # # plt.savefig("test_15hz.png")
 # exit()
-# loss = np.load("/public1/home/wangsw/FWI/AFWI/Hessian_free/loss.npy")
-# print(loss.shape)
-# print(loss[0][0])
-# PMLN = 50
-# grad = np.load("/mnt/data/wangsw/inversion/marmousi_20m/results/test_autodiff/selfgrad.npy")
-# print(grad.max(), grad.min())
-# fig,axes = plt.subplots(1,2, figsize=(10,3))
-# vmin, vmax = np.percentile(grad, [2, 98])
-# ax0=axes[0].imshow(grad.squeeze(), vmin=vmin, vmax=vmax, aspect='auto', cmap=plt.cm.jet)
-# vmin, vmax = np.percentile(grad, [2, 98])
-# ax1=axes[1].imshow(grad.squeeze(), vmin=vmin, vmax=vmax, aspect='auto', cmap=plt.cm.jet)
-# plt.colorbar(ax1)
-# plt.colorbar(ax0)
-# plt.show()
 
-# grad = np.load("/mnt/data/wangsw/inversion/marmousi_20m/results/test_autodiff/selfgrad.npy")[PMLN:-PMLN,PMLN:-PMLN]
-# print(grad.max(), grad.min())
-# fig,axes = plt.subplots(1,2, figsize=(10,3))
-# vmin, vmax = np.percentile(grad, [2, 98])
-# ax0=axes[0].imshow(grad.squeeze(), vmin=vmin, vmax=vmax, aspect='auto', cmap=plt.cm.jet)
-# vmin, vmax = np.percentile(grad, [2, 98])
-# ax1=axes[1].imshow(grad.squeeze(), vmin=vmin, vmax=vmax, aspect='auto', cmap=plt.cm.jet)
-# plt.colorbar(ax1)
-# plt.colorbar(ax0)
-# plt.show()
 
 F = 0
 epoch = 0
@@ -61,11 +37,11 @@ PMLN = 50
 
 # # F=args.frequency_index
 # #root_path = r"/public1/home/wangsw/FWI/EFWI/Marmousi/marmousi_10m/l1reg"
-root_path = r"/mnt/data/wangsw/inversion/marmousi_10m/elastic/l2"
+root_path = r"/mnt/data/wangsw/inversion/marmousi_10m/elastic/ssim"
 loss = root_path.split("/")[-1]
 coding = "."
 grad_vp = np.load(f"{root_path}/{coding}/gradvpF{F:02d}E{epoch:02d}.npy")[PMLN:-PMLN,PMLN:-PMLN]
-grad_vs = np.load(f"{root_path}/{coding}/gradvpF{F:02d}E{epoch:02d}.npy")[PMLN:-PMLN,PMLN:-PMLN]
+grad_vs = np.load(f"{root_path}/{coding}/gradvsF{F:02d}E{epoch:02d}.npy")[PMLN:-PMLN,PMLN:-PMLN]
 print(grad_vs.min(), grad_vs.max(), grad_vp.max(), grad_vp.min())
 fig,axes = plt.subplots(1,2, figsize=(10,3))
 vmin, vmax = np.percentile(grad_vp, [1, 99])
@@ -79,12 +55,13 @@ plt.show()
 # Acoustic case
 true_vp = np.load("/mnt/data/wangsw/inversion/marmousi_20m/velocity/true_vp.npy")
 vp = np.load(f"{root_path}/{coding}/paravpF{F:02d}E{epoch:02d}.npy")[PMLN:-PMLN,PMLN:-PMLN]
-vs = np.load(f"{root_path}/{coding}/paravpF{F:02d}E{epoch:02d}.npy")[PMLN:-PMLN,PMLN:-PMLN]
+vs = np.load(f"{root_path}/{coding}/paravsF{F:02d}E{epoch:02d}.npy")[PMLN:-PMLN,PMLN:-PMLN]
 print(true_vp.max())
+vp[0:48] = 1500.
 fig,axes = plt.subplots(1,2, figsize=(10,3))
-vmin, vmax = (true_vp.min(), true_vp.max())#(1.5, 5.500)
+vmin, vmax = (1500, 5500)#(1.5, 5.500)
 ax0=axes[0].imshow(vp.squeeze(), vmin=vmin, vmax=vmax, aspect='auto', cmap=plt.cm.seismic)
-# vmin, vmax = (vs.min(), vs.max())#(1.5, 5.500)
+vmin, vmax = (0, 5500/1.73)#(1.5, 5.500)
 ax1=axes[1].imshow(vs.squeeze(), vmin=vmin, vmax=vmax, aspect='auto', cmap=plt.cm.seismic)
 axes[0].set_title(loss+"_vp")
 axes[1].set_title(loss+"_vs")
@@ -93,24 +70,7 @@ plt.tight_layout()
 plt.show()
 
 loss = np.load(f"{root_path}/loss.npy")
-plt.plot(loss.flatten())
+plt.plot(loss.flatten()[:100])
 plt.show()
 # fig.savefig(f"./figures/{loss}.png")
 
-# true_vp = np.load("/public1/home/wangsw/FWI/EFWI/Marmousi/marmousi_10m/velocity/true_vp.npy")
-# true_vs = np.load("/public1/home/wangsw/FWI/EFWI/Marmousi/marmousi_10m/velocity/true_vs.npy")
-
-# vp = np.load(f"{root_path}/{coding}/velvpF{F:02d}E{epoch:02d}.npy")[PMLN:-PMLN,PMLN:-PMLN]
-# vs = np.load(f"{root_path}/{coding}/velvsF{F:02d}E{epoch:02d}.npy")[PMLN:-PMLN,PMLN:-PMLN]
-# print(vp.min(), vp.max(), vs.max(), vs.min())
-# fig,axes = plt.subplots(2,2, figsize=(10,8))
-# vmin, vmax = (true_vp.min(), true_vp.max())#(1.5, 5.500)
-# ax0=axes[0,0].imshow(true_vp.squeeze(), vmin=vmin, vmax=vmax, aspect='auto', cmap=plt.cm.seismic)
-# ax1=axes[1,0].imshow(vp.squeeze(), vmin=vmin, vmax=vmax, aspect='auto', cmap=plt.cm.seismic)
-# vmin, vmax = (true_vs.min(), true_vs.max())#(1.500/1.73, 5.500/1.73)
-# ax2 = axes[0,1].imshow(true_vs.squeeze(), vmin=vmin, vmax=vmax, aspect='auto', cmap=plt.cm.seismic)
-# ax3 = axes[1,1].imshow(vs.squeeze(), vmin=vmin, vmax=vmax, aspect='auto', cmap=plt.cm.seismic)
-# plt.colorbar(ax1);plt.colorbar(ax0)
-# plt.colorbar(ax2);plt.colorbar(ax3)
-# plt.tight_layout()
-# plt.show()
