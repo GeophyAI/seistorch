@@ -31,13 +31,13 @@ import argparse
 
 
 F = 0
-epoch = 0
+epoch = 4
 PMLN = 50
 # # epoch = args.epoch
 
 # # F=args.frequency_index
-# #root_path = r"/public1/home/wangsw/FWI/EFWI/Marmousi/marmousi_10m/l1reg"
-root_path = r"/mnt/data/wangsw/inversion/marmousi_10m/elastic/ssim"
+# #root_path = r"/public1/home/wangsw/FWI/EFWI/Marmousi/marmousi_10m/ss"
+root_path = r"/mnt/data/wangsw/inversion/marmousi_10m/elastic/cl"
 loss = root_path.split("/")[-1]
 coding = "."
 grad_vp = np.load(f"{root_path}/{coding}/gradvpF{F:02d}E{epoch:02d}.npy")[PMLN:-PMLN,PMLN:-PMLN]

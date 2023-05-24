@@ -38,7 +38,7 @@ class L1(torch.nn.Module):
     
 class L2(torch.nn.Module):
     def __init__(self, ):
-        super(L1, self).__init__()
+        super(L2, self).__init__()
 
     @property
     def name(self,):
@@ -70,6 +70,11 @@ class SSIM(torch.nn.Module):
         return window
 
     def ssim(self, img1, img2, window, window_size, channel):
+
+        # Convert to channel first
+        img1 = img1.permute(2, 0, 1)
+        img2 = img2.permute(2, 0, 1)
+
         mu1 = torch.nn.functional.conv2d(img1, window, padding=window_size//2, groups=channel)
         mu2 = torch.nn.functional.conv2d(img2, window, padding=window_size//2, groups=channel)
 
@@ -81,8 +86,8 @@ class SSIM(torch.nn.Module):
         sigma2_sq = torch.nn.functional.conv2d(img2.pow(2), window, padding=window_size//2, groups=channel) - mu2_sq
         sigma12 = torch.nn.functional.conv2d(img1 * img2, window, padding=window_size//2, groups=channel) - mu1_mu2
 
-        C1 = (0.01 * 255)**2
-        C2 = (0.03 * 255)**2
+        C1 = (0.01 * 1.0)**2
+        C2 = (0.03 * 1.0)**2
 
         ssim_map = ((2 * mu1_mu2 + C1) * (2 * sigma12 + C2)) / ((mu1_sq + mu2_sq + C1) * (sigma1_sq + sigma2_sq + C2))
 
@@ -92,6 +97,11 @@ class SSIM(torch.nn.Module):
             return ssim_map.mean(1).mean(1).mean(1)
 
     def forward(self, img1, img2):
+        # Compute the scaling factors for img1 and img2
+        # Normalization
+        img1 = img1/(torch.norm(img1, p=2, dim=0)+1e-20)
+        img2 = img2/(torch.norm(img2, p=2, dim=0)+1e-20)
+
         # Compute the scaling factors for img1 and img2
         scale1 = torch.max(torch.abs(img1))
         scale2 = torch.max(torch.abs(img2))
@@ -157,21 +167,10 @@ class NormalizedCrossCorrelation(torch.nn.Module):
         Returns:
             torch.Tensor: The normalized cross-correlation loss between the sequences.
         """
-        loss = 0
 
-        # Iterate over each pair of vectors from x and y
-        for _x, _y in zip(x, y):
-            # Calculate the L2 norm of each vector along axis 0
-            normx = torch.linalg.norm(_x, ord=2, axis=0)
-            normy = torch.linalg.norm(_y, ord=2, axis=0)
-
-            # Normalize each vector by dividing it by its norm (adding a small value to avoid division by zero)
-            nx = _x / (normx + 1e-12)
-            ny = _y / (normy + 1e-12)
-
-            # Calculate the element-wise square of the difference between the normalized vectors and calculate the mean
-            loss += torch.mean(torch.pow(nx - ny, 2))
-
+        x = x/(torch.norm(x, p=2, dim=0)+1e-20)
+        y = y/(torch.norm(y, p=2, dim=0)+1e-20)
+        loss = torch.nn.MSELoss()(x, y)
         return loss
 
 class Cdist(torch.nn.Module):
@@ -460,16 +459,16 @@ class Correlation(torch.nn.Module):
     def name(self,):
         return "cl"
 
-    def forward(self, pred, target):
-        pred_mean = torch.mean(pred, dim=0, keepdim=True)
-        target_mean = torch.mean(target, dim=0, keepdim=True)
-        pred_std = torch.std(pred, dim=0, keepdim=True)
-        target_std = torch.std(target, dim=0, keepdim=True)
+    def forward(self, x, y):
 
-        correlation = torch.mean(
-            (pred - pred_mean) * (target - target_mean), dim=0) / (pred_std * target_std)
+        # Permute from [nt, ntraces, channels] to [nt, channels, ntraces]
+        x = x.permute(0, 2, 1)
+        y = y.permute(0, 2, 1)
 
-        return -correlation.mean()  # Minimizing -correlation maximizes correlation
+        # Calculate correlation
+        correlation = torch.einsum('ijk,ilk->ijl', x, y)
+
+        return -torch.mean(correlation)  # Minimizing -correlation maximizes correlation
 
 class CrossCorrelation(torch.nn.Module):
     """
@@ -487,32 +486,29 @@ class CrossCorrelation(torch.nn.Module):
     def name(self,):
         return "cc"
 
-    def cross_correlation_loss(self, pred_seismograms, obs_seismograms):
+    def cross_correlation_loss(self, x, y):
         """
         Compute the cross-correlation loss between the input tensors pred_seismograms and obs_seismograms.
 
         Args:
-            pred_seismograms (torch.Tensor): The predicted seismograms tensor.
-            obs_seismograms (torch.Tensor): The observed seismograms tensor.
+            x (torch.Tensor): The predicted seismograms tensor.
+            y (torch.Tensor): The observed seismograms tensor.
 
         Returns:
             torch.Tensor: The computed cross-correlation loss.
         """
-        # Get the dimensions of the input tensors
-        nt, ntraces, _ = pred_seismograms.shape
 
-        # Normalize each trace in the predicted seismograms
-        pred_normalized = pred_seismograms / \
-            (pred_seismograms.norm(dim=0) + 1e-8)
-        # Normalize each trace in the observed seismograms
-        obs_normalized = obs_seismograms / (obs_seismograms.norm(dim=0) + 1e-8)
+        # Permute from [nt, ntraces, channels, ] to [ntraces, channels, nt]
+        x = x.permute(1, 2, 0)
+        y = y.permute(1, 2, 0)
 
-        # Compute the cross-correlation between the normalized predicted and observed seismograms
-        cross_correlation = torch.sum(pred_normalized * obs_normalized, dim=0)
-        # Calculate the cross-correlation loss as the mean of (1 - cross_correlation)
-        cc_loss = 1.0 - torch.mean(cross_correlation)
+        # Calculate cross corelation
+        cross_corr = torch.nn.functional.conv1d(x, y.flip(-1))
 
-        return cc_loss
+        # Calculate the average loss
+        loss = torch.mean(cross_corr)
+
+        return loss
 
     def forward(self, x, y):
         """
@@ -739,7 +735,7 @@ class PearsonCorrelation(torch.nn.Module):
         vy = y - torch.mean(y)
         loss = 1 - torch.sum(vx * vy) / (torch.sqrt(torch.sum(vx ** 2)) * torch.sqrt(torch.sum(vy ** 2)))
         return loss
-    
+
 class KLDivergenceLoss(torch.nn.Module):
     def __init__(self):
         super().__init__()
