@@ -5,10 +5,10 @@ from typing import Tuple
 import numpy as np
 import torch
 from torch.nn.functional import conv2d
-
+import matplotlib.pyplot as plt
 from .eqconfigure import Parameters
 from .utils import load_file_by_type, to_tensor
-
+from scipy.ndimage import gaussian_filter
 
 class WaveGeometry(torch.nn.Module):
     def __init__(self, domain_shape: Tuple, h: float, abs_N: int = 20, equation: str = "acoustic"):
@@ -197,8 +197,40 @@ class WaveGeometryFreeForm(WaveGeometry):
         """
         padding = self.padding
         return np.pad(d, ((padding, padding), (padding,padding)), mode=mode)
+    
+    def tensor_to_img(self, key, array, padding=0, vmin=None, vmax=None, cmap="seismic"):
+        cmap = plt.get_cmap(cmap)
+        array = array[padding:-padding, padding:-padding]
+        # 如果没有指定vmin和vmax，则使用数据的最小值和最大值
+        if vmin is None:
+            vmin = array.min()
+        if vmax is None:
+            vmax = array.max()
+        
+        # 截断vmin和vmax之外的值
+        array = np.clip(array, vmin, vmax)
+        
+        # 将数据缩放到[0, 1]
+        array = (array - vmin) / (vmax - vmin)
+        
+        # 将数据转换为RGBA图像
+        img = cmap(array)
+        
+        # 转换为PyTorch张量并添加批处理维度
+        img = torch.from_numpy(img).permute(2, 0, 1)#.unsqueeze(0)
 
-    def save_model(self, path: str, paras: str, freq_idx=1, epoch=1):
+        return img
+
+    def gradient_smooth(self, sigma=2):
+        for para in self.model_parameters:
+            var = self.__getattr__(para)
+            if var.requires_grad:
+                smoothed_grad = var.grad.cpu().detach().numpy()
+                for i in range(10):
+                    smoothed_grad = gaussian_filter(smoothed_grad, sigma)
+                var.grad.copy_(to_tensor(smoothed_grad).to(var.grad.device))
+
+    def save_model(self, path: str, paras: str, freq_idx=1, epoch=1, writer=None, max_epoch=1000):
         """Save the data of model parameters and their gradients(if they have).
 
         Args:
@@ -218,3 +250,9 @@ class WaveGeometryFreeForm(WaveGeometry):
                 for key, data in zip(["para"+para, "grad"+para], [var_par, var_grad]):
                     save_path = os.path.join(path, f"{key}F{freq_idx:02d}E{epoch:02d}.npy")
                     np.save(save_path, data)
+                    if writer is not None:
+                        tensor_data = self.tensor_to_img(key, data, padding=self.padding, vmin=None, vmax=None)
+                        writer.add_images(key, 
+                                          tensor_data, 
+                                          global_step=freq_idx*max_epoch+epoch, 
+                                          dataformats='CHW',)

@@ -4,7 +4,7 @@ from torch.nn.functional import pairwise_distance
 # from pytorch_msssim import SSIM as _ssim
 from math import exp
 from torchvision.models import vgg19
-
+import lesio
 
 class Loss:
     def __init__(self, loss="mse"):
@@ -204,14 +204,14 @@ class Cdist(torch.nn.Module):
 
         return loss
 
-class Wasserstein(torch.nn.Module):
+class Wasserstein1d(torch.nn.Module):
     def __init__(self, p=2):
-        super(Wasserstein, self).__init__()
+        super(Wasserstein1d, self).__init__()
         self.p = p
 
     @property
     def name(self,):
-        return "wd"
+        return "wd1d"
 
     def forward(self, x, y):
         """
@@ -224,20 +224,69 @@ class Wasserstein(torch.nn.Module):
         Returns:
             A tensor representing the Wasserstein loss.
         """
-        # Compute the pairwise distances between x and y for each trace
-        loss = 0
-        for i in range(x.shape[1]):
-            xi = x[:, i, :].view(x.shape[0], -1)
-            yi = y[:, i, :].view(y.shape[0], -1)
-            distances = torch.cdist(xi, yi, p=self.p)
 
-            # Compute the Wasserstein loss for this trace
-            loss += torch.mean(distances)
+        # Sort the data
+        sorted_pred_waveform, _ = torch.sort(x.view(-1))
+        sorted_obs_waveform, _ = torch.sort(y.view(-1))
 
-        # Average the loss over all traces
-        loss /= x.shape[1]
+        # Compute the Wasserstein distance
+        loss = torch.abs(sorted_pred_waveform - sorted_obs_waveform).mean()
 
         return loss
+
+class Wasserstein2d(torch.nn.Module):
+    def __init__(self, p=2):
+        super(Wasserstein2d, self).__init__()
+        self.p = p
+
+    @property
+    def name(self,):
+        return "wd2d"
+    
+    def wasserstein_distance_1D(self, pred_waveform, obs_waveform):
+        """
+        This function computes the Wasserstein distance between the predicted waveform and the observed waveform.
+
+        Parameters:
+        pred_waveform (torch.Tensor): The predicted waveform tensor. The dimensions should be (nt, channels).
+        obs_waveform (torch.Tensor): The observed waveform tensor. The dimensions should be (nt, channels).
+
+        Returns:
+        torch.Tensor: The Wasserstein distance.
+        """
+
+        # Sort the data
+        sorted_pred_waveform, _ = torch.sort(pred_waveform.reshape(-1))
+        sorted_obs_waveform, _ = torch.sort(obs_waveform.reshape(-1))
+
+        # Compute the Wasserstein distance
+        wasserstein_dist = torch.abs(sorted_pred_waveform - sorted_obs_waveform).mean()
+
+        return wasserstein_dist
+
+    def forward(self, pred_waveforms, obs_waveforms):
+        """
+        This function computes the Wasserstein distance for each trace in the batch.
+
+        Parameters:
+        pred_waveforms (torch.Tensor): The batch of predicted waveforms. The dimensions should be (nt, ntraces, channels).
+        obs_waveforms (torch.Tensor): The batch of observed waveforms. The dimensions should be (nt, ntraces, channels).
+
+        Returns:
+        torch.Tensor: The Wasserstein distances for each trace and channel. The dimensions are (ntraces, channels).
+        """
+
+        nt, ntraces, channels = pred_waveforms.shape
+
+        # Initialize a tensor to store the Wasserstein distances for each trace and channel
+        wasserstein_dists = torch.empty(ntraces, channels)
+
+        # Compute the Wasserstein distance for each trace and channel
+        for i in range(ntraces):
+            for j in range(channels):
+                wasserstein_dists[i, j] = self.wasserstein_distance_1D(pred_waveforms[:, i, j], obs_waveforms[:, i, j])
+
+        return wasserstein_dists.mean()
 
 class NIM(torch.nn.Module):
     def __init__(self):
@@ -399,7 +448,7 @@ class Envelope(torch.nn.Module):
         # Truncate the result to the original length
         hilbert_data = hilbert_data[:nt]
 
-        return hilbert_data.real
+        return hilbert_data
 
     def envelope(self, seismograms):
         """
@@ -415,12 +464,18 @@ class Envelope(torch.nn.Module):
         hilbert_transform = self.hilbert(seismograms)
 
         # Compute the envelope
-        analytic_signal = seismograms + \
-            hilbert_transform.to(seismograms.device) * 1j
-        envelope = torch.abs(analytic_signal)
+        # ??
+        # analytic_signal = seismograms + \
+        #     hilbert_transform.to(seismograms.device) * 1j
+        # envelope = torch.abs(analytic_signal)
+
+        envelope = torch.sqrt(seismograms**2+torch.abs(hilbert_transform)**2)
+
+        # envelope = torch.abs(hilbert_transform)
+
         return envelope
 
-    def envelope_mse_loss(self, pred_seismograms, obs_seismograms):
+    def envelope_loss(self, pred_seismograms, obs_seismograms):
         """
         Compute the envelope-based mean squared error loss between pred_seismograms and obs_seismograms.
 
@@ -431,11 +486,15 @@ class Envelope(torch.nn.Module):
         Returns:
             torch.Tensor: The computed envelope-based mean squared error loss.
         """
+        
         pred_envelope = self.envelope(pred_seismograms)
         obs_envelope = self.envelope(obs_seismograms)
 
-        mse_loss = F.mse_loss(pred_envelope, obs_envelope)
-        return mse_loss
+        # pred_envelope = pred_envelope/torch.norm(pred_envelope, p=2, dim=0)
+        # obs_envelope = obs_envelope/torch.norm(obs_envelope, p=2, dim=0)
+
+        loss = F.mse_loss(pred_envelope, obs_envelope, reduction="mean")
+        return loss
 
     def forward(self, x, y):
         """
@@ -448,7 +507,7 @@ class Envelope(torch.nn.Module):
         Returns:
             torch.Tensor: The computed envelope-based mean squared error loss.
         """
-        loss = self.envelope_mse_loss(x, y)
+        loss = self.envelope_loss(x, y)
         return loss
 
 class Correlation(torch.nn.Module):
@@ -606,48 +665,127 @@ class DTW(torch.nn.Module):
         loss /= x.shape[1]
 
         return loss
-    
+
 class Sinkhorn(torch.nn.Module):
-    def __init__(self, eps=0.01, max_iter=50):
+    r"""
+    git@github.com:dfdazac/wassdistance.git
+    Given two empirical measures each with :math:`P_1` locations
+    :math:`x\in\mathbb{R}^{D_1}` and :math:`P_2` locations :math:`y\in\mathbb{R}^{D_2}`,
+    outputs an approximation of the regularized OT cost for point clouds.
+
+    Args:
+        eps (float): regularization coefficient
+        max_iter (int): maximum number of Sinkhorn iterations
+        reduction (string, optional): Specifies the reduction to apply to the output:
+            'none' | 'mean' | 'sum'. 'none': no reduction will be applied,
+            'mean': the sum of the output will be divided by the number of
+            elements in the output, 'sum': the output will be summed. Default: 'none'
+
+    Shape:
+        - Input: :math:`(N, P_1, D_1)`, :math:`(N, P_2, D_2)`
+        - Output: :math:`(N)` or :math:`()`, depending on `reduction`
+    """
+    def __init__(self, eps=1e-16, max_iter=50, reduction='mean'):
         super(Sinkhorn, self).__init__()
         self.eps = eps
         self.max_iter = max_iter
+        self.reduction = reduction
 
     @property
     def name(self,):
         return "sinkhorn"
 
-    def cost_matrix(self, x, y):
-        """
-        Returns the matrix of $|x_i-y_j|^2$.
-        """
-        x_col = x.unsqueeze(-2)
-        y_lin = y.unsqueeze(-3)
-        cost = torch.sum((torch.abs(x_col - y_lin)) ** 2, -1)
+    def forward(self, x, y):
+        # The Sinkhorn algorithm takes as input three variables :
+        C = self._cost_matrix(x, y)  # Wasserstein cost function
+        x_points = x.shape[-2]
+        y_points = y.shape[-2]
+        if x.dim() == 2:
+            batch_size = 1
+        else:
+            batch_size = x.shape[0]
+
+        # both marginals are fixed with equal weights
+        mu = torch.empty(batch_size, x_points, dtype=torch.float, device=C.device,
+                         requires_grad=False).fill_(1.0 / x_points).squeeze()
+        nu = torch.empty(batch_size, y_points, dtype=torch.float, device=C.device,
+                         requires_grad=False).fill_(1.0 / y_points).squeeze()
+
+        u = torch.zeros_like(mu)
+        v = torch.zeros_like(nu)
+        # To check if algorithm terminates because of threshold
+        # or max iterations reached
+        actual_nits = 0
+        # Stopping criterion
+        thresh = 1e-1
+        # Sinkhorn iterations
+        for i in range(self.max_iter):
+            u1 = u  # useful to check the update
+            u = self.eps * (torch.log(mu+1e-8) - torch.logsumexp(self.M(C, u, v), dim=-1)) + u
+            v = self.eps * (torch.log(nu+1e-8) - torch.logsumexp(self.M(C, u, v).transpose(-2, -1), dim=-1)) + v
+            err = (u - u1).abs().sum(-1).mean()
+
+            actual_nits += 1
+            if err.item() < thresh:
+                break
+
+        U, V = u, v
+        # Transport plan pi = diag(a)*K*diag(b)
+        pi = torch.exp(self.M(C, U, V))
+        # Sinkhorn distance
+        cost = torch.sum(pi * C, dim=(-2, -1))
+
+        if self.reduction == 'mean':
+            cost = cost.mean()
+        elif self.reduction == 'sum':
+            cost = cost.sum()
+
         return cost
 
-    def sinkhorn_iterations(self, cost):
-        """
-        Performs Sinkhorn iterations until max_iter
-        """
-        # Initialise log_alpha
-        log_alpha = torch.zeros((cost.shape[0], cost.shape[1]), requires_grad=True).to(cost.device)
+    def M(self, C, u, v):
+        "Modified cost for logarithmic updates"
+        "$M_{ij} = (-c_{ij} + u_i + v_j) / \epsilon$"
+        return (-C + u.unsqueeze(-1) + v.unsqueeze(-2)) / self.eps
 
-        for i in range(self.max_iter):
-            log_alpha -= (torch.logsumexp(log_alpha, dim=0, keepdim=True) + torch.logsumexp(log_alpha, dim=1, keepdim=True)) / 2.0
-            log_alpha -= torch.log(torch.sum(torch.exp(-cost / self.eps - log_alpha), dim=1, keepdim=True))
+    @staticmethod
+    def _cost_matrix(x, y, p=2):
+        "Returns the matrix of $|x_i-y_j|^p$."
+        x_col = x.unsqueeze(-2)
+        y_lin = y.unsqueeze(-3)
+        C = torch.sum((torch.abs(x_col - y_lin)) ** p, -1)
+        return C
 
-        return torch.exp(log_alpha)
+    @staticmethod
+    def ave(u, u1, tau):
+        "Barycenter subroutine, used by kinetic acceleration through extrapolation."
+        return tau * u + (1 - tau) * u1
+
+class BatchedSinkhorn(Sinkhorn):
+    def __init__(self, batch_size=10, *args, **kwargs):
+        super(BatchedSinkhorn, self).__init__(*args, **kwargs)
+        self.batch_size = batch_size
+
+    @property
+    def name(self,):
+        return "bsinkhorn"
 
     def forward(self, x, y):
-        """
-        Computes the sinkhorn loss for x and y
-        """
-        cost = self.cost_matrix(x, y)
-        P = self.sinkhorn_iterations(cost)
-        loss = torch.sum(P * cost)
-        return loss
-    
+        batch_size = x.shape[1]
+        total_loss = 0
+
+        # Handle the case where batch_size is less than self.batch_size.
+        num_batches = (batch_size + self.batch_size - 1) // self.batch_size
+
+        for i in range(num_batches):
+            start = i * self.batch_size
+            end = min((i + 1) * self.batch_size, batch_size)
+            batch_x = x[:, start:end, :]
+            batch_y = y[:, start:end, :]
+            loss = super().forward(batch_x, batch_y)
+            total_loss += loss
+
+        return total_loss / num_batches
+
 class CosineSimilarity(torch.nn.Module):
 
     def __init__(self):
@@ -671,7 +809,6 @@ class CosineSimilarity(torch.nn.Module):
         # Reshape x and y to (time_samples, num_traces * num_channels)
         x_reshaped = x.view(x.shape[0], -1)
         y_reshaped = y.view(y.shape[0], -1)
-        print(x_reshaped.shape)
         # Compute cosine similarity along the second dimension
         similarity = F.cosine_similarity(x_reshaped, y_reshaped, dim=1)
 
@@ -695,7 +832,6 @@ class Convolution(torch.nn.Module):
         
         # Compute cross-correlation using convolution
         correlation = torch.nn.functional.conv2d(x, y.flip(-1).flip(-2))
-        # print(correlation.shape)
         # Negative correlation will result in the loss being minimized when the inputs are most similar
         return -correlation
 
@@ -753,15 +889,64 @@ class Perceptual(torch.nn.Module):
     def __init__(self):
         super().__init__()
         vgg = vgg19(pretrained=True)
-        self.feature_extractor = torch.nn.Sequential(*list(vgg.features)[:18])
+        self.feature_extractor = torch.nn.Sequential(*list(vgg.features)[:18]).cuda()
         self.feature_extractor.eval()
         self.mse_loss = torch.nn.MSELoss()
+
+        # Define the downsampling layer
+        self.pool = torch.nn.AvgPool2d(kernel_size=(4, 4), stride=(2, 2))
 
     @property
     def name(self,):
         return "perceptual"
 
+    def to_rgb(self, x):
+        x_mono = x.mean(dim=-1, keepdim=True)  # Take the mean along the channel dimension to get a single-channel image
+        x_rgb = x_mono.repeat(1, 1, 3)  # Repeat the single-channel image along the channel dimension to get a three-channel image
+        x_rgb = x_rgb.permute(2, 0, 1).unsqueeze(0)  # Change to the format (batch_size, channels, height, width)
+
+        # Apply the pooling operation to downsample the data
+        x_rgb = self.pool(x_rgb)
+
+        return x_rgb
+
     def forward(self, x, y):
-        x_features = self.feature_extractor(x)
-        y_features = self.feature_extractor(y)
+        x_rgb = self.to_rgb(x)
+        y_rgb = self.to_rgb(y)
+
+        x_features = self.feature_extractor(x_rgb)
+        y_features = self.feature_extractor(y_rgb)
         return self.mse_loss(x_features, y_features)
+
+class TotalVariation2D(torch.nn.Module):
+    def __init__(self, tv_loss_weight=1):
+        super(TotalVariation2D, self).__init__()
+        self.tv_loss_weight = tv_loss_weight
+
+    @property
+    def name(self,):
+        return "tv2d"
+
+    def forward(self, x):
+        h_x = x.size(0)
+        w_x = x.size(1)
+        h_tv = torch.pow((x[1:,:]-x[:h_x-1,:]),2).sum()
+        w_tv = torch.pow((x[:,1:]-x[:,:w_x-1]),2).sum()
+        return self.tv_loss_weight*2*(h_tv+w_tv)/(h_x*w_x)
+
+class FWILoss(torch.nn.Module):
+    def __init__(self, tv_loss_weight=1e-7):
+        super(FWILoss, self).__init__()
+        self.tv_loss_weight = tv_loss_weight
+        self.mse_loss = torch.nn.MSELoss()
+        self.tv_loss = TotalVariation2D(tv_loss_weight)
+
+    @property
+    def name(self,):
+        return "l2+tv2d"
+
+    def forward(self, syn, obs, model):
+        loss_fwi = self.mse_loss(syn, obs)
+        loss_tv = self.tv_loss(model)
+        loss_total = loss_fwi + loss_tv
+        return loss_total

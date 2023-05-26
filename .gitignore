@@ -1,6 +1,7 @@
 .vscode
 *.png
-wavetorch/__pycache__
+*.npy
+*.pyc
 test
 figures
 plot.py

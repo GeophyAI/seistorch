@@ -10,6 +10,8 @@ import tqdm
 import logging
 # from skopt import Optimizer
 from yaml import dump, load
+from torch.utils.tensorboard import SummaryWriter
+from torchvision.utils import make_grid
 
 import wavetorch
 from wavetorch.loss import Loss
@@ -50,6 +52,8 @@ parser.add_argument('--global-lr', type=int, default=-1,
                     help='learning rate')
 parser.add_argument('--batchsize', type=int, default=-1,
                     help='learning rate')
+parser.add_argument('--grad-smooth', action='store_true',
+                    help='Smooth the gradient or not')
 parser.add_argument('--mode', choices=['inversion'], default='inversion',
                     help='forward modeling, inversion or reverse time migration mode')
 
@@ -90,7 +94,8 @@ if __name__ == '__main__':
     FILTER_ORDER = cfg['training']['filter_ord']
     MINIBATCH = cfg['training']['minibatch']
     BATCHSIZE = cfg['training']['batch_size'] if args.batchsize < 0 else args.batchsize
-    ROOTPATH = args.save_path if args.save_path else cfg["geom"]["inv_savePath"] 
+    ROOTPATH = args.save_path if args.save_path else cfg["geom"]["inv_savePath"]
+    GRAD_SMOOTH = args.grad_smooth
     # Check the working folder
     if not os.path.exists(ROOTPATH):
         os.makedirs(ROOTPATH, exist_ok=True)
@@ -99,6 +104,7 @@ if __name__ == '__main__':
                         format='%(asctime)s - %(levelname)s - %(message)s',  # Set the log format
                         filename=f'{ROOTPATH}/log.log',  # Specify the log file name
                         filemode='w')  # Set the file mode to write mode
+    writer = SummaryWriter(os.path.join(ROOTPATH, "logs"))
     print(f"The results will be saving at '{ROOTPATH}'")
     print(f"LEARNING_RATE of VP: {LEARNING_RATE}")
     print(f"BATCHSIZE: {args.batchsize}")
@@ -112,8 +118,8 @@ if __name__ == '__main__':
     model.reset_probes(probes)
     # print(probes)
     """# Read the wavelet"""
-    x = ricker_wave(cfg['geom']['fm'], cfg['geom']['dt'], cfg['geom']['nt'])
-
+    #x = ricker_wave(cfg['geom']['fm'], cfg['geom']['dt'], cfg['geom']['nt'])
+    x = to_tensor(np.load(cfg["geom"]["wavelet"]))
     shape = Shape(cfg)
 
     """---------------------------------------------"""
@@ -121,10 +127,11 @@ if __name__ == '__main__':
     """---------------------------------------------"""
 
     """Write configure file to the inversion folder"""
+    cfg["loss"] = args.loss
     with open(os.path.join(ROOTPATH, "configure.yml"), "w") as f:
         dump(cfg, f)
 
-    loss_weights = torch.autograd.Variable(torch.ones(3), requires_grad=True)
+    # loss_weights = torch.autograd.Variable(torch.ones(3), requires_grad=True)
 
     """Define Optimizer"""
     if args.opt=='adam':
@@ -141,8 +148,7 @@ if __name__ == '__main__':
             optimizer = torch.optim.Adam([
                     {'params': model.cell.get_parameters('vp'), 'lr':LEARNING_RATE},
                     {'params': model.cell.get_parameters('vs'), 'lr':LEARNING_RATE/1.73},
-                    {'params': model.cell.get_parameters('rho'), 'lr':0.},
-                    {'params': [loss_weights], 'lr': 0.01}], 
+                    {'params': model.cell.get_parameters('rho'), 'lr':0.}], 
                     betas=(0.9, 0.999), eps=1e-20)
             
     if args.opt == "ncg":
@@ -202,12 +208,15 @@ if __name__ == '__main__':
                 coding_obs += to_tensor(d_temp).to(args.dev)
 
             """Calculate encoding gradient"""
-            def closure(loss_weights):
+            def closure():
                 optimizer.zero_grad()#set_to_none=True
                 # Get the super shot gathersh
                 model.reset_sources(sources)
                 ypred = model(coding_wavelet)
-                loss = criterion(ypred, coding_obs)
+                loss = criterion(ypred, coding_obs, model.cell.geom.vp)
+                # loss1 = 0.01*Loss("nim").loss()(ypred, coding_obs)
+                # loss2 = 0.99*Loss("envelope").loss()(ypred, coding_obs)
+                # loss = loss1+loss2
                 loss.backward()
                 return loss
 
@@ -215,17 +224,27 @@ if __name__ == '__main__':
             if args.opt == "ncg":
                 loss[idx_freq][epoch] = optimizer.step(closure).item()
             else:
-                loss[idx_freq][epoch] = closure(loss_weights).item()
-                optimizer.step()
-            logging.info(f"Freq {idx_freq:02d} Epoch {epoch:02d} loss: {loss[idx_freq][epoch]}")
+                loss[idx_freq][epoch] = closure().item()
 
+                if GRAD_SMOOTH:
+                    model.cell.geom.gradient_smooth(sigma=2)
+
+                optimizer.step()
+
+            logging.info(f"Freq {idx_freq:02d} Epoch {epoch:02d} loss: {loss[idx_freq][epoch]}")
+            writer.add_scalar(f"Loss", loss[idx_freq][epoch], global_step=idx_freq*EPOCHS+epoch)
             if args.opt!="ncg":
                 lr_scheduler.step()
             pbar.update(1)
             # Save vel and grad
             np.save(os.path.join(ROOTPATH, "loss.npy"), loss)
             model.cell.geom.save_model(ROOTPATH, 
-                                        paras=["vel", "grad"], 
-                                        freq_idx=idx_freq, 
-                                        epoch=epoch)
+                                       paras=["vel", "grad"], 
+                                       freq_idx=idx_freq, 
+                                       epoch=epoch,
+                                       writer=writer, max_epoch=EPOCHS)
+
+
+    # Close the summary writer    
+    writer.close()
             

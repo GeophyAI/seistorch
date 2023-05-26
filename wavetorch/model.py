@@ -55,6 +55,7 @@ def build_model(config_path, device = "cuda", mode="forward"):
         module = importlib.import_module(module_name)
     except ImportError:
         print(f"Cannot found cell '{module_name}'. Please check your equation in configure file.")
+        exit()
     # Import the forward and backward functions with the specified equation
     forward_func = getattr(module, "_time_step", None)
     backward_func = getattr(module, "_time_step_backward", None)

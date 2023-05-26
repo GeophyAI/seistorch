@@ -7,9 +7,9 @@ import numpy as np
 
 """Objective loss function"""
 # path = r"/public1/home/wangsw/FWI/EFWI/Marmousi/marmousi1_20m/compare_loss"
-path = r"/mnt/data/wangsw/inversion/marmousi_10m/compare_loss_goodinit/"
+path = r"/mnt/data/wangsw/inversion/marmousi_10m/elastic/"
 
-losses = ["l1", "l2", "wd"]
+losses = ["combine"]
 # losses = ["lr3", "lr5", "lr7", "lr10"]
 
 "Objective function"
@@ -30,7 +30,7 @@ plt.show()
 true_vp = np.load("/mnt/data/wangsw/inversion/marmousi_10m/velocity/true_vp.npy")[:,50:-50]
 true_vs = np.load("/mnt/data/wangsw/inversion/marmousi_10m/velocity/true_vs.npy")[:,50:-50]
 
-FMAX = 3
+FMAX = 5
 EPOCHMAX = 50
 PMLN = 50
 VP_ERROR = []
@@ -49,6 +49,8 @@ for loss in losses:
             temp_vs.append(np.sum((true_vs-vs)**2)/true_vp.size)
     VP_ERROR.append(temp_vp.copy())
     VS_ERROR.append(temp_vs.copy())
+    np.save(f"{loss_dir}/model_error_vp.npy", np.array(temp_vp))
+    np.save(f"{loss_dir}/model_error_vs.npy", np.array(temp_vs))
     del temp_vp, temp_vs
     gc.collect()
 

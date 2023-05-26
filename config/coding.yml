@@ -15,7 +15,7 @@ training:
   batch_size: 20
 
   # Number of training epochs
-  N_epochs: 50
+  N_epochs: 100
 
   # Optimizer learning rate
   lr: 5
@@ -29,7 +29,7 @@ training:
 geom:
 
   # The observer data
-  obsPath: /mnt/data/wangsw/inversion/marmousi_10m/data/marmousi_elastic_constrho.npy
+  obsPath: /mnt/data/wangsw/inversion/marmousi_10m/data/marmousi_elastic_constrho_nolow5hz.npy
 
   # Wave speed model from disk_file for forward modeling
   truePath:
@@ -42,6 +42,8 @@ geom:
   sources: ./geometry/marmousi_obn_10m/sources.pkl
 
   receivers: ./geometry/marmousi_obn_10m/receivers.pkl
+
+  wavelet: ./geometry/ricker_lowcut5hz.npy
 
   source_type:
     - vz
@@ -70,12 +72,7 @@ geom:
   inv_savePath: /mnt/data/wangsw/inversion/marmousi_10m/Test
 
   multiscale:
-    - 1.0
-    - 3.0
-    - 5.0
-    - 8.0
-    - 10.0
-    - all
+    - 6.0
 
   # Time Sampling step
   dt: 0.001

@@ -90,7 +90,8 @@ if __name__ == '__main__':
         model.train()
 
         """# Read the wavelet"""
-        x = ricker_wave(cfg['geom']['fm'], cfg['geom']['dt'], cfg['geom']['nt'])
+        #x = ricker_wave(cfg['geom']['fm'], cfg['geom']['dt'], cfg['geom']['nt'])
+        x = to_tensor(np.load(cfg["geom"]["wavelet"]))
         #.to(args.dev)
 
     shape = Shape(cfg)

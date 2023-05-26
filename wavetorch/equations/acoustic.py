@@ -2,8 +2,6 @@ import torch
 from torch.nn.functional import conv2d
 from .utils import restore_boundaries
 
-from .utils import to_tensor
-
 NPML = 50
 N = 2
 

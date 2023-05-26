@@ -13,7 +13,7 @@ import argparse
 
 # args = parser.parse_args() 
 
-# d = np.load("/mnt/data/wangsw/inversion/marmousi_10m/data/marmousi_elastic_constrho.npy")
+# d = np.load("/mnt/data/wangsw/inversion/marmousi_10m/data/marmousi_elastic_constrho_nolow5hz.npy")
 
 # print(d.shape, d.max(), d.min())
 # dx = d[...,0]
@@ -31,23 +31,26 @@ import argparse
 
 
 F = 0
-epoch = 4
+epoch = 1
 PMLN = 50
 # # epoch = args.epoch
 
 # # F=args.frequency_index
 # #root_path = r"/public1/home/wangsw/FWI/EFWI/Marmousi/marmousi_10m/ss"
-root_path = r"/mnt/data/wangsw/inversion/marmousi_10m/elastic/cl"
+root_path = r"/mnt/data/wangsw/inversion/marmousi_10m/elastic/l2+tv2d"
 loss = root_path.split("/")[-1]
 coding = "."
 grad_vp = np.load(f"{root_path}/{coding}/gradvpF{F:02d}E{epoch:02d}.npy")[PMLN:-PMLN,PMLN:-PMLN]
 grad_vs = np.load(f"{root_path}/{coding}/gradvsF{F:02d}E{epoch:02d}.npy")[PMLN:-PMLN,PMLN:-PMLN]
 print(grad_vs.min(), grad_vs.max(), grad_vp.max(), grad_vp.min())
+# grad_vp[0:48]=0
 fig,axes = plt.subplots(1,2, figsize=(10,3))
 vmin, vmax = np.percentile(grad_vp, [1, 99])
 ax0=axes[0].imshow(grad_vp.squeeze(), vmin=vmin, vmax=vmax, aspect='auto', cmap=plt.cm.jet)
 vmin, vmax = np.percentile(grad_vs, [1, 99])
 ax1=axes[1].imshow(grad_vs.squeeze(), vmin=vmin, vmax=vmax, aspect='auto', cmap=plt.cm.jet)
+axes[0].set_title(root_path.split("/")[-1])
+axes[1].set_title(root_path.split("/")[-1])
 plt.colorbar(ax1)
 plt.colorbar(ax0)
 plt.show()
@@ -70,7 +73,7 @@ plt.tight_layout()
 plt.show()
 
 loss = np.load(f"{root_path}/loss.npy")
-plt.plot(loss.flatten()[:100])
-plt.show()
+# plt.plot(loss.flatten()[:100])
+# plt.show()
 # fig.savefig(f"./figures/{loss}.png")
 

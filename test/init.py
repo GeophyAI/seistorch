@@ -56,13 +56,13 @@ from scipy.ndimage import gaussian_filter, gaussian_filter1d
 # plt.imshow(init, aspect="auto", cmap=plt.cm.seismic)
 # plt.show()
 
-true = np.load("/mnt/data/wangsw/inversion/marmousi_10m/velocity/true_vp.npy")
-back_vp = np.ones_like(true)*1500
-back_vs = np.zeros_like(true)*1500
-back_vp[48:,:] = 2500
-back_vs[48:,:] = 2500/1.73
-np.save("/mnt/data/wangsw/inversion/marmousi_10m/velocity/background_vp.npy", back_vp)
-np.save("/mnt/data/wangsw/inversion/marmousi_10m/velocity/background_vs.npy", back_vs)
+# true = np.load("/mnt/data/wangsw/inversion/marmousi_10m/velocity/true_vp.npy")
+# back_vp = np.ones_like(true)*1500
+# back_vs = np.zeros_like(true)*1500
+# back_vp[48:,:] = 2500
+# back_vs[48:,:] = 2500/1.73
+# np.save("/mnt/data/wangsw/inversion/marmousi_10m/velocity/background_vp.npy", back_vp)
+# np.save("/mnt/data/wangsw/inversion/marmousi_10m/velocity/background_vs.npy", back_vs)
 
 
 
