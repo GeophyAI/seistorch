@@ -325,7 +325,7 @@ class NIMl2(torch.nn.Module):
     def name(self,):
         return "niml2"
 
-    def forward_ori(self, x, y):
+    def forward(self, x, y):
         """
         Calculates the cumulative distribution distance between two distributions.
 
