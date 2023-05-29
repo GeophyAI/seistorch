@@ -2,10 +2,10 @@
 python codingfwi.py config/coding.yml \
 --gpuid 0 \
 --opt adam \
---loss l2+tv2d \
+--loss niml1 \
 --mode inversion \
 --batchsize 20 \
 --global-lr 5 \
---save-path /mnt/data/wangsw/inversion/marmousi_10m/elastic/l2+tv2d \
+--save-path /mnt/data/wangsw/inversion/marmousi_10m/acoustic/nim_l1 \
 --use-cuda
 # --grad-smooth

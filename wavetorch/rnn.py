@@ -76,22 +76,23 @@ class WaveRNN(torch.nn.Module):
         x = x.to(device)
         super_source = WaveSource([s.x for s in self.sources], 
                                   [s.y for s in self.sources]).to(device)
-
+        time_offset = 2 if self.cell.geom.equation == "acoustic" else 0
         for i, xi in enumerate(x.chunk(x.size(1), dim=1)):
-
-            # if i %1==0:
-            #     np.save(f"/mnt/data/wangsw/inversion/marmousi_10m/inv_rho/l2/forward/forward{i:04d}.npy", 
-            #             self.p.cpu().detach().numpy())
+            #print(x.shape, xi.view(xi.size(1), -1).shape)
                 
             # Propagate the fields
             wavefield = [self.__getattribute__(name) for name in wavefield_names]
-
+            tmpi = min(i+time_offset, x.shape[1]-1)
             wavefield = self.cell(wavefield, 
                                   model_paras, 
                                   is_last_frame=(i==x.size(1)-1), 
                                   omega=omega, 
-                                  source=[self.cell.geom.source_type, super_source, xi.view(xi.size(1), -1)])
-
+                                  source=[self.cell.geom.source_type, super_source, x[..., tmpi].view(xi.size(1), -1)])
+                                #   source=[self.cell.geom.source_type, super_source, xi.view(xi.size(1), -1)])
+            
+            # if i %1==0:
+            #     np.save(f"/mnt/data/wangsw/inversion/marmousi_10m/inv_rho/l2/forward/forward{i:04d}.npy", 
+            #             wavefield[0].cpu().detach().numpy())
 
             # Set the data to vars
             for name, data in zip(wavefield_names, wavefield):

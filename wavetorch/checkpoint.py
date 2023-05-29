@@ -1,5 +1,5 @@
 # This file is modified from torch.utils.checkpoint.checkpoint
-# for making it available for seismic inversion.
+# for making it available for BPTT in seismic inversion.
 import torch
 import warnings
 import weakref
@@ -148,10 +148,19 @@ class CheckpointFunction(torch.autograd.Function):
         # Get the boundarys:
         if ctx.is_last_time_step:
             CheckpointFunction.wavefields = list(ctx.lastframe)
+            if len(CheckpointFunction.wavefields) == 2:
+                CheckpointFunction.wavefields.reverse()
             return (None, None, None, None, None) + tuple(None for _ in range(len(ctx.requires_grad_list)))
         else:
             wavefields = CheckpointFunction.wavefields
-        
+
+        CheckpointFunction.counts+=1
+        if CheckpointFunction.counts == 1 and len(wavefields) == 2:
+            # When the equaion == "acoustic", it has little difference from other 
+            # first order wave equations, since we need to start the backpropagation 
+            # from the nt-2.
+            return (None, None, None, None, None) + tuple(None for _ in range(len(ctx.requires_grad_list)))
+
         inputs = ctx.models + tuple(wavefields) + ctx.geoms
         
         inputs = [inp.detach().requires_grad_(value) for inp, value in zip(inputs, ctx.requires_grad_list)]
@@ -165,11 +174,10 @@ class CheckpointFunction(torch.autograd.Function):
         if isinstance(outputs, torch.Tensor):
             outputs = (outputs,)
 
-        # CheckpointFunction.counts+=1
         # if CheckpointFunction.counts %1==0:
         #     np.save(f"/mnt/data/wangsw/inversion/marmousi_10m/inv_rho/l2/backward/backward{CheckpointFunction.counts:04d}.npy", 
-        #             outputs[-1].cpu().detach().numpy())
-                
+        #             outputs[0].cpu().detach().numpy())
+
         # Update wavefields
         CheckpointFunction.wavefields.clear()
         CheckpointFunction.wavefields.extend(list(outputs))

@@ -1,7 +1,0 @@
-Configuration: config/coding.yml
-Using CUDA for calculation
-Optimizer: adam
-'vs' found, but get equation acoustic1st and skipped
-'vs' found, but get equation acoustic1st and skipped
-'vs' found, but get equation acoustic1st and skipped
-Modeling done, data will be writing to disk.

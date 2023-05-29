@@ -14,6 +14,12 @@ class WaveSource(torch.nn.Module):
 	def __repr__(self,):
 		return super().__repr__() + '\nSource location: x:{} z:{}'.format(self.y, self.x)
 
+	# def forward(self, Y, X, dt=1.0):
+	# 	# Thanks to Erik Peterson for this fix
+	# 	Y_new = Y.clone()
+	# 	Y_new[..., self.x, self.y] += dt*X
+	# 	return Y_new
+
 	def forward(self, Y, X, dt=1.0):
 		# Thanks to Erik Peterson for this fix
 		Y[..., self.x, self.y] += dt*X

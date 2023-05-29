@@ -288,16 +288,44 @@ class Wasserstein2d(torch.nn.Module):
 
         return wasserstein_dists.mean()
 
-class NIM(torch.nn.Module):
+class NIMl1(torch.nn.Module):
     def __init__(self):
         super().__init__()
 
 
     @property
     def name(self,):
-        return "nim"
+        return "niml1"
 
     def forward(self, x, y):
+        """
+        Calculates the cumulative distribution distance between two distributions.
+
+        Args:
+            x (torch.Tensor): The first distribution.
+            y (torch.Tensor): The second distribution.
+
+        Returns:
+            torch.Tensor: The cumulative distribution distance between the inputs.
+        """
+
+        # Calculate the cumulative distributions of x and y along the first dimension
+        x_cum_distributions = torch.cumsum(x, dim=0)
+        y_cum_distributions = torch.cumsum(y, dim=0)
+
+        return torch.nn.L1Loss()(x_cum_distributions, y_cum_distributions)
+
+
+class NIMl2(torch.nn.Module):
+    def __init__(self):
+        super().__init__()
+
+
+    @property
+    def name(self,):
+        return "niml2"
+
+    def forward_ori(self, x, y):
         """
         Calculates the cumulative distribution distance between two distributions.
 
@@ -334,53 +362,6 @@ class Phase(torch.nn.Module):
     def name(self,):
         return "phase"
 
-    def hilbert(self, data):
-        """
-        Compute the Hilbert transform of the input data tensor.
-
-        Args:
-            data (torch.Tensor): The input data tensor.
-
-        Returns:
-            torch.Tensor: The Hilbert transform of the input data tensor.
-        """
-
-        nt, _, _ = data.shape
-        nfft = 2 ** (nt - 1).bit_length()
-
-        # Compute the FFT
-        data_fft = torch.fft.fft(data, n=nfft, dim=0)
-
-        # Create the filter
-        h = torch.zeros(nfft, device=data.device).unsqueeze(1).unsqueeze(2)
-        h[0] = 1
-        h[1:(nfft // 2)] = 2
-        if nfft % 2 == 0:
-            h[nfft // 2] = 1
-
-        # Apply the filter and compute the inverse FFT
-        hilbert_data_fft = data_fft * h
-        hilbert_data = torch.fft.ifft(hilbert_data_fft, dim=0)
-
-        # Truncate the result to the original length
-        hilbert_data = hilbert_data[:nt]
-
-        return hilbert_data.real   
-
-
-    def instantaneous_phase(self, seismograms, mask_value=1e-5):
-        # 生成一个mask用于去噪
-        mask = torch.ones_like(seismograms).to(seismograms.device)
-        mask[torch.abs(seismograms)<mask_value] = 0
-
-        hilbert_transform = self.hilbert(seismograms)
-
-        analytic_signal = seismograms + \
-            hilbert_transform.to(seismograms.device) * 1j
-        
-        phase = torch.angle(analytic_signal)*180/3.14159
-
-        return phase*mask
     
     def phase_correlation(self, obs, sim):
         """
@@ -469,9 +450,9 @@ class Envelope(torch.nn.Module):
         #     hilbert_transform.to(seismograms.device) * 1j
         # envelope = torch.abs(analytic_signal)
 
-        envelope = torch.sqrt(seismograms**2+torch.abs(hilbert_transform)**2)
+        # envelope = torch.sqrt(seismograms**2+torch.abs(hilbert_transform)**2)
 
-        # envelope = torch.abs(hilbert_transform)
+        envelope = torch.abs(hilbert_transform)
 
         return envelope
 

@@ -6,7 +6,7 @@ name: coding_fwi
 # Data type to use for tensors, either float32 or float64
 dtype: float32
 
-equation: elastic
+equation: acoustic
 
 training:
 
@@ -15,7 +15,7 @@ training:
   batch_size: 20
 
   # Number of training epochs
-  N_epochs: 100
+  N_epochs: 1
 
   # Optimizer learning rate
   lr: 5
@@ -29,7 +29,8 @@ training:
 geom:
 
   # The observer data
-  obsPath: /mnt/data/wangsw/inversion/marmousi_10m/data/marmousi_elastic_constrho_nolow5hz.npy
+  obsPath: /mnt/data/wangsw/inversion/marmousi_10m/data/marmousi_acoustic.npy
+  #/mnt/data/wangsw/inversion/marmousi_10m/data/marmousi_elastic_constrho.npy
 
   # Wave speed model from disk_file for forward modeling
   truePath:
@@ -43,15 +44,15 @@ geom:
 
   receivers: ./geometry/marmousi_obn_10m/receivers.pkl
 
-  wavelet: ./geometry/ricker_lowcut5hz.npy
+  wavelet:
+  # ./geometry/ricker_lowcut5hz.npy
 
   source_type:
-    - vz
+    - h1
 
   receiver_type:
-    - vx
-    - vz
-  
+    - h1
+
   # Inital Wave speed model from disk_file
   initPath: 
     vp: /mnt/data/wangsw/inversion/marmousi_10m/velocity/linear_vp.npy
@@ -72,7 +73,7 @@ geom:
   inv_savePath: /mnt/data/wangsw/inversion/marmousi_10m/Test
 
   multiscale:
-    - 6.0
+    - 1.0
 
   # Time Sampling step
   dt: 0.001
