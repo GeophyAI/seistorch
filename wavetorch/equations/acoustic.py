@@ -2,9 +2,6 @@ import torch
 from torch.nn.functional import conv2d
 from .utils import restore_boundaries
 
-NPML = 50
-N = 2
-
 def _laplacian(y, h):
     """Laplacian operator"""
     kernel = torch.tensor([[[[0.0, 1.0, 0.0], [1.0, -4.0, 1.0], [0.0, 1.0, 0.0]]]]).to(y.device)
@@ -42,10 +39,10 @@ def _time_step_backward(*args):
                 + torch.mul(vp.pow(2), _laplacian(h1, h)))
                 )
 
-    y = restore_boundaries(y, h_bd, NPML, N)
+    y = restore_boundaries(y, h_bd)
 
     #y = src_func(y, src_values, 1)
-    y = y.clone()
+    # y = y.clone()
     y = src_func(y, src_values, 1)
 
     return y, h1
