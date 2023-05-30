@@ -220,6 +220,13 @@ class WaveGeometryFreeForm(WaveGeometry):
         img = torch.from_numpy(img).permute(2, 0, 1)#.unsqueeze(0)
 
         return img
+    
+    def set_zero_boundaries(self, tensor, pad=50):
+        tensor[..., :pad, :] = 0
+        tensor[..., -pad:, :] = 0
+        tensor[..., :, :pad] = 0
+        tensor[..., :, -pad:] = 0
+        return tensor
 
     def gradient_smooth(self, sigma=2):
         for para in self.model_parameters:
@@ -229,6 +236,15 @@ class WaveGeometryFreeForm(WaveGeometry):
                 for i in range(10):
                     smoothed_grad = gaussian_filter(smoothed_grad, sigma)
                 var.grad.copy_(to_tensor(smoothed_grad).to(var.grad.device))
+
+
+    def gradient_cut(self,):
+        for para in self.model_parameters:
+            var = self.__getattr__(para)
+            if var.requires_grad:
+                cut_grad = var.grad.cpu().detach().numpy()
+                cut_grad = self.set_zero_boundaries(cut_grad)
+                var.grad.copy_(to_tensor(cut_grad).to(var.grad.device))
 
     def save_model(self, path: str, paras: str, freq_idx=1, epoch=1, writer=None, max_epoch=1000):
         """Save the data of model parameters and their gradients(if they have).

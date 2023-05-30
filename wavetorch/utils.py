@@ -8,36 +8,6 @@ import numpy as np
 import torch
 from scipy import signal
 
-def save_boundaries(tensor: torch.Tensor, NPML: int=50, N: int=2):
-    """Boundary saving.
-
-    Args:
-        tensor (torch.Tensor): The wavefield need to be saved (3D).
-        NPML (int): The width of the pml boundary
-        N (int): The diff order (1)
-
-    Returns:
-        Tuple: top, bottom, left and right boundary.
-    """
-    tensor = tensor.squeeze(0)
-    top = tensor[NPML:NPML+N, :].clone()
-    bottom = tensor[-(NPML+N):-NPML, :].clone()
-    left = tensor[:,NPML:NPML+N].clone()
-    right = tensor[:, -(NPML+N):-NPML].clone()
-
-    return top, bottom, left, right
-
-def restore_boundaries(tensor, memory, NPML=50, N=2):
-
-    top, bottom, left, right = memory
-    tensor[..., NPML:NPML+N, :] = top
-    tensor[..., -(NPML+N):-NPML, :] = bottom
-    tensor[..., NPML:NPML+N] = left
-    tensor[..., -(NPML+N):-NPML] = right
-    
-    return tensor
-
-
 def to_tensor(x, dtype=None):
     dtype = dtype if dtype is not None else torch.get_default_dtype()
     if type(x) is np.ndarray:

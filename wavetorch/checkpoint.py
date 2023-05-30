@@ -6,7 +6,7 @@ import weakref
 import itertools
 import numpy as np
 from typing import Any, Iterable, List, Tuple
-from .utils import save_boundaries, restore_boundaries
+from wavetorch.equations.utils import save_boundaries
 
 __all__ = [
     "checkpoint", "checkpoint_sequential", "CheckpointFunction",
@@ -150,6 +150,8 @@ class CheckpointFunction(torch.autograd.Function):
             CheckpointFunction.wavefields = list(ctx.lastframe)
             if len(CheckpointFunction.wavefields) == 2:
                 CheckpointFunction.wavefields.reverse()
+            wavefields = CheckpointFunction.wavefields
+
             return (None, None, None, None, None) + tuple(None for _ in range(len(ctx.requires_grad_list)))
         else:
             wavefields = CheckpointFunction.wavefields
@@ -168,19 +170,31 @@ class CheckpointFunction(torch.autograd.Function):
         # Inputs for backwards
         boundaries = packup_boundaries(ctx.saved_tensors, 4)
         inputs = inputs + [boundaries] + [ctx.source_function]
-        with torch.enable_grad():
+
+        # Backward propagation for wavefield reconstruction
+        with torch.no_grad():
             outputs = ctx.back_function(*inputs)
 
         if isinstance(outputs, torch.Tensor):
             outputs = (outputs,)
 
-        # if CheckpointFunction.counts %1==0:
-        #     np.save(f"/mnt/data/wangsw/inversion/marmousi_10m/inv_rho/l2/backward/backward{CheckpointFunction.counts:04d}.npy", 
-        #             outputs[0].cpu().detach().numpy())
+        # if CheckpointFunction.counts%1==0:
+            # np.save(f"/mnt/data/wangsw/inversion/marmousi_10m/inv_rho/l2/backward/backward{CheckpointFunction.counts:04d}.npy", 
+                    # outputs[0].cpu().detach().numpy())
 
         # Update wavefields
-        CheckpointFunction.wavefields.clear()
-        CheckpointFunction.wavefields.extend(list(outputs))
+        if not (CheckpointFunction.counts == 1 and len(wavefields) == 2) or not CheckpointFunction.counts == 0:
+            CheckpointFunction.wavefields.clear()
+            CheckpointFunction.wavefields.extend(list(outputs))
+
+
+        # Run the forward second time for more accurate gradient calculation.
+        inputs = ctx.models + tuple(list(outputs)[::-1]) + ctx.geoms
+        inputs = [inp.detach().requires_grad_(value) for inp, value in zip(inputs, ctx.requires_grad_list)]
+
+        with torch.enable_grad():
+            outputs = ctx.run_function(*inputs)
+
 
         outputs_with_grad = []
         args_with_grad = []

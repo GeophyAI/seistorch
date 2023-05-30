@@ -7,28 +7,29 @@ import numpy as np
 
 """Objective loss function"""
 # path = r"/public1/home/wangsw/FWI/EFWI/Marmousi/marmousi1_20m/compare_loss"
-path = r"/mnt/data/wangsw/inversion/marmousi_10m/elastic/"
+path = r"/mnt/data/wangsw/inversion/marmousi_10m/acoustic/"
 
-losses = ["combine"]
+losses = ["l2_bptt", "l2_bptt_test", "l2_autodiff"]
 # losses = ["lr3", "lr5", "lr7", "lr10"]
 
 "Objective function"
-LOSS = []
-for loss_name in losses:
-    loss_path = os.path.join(path, loss_name, "loss.npy")
-    LOSS.append(np.load(loss_path))
+# LOSS = []
+# for loss_name in losses:
+#     loss_path = os.path.join(path, loss_name, "loss.npy")
+#     print(loss_path)
+#     LOSS.append(np.load(loss_path))
 
-fig,ax=plt.subplots(1,1, figsize=(10,8))
-for _loss in LOSS:
-    for i in range(_loss.shape[0]):
-        _loss[i] /= _loss[i][0]
-    ax.plot(_loss.flatten())
-plt.legend(losses)
-plt.show()
+# fig,ax=plt.subplots(1,1, figsize=(10,8))
+# for _loss in LOSS:
+#     for i in range(_loss.shape[0]):
+#         _loss[i] /= _loss[i][0]
+#     ax.plot(_loss.flatten())
+# plt.legend(losses)
+# plt.show()
 
 "Model error"
 true_vp = np.load("/mnt/data/wangsw/inversion/marmousi_10m/velocity/true_vp.npy")[:,50:-50]
-true_vs = np.load("/mnt/data/wangsw/inversion/marmousi_10m/velocity/true_vs.npy")[:,50:-50]
+true_vs = np.load("/mnt/data/wangsw/inversion/marmousi_10m/velocity/true_vp.npy")[:,50:-50]
 
 FMAX = 5
 EPOCHMAX = 50
@@ -41,16 +42,23 @@ for loss in losses:
     temp_vp = []
     temp_vs = []
     # Calculate the model error in current folder
+    model_error_vp_path = f"{loss_dir}/model_error_vp.npy"
+    if os.path.exists(model_error_vp_path):
+        VP_ERROR.append(np.load(model_error_vp_path))
+        continue
+    model_error_vs_path = f"{loss_dir}/model_error_vs.npy"
+    if os.path.exists(model_error_vs_path):
+        VS_ERROR.append(np.load(model_error_vs_path))
     for f in range(FMAX):
         for e in range(EPOCHMAX):
             vp = np.load(f"{loss_dir}/paravpF{f:02d}E{e:02d}.npy")[PMLN:-PMLN,PMLN+50:-PMLN-50]
-            vs = np.load(f"{loss_dir}/paravsF{f:02d}E{e:02d}.npy")[PMLN:-PMLN,PMLN+50:-PMLN-50]
+            vs = np.load(f"{loss_dir}/paravpF{f:02d}E{e:02d}.npy")[PMLN:-PMLN,PMLN+50:-PMLN-50]
             temp_vp.append(np.sum((true_vp-vp)**2)/true_vp.size)
             temp_vs.append(np.sum((true_vs-vs)**2)/true_vp.size)
     VP_ERROR.append(temp_vp.copy())
     VS_ERROR.append(temp_vs.copy())
-    np.save(f"{loss_dir}/model_error_vp.npy", np.array(temp_vp))
-    np.save(f"{loss_dir}/model_error_vs.npy", np.array(temp_vs))
+    np.save(model_error_vp_path, np.array(temp_vp))
+    np.save(f"{loss_dir}/model_error_vp.npy", np.array(temp_vs))
     del temp_vp, temp_vs
     gc.collect()
 

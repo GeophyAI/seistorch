@@ -54,6 +54,8 @@ parser.add_argument('--batchsize', type=int, default=-1,
                     help='learning rate')
 parser.add_argument('--grad-smooth', action='store_true',
                     help='Smooth the gradient or not')
+parser.add_argument('--grad-cut', action='store_true',
+                    help='Cut the boundaries of gradient or not')
 parser.add_argument('--mode', choices=['inversion'], default='inversion',
                     help='forward modeling, inversion or reverse time migration mode')
 
@@ -96,6 +98,7 @@ if __name__ == '__main__':
     BATCHSIZE = cfg['training']['batch_size'] if args.batchsize < 0 else args.batchsize
     ROOTPATH = args.save_path if args.save_path else cfg["geom"]["inv_savePath"]
     GRAD_SMOOTH = args.grad_smooth
+    GRAD_CUT = args.grad_cut
     # Check the working folder
     if not os.path.exists(ROOTPATH):
         os.makedirs(ROOTPATH, exist_ok=True)
@@ -232,6 +235,8 @@ if __name__ == '__main__':
 
                 if GRAD_SMOOTH:
                     model.cell.geom.gradient_smooth(sigma=2)
+                if GRAD_CUT:
+                    model.cell.geom.gradient_cut()
 
                 optimizer.step()
 
