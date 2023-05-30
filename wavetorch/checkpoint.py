@@ -189,7 +189,10 @@ class CheckpointFunction(torch.autograd.Function):
 
 
         # Run the forward second time for more accurate gradient calculation.
-        inputs = ctx.models + tuple(list(outputs)[::-1]) + ctx.geoms
+        if len(wavefields) == 2:
+            inputs = ctx.models + tuple(list(outputs)[::-1]) + ctx.geoms
+        else:
+            inputs = ctx.models + tuple(list(outputs)) + ctx.geoms
         inputs = [inp.detach().requires_grad_(value) for inp, value in zip(inputs, ctx.requires_grad_list)]
 
         with torch.enable_grad():
