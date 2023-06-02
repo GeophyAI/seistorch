@@ -2,7 +2,7 @@
 import argparse
 import os
 import time
-
+import gc
 import numpy as np
 import setproctitle
 import torch
@@ -21,6 +21,8 @@ from wavetorch.optimizer import NonlinearConjugateGradient as NCG
 from wavetorch.eqconfigure import Shape
 from wavetorch.utils import cpu_fft, ricker_wave, roll, to_tensor, get_src_and_rec
 from wavetorch.setup_source_probe import setup_src_coords, setup_rec_coords
+from wavetorch.cell import WaveCell
+from wavetorch.rnn import WaveRNN
 # from torchviz import make_dot
 # The flag below controls whether to allow TF32 on matmul. This flag defaults to False
 # in PyTorch 1.12 and later.
@@ -218,12 +220,14 @@ if __name__ == '__main__':
             def closure():
                 optimizer.zero_grad()#set_to_none=True
                 # Get the super shot gathersh
+                # Reset model
+                # cell = WaveCell(model.cell.geom, model.cell.forward_func, model.cell.backward_func)
+                # # Build RNN
+                # model = WaveRNN(cell)
+
                 model.reset_sources(sources)
                 ypred = model(coding_wavelet)
                 loss = criterion(ypred, coding_obs)
-                # loss1 = 0.01*Loss("nim").loss()(ypred, coding_obs)
-                # loss2 = 0.99*Loss("envelope").loss()(ypred, coding_obs)
-                # loss = loss1+loss2
                 loss.backward()
                 return loss
 
@@ -243,10 +247,12 @@ if __name__ == '__main__':
             logging.info(f"Freq {idx_freq:02d} Epoch {epoch:02d} loss: {loss[idx_freq][epoch]}")
             writer.add_scalar(f"Loss", loss[idx_freq][epoch], global_step=idx_freq*EPOCHS+epoch)
             if args.opt!="ncg":
-                lr_scheduler.step()
+               lr_scheduler.step()
             pbar.update(1)
             # Save vel and grad
             np.save(os.path.join(ROOTPATH, "loss.npy"), loss)
+            writer.add_scalar(f"GPU allocated", torch.cuda.max_memory_allocated()/ (1024 ** 3), global_step=idx_freq*EPOCHS+epoch)
+            writer.add_scalar(f"CPU Usage", torch.cuda.memory_stats()['allocated_bytes.all.current']/ (1024 ** 3), global_step=idx_freq*EPOCHS+epoch)
             model.cell.geom.save_model(ROOTPATH, 
                                        paras=["vel", "grad"], 
                                        freq_idx=idx_freq, 

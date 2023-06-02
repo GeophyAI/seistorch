@@ -64,4 +64,5 @@ def build_model(config_path, device = "cuda", mode="forward"):
     # Build RNN
     model = WaveRNN(cell)
 
+    #return cfg, model
     return cfg, model

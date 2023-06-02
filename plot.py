@@ -30,8 +30,8 @@ import argparse
 # exit()
 
 
-F = 5
-epoch = 49
+F = 4
+epoch = 99
 PMLN = 50
 # # epoch = args.epoch
 

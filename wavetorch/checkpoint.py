@@ -7,7 +7,7 @@ import itertools
 import numpy as np
 from typing import Any, Iterable, List, Tuple
 from wavetorch.equations.utils import save_boundaries
-
+import gc
 __all__ = [
     "checkpoint", "checkpoint_sequential", "CheckpointFunction",
     "check_backward_validity", "detach_variable", "get_device_states",
@@ -184,9 +184,11 @@ class CheckpointFunction(torch.autograd.Function):
 
         # Update wavefields
         if not (CheckpointFunction.counts == 1 and len(wavefields) == 2) or not CheckpointFunction.counts == 0:
+            #del CheckpointFunction.wavefields
+            #CheckpointFunction.wavefields = list(outputs)
+            #torch.cuda.empty_cache()
             CheckpointFunction.wavefields.clear()
             CheckpointFunction.wavefields.extend(list(outputs))
-
 
         # Run the forward second time for more accurate gradient calculation.
         if len(wavefields) == 2:
@@ -197,7 +199,6 @@ class CheckpointFunction(torch.autograd.Function):
 
         with torch.enable_grad():
             outputs = ctx.run_function(*inputs)
-
 
         outputs_with_grad = []
         args_with_grad = []

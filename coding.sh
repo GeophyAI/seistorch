@@ -6,7 +6,7 @@ python codingfwi.py config/coding.yml \
 --mode inversion \
 --batchsize 20 \
 --global-lr 5 \
---save-path /mnt/data/wangsw/inversion/marmousi_10m/acoustic/l2_bptt_test \
+--save-path /mnt/data/wangsw/inversion/marmousi_10m/acoustic/l2_bptt \
 --use-cuda \
 --grad-cut
 # --grad-smooth

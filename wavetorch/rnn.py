@@ -3,6 +3,7 @@ import torch
 
 from .eqconfigure import Wavefield
 from .source import WaveSource
+from .cell import WaveCell
 
 class WaveRNN(torch.nn.Module):
     def __init__(self, cell, sources=None, probes=[]):
@@ -53,6 +54,7 @@ class WaveRNN(torch.nn.Module):
         # Hacky way of figuring out if we're on the GPU from inside the model
         device = self.cell.geom.device
 
+        #self.cell = WaveCell(self.cell.geom, self.cell.forward_func, self.cell.backward_func)
         # Init hidden states
         hidden_state_shape = (1,) + self.cell.geom.domain_shape
 
@@ -61,7 +63,11 @@ class WaveRNN(torch.nn.Module):
         # Set wavefields
         for name in wavefield_names:
             self.__setattr__(name, torch.zeros(hidden_state_shape, device=device))
-
+            # if not hasattr(self, name):
+            #     setattr(self, name, torch.zeros(hidden_state_shape, device=device))
+            # else:
+            #     getattr(self, name).zero_()
+        
         length_record = len(self.cell.geom.receiver_type)
         p_all = [[] for i in range(length_record)]
 
@@ -78,7 +84,6 @@ class WaveRNN(torch.nn.Module):
                                   [s.y for s in self.sources]).to(device)
         time_offset = 2 if self.cell.geom.equation == "acoustic" else 0
         for i, xi in enumerate(x.chunk(x.size(1), dim=1)):
-            #print(x.shape, xi.view(xi.size(1), -1).shape)
                 
             # Propagate the fields
             wavefield = [self.__getattribute__(name) for name in wavefield_names]
@@ -96,6 +101,7 @@ class WaveRNN(torch.nn.Module):
 
             # Set the data to vars
             for name, data in zip(wavefield_names, wavefield):
+                #getattr(self, name).copy_(data)
                 self.__setattr__(name, data)
 
             # Add source
