@@ -398,6 +398,7 @@ class Envelope(torch.nn.Module):
     def name(self,):
         return "envelope"
 
+    # @torch.no_grad()
     def hilbert(self, data):
         """
         Compute the Hilbert transform of the input data tensor.
@@ -430,7 +431,7 @@ class Envelope(torch.nn.Module):
         hilbert_data = hilbert_data[:nt]
 
         return hilbert_data
-
+    
     def envelope(self, seismograms):
         """
         Compute the envelope of the input seismograms tensor.

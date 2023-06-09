@@ -1,7 +1,7 @@
 from .utils import diff_using_roll, restore_boundaries
 
-NPML = 50
-N = 2
+NPML = 49
+N = 1
 
 def _time_step_backward(*args):
 
@@ -82,6 +82,7 @@ def _time_step_backward(*args):
 
     for s_type in src_type:
         source_var = eval(s_type+"_copy")
+        # source_var = source_var.clone()
         source_var = src_func(source_var, src_values, -1)
 
     return vx_copy, vz_copy, txx_copy, tzz_copy, txz_copy

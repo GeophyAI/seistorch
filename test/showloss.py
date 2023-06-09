@@ -7,9 +7,9 @@ import numpy as np
 
 """Objective loss function"""
 # path = r"/public1/home/wangsw/FWI/EFWI/Marmousi/marmousi1_20m/compare_loss"
-path = r"/mnt/data/wangsw/inversion/marmousi_10m/acoustic/"
+path = r"/mnt/data/wangsw/inversion/marmousi/elastic/"
 
-losses = ["l2_bptt", "l2_bptt_test", "l2_autodiff"]
+losses = ["longepoch"]
 # losses = ["lr3", "lr5", "lr7", "lr10"]
 
 "Objective function"
@@ -28,11 +28,11 @@ losses = ["l2_bptt", "l2_bptt_test", "l2_autodiff"]
 # plt.show()
 
 "Model error"
-true_vp = np.load("/mnt/data/wangsw/inversion/marmousi_10m/velocity/true_vp.npy")[:,50:-50]
-true_vs = np.load("/mnt/data/wangsw/inversion/marmousi_10m/velocity/true_vp.npy")[:,50:-50]
+true_vp = np.load("/mnt/data/wangsw/inversion/marmousi_20m/velocity/true_vp.npy")[:,50:-50]
+true_vs = np.load("/mnt/data/wangsw/inversion/marmousi_20m/velocity/true_vs.npy")[:,50:-50]
 
-FMAX = 5
-EPOCHMAX = 50
+FMAX = 6
+EPOCHMAX = 200
 PMLN = 50
 VP_ERROR = []
 VS_ERROR = []
@@ -52,24 +52,27 @@ for loss in losses:
     for f in range(FMAX):
         for e in range(EPOCHMAX):
             vp = np.load(f"{loss_dir}/paravpF{f:02d}E{e:02d}.npy")[PMLN:-PMLN,PMLN+50:-PMLN-50]
-            vs = np.load(f"{loss_dir}/paravpF{f:02d}E{e:02d}.npy")[PMLN:-PMLN,PMLN+50:-PMLN-50]
+            vs = np.load(f"{loss_dir}/paravsF{f:02d}E{e:02d}.npy")[PMLN:-PMLN,PMLN+50:-PMLN-50]
             temp_vp.append(np.sum((true_vp-vp)**2)/true_vp.size)
             temp_vs.append(np.sum((true_vs-vs)**2)/true_vp.size)
     VP_ERROR.append(temp_vp.copy())
     VS_ERROR.append(temp_vs.copy())
-    np.save(model_error_vp_path, np.array(temp_vp))
-    np.save(f"{loss_dir}/model_error_vp.npy", np.array(temp_vs))
+    # np.save(model_error_vp_path, np.array(temp_vp))
+    # np.save(f"{loss_dir}/model_error_vp.npy", np.array(temp_vs))
+    # np.save(model_error_vs_path, np.array(temp_vs))
+    # np.save(f"{loss_dir}/model_error_vs.npy", np.array(temp_vs))
+    
     del temp_vp, temp_vs
     gc.collect()
 
 VP_ERROR = np.array(VP_ERROR)
 VS_ERROR = np.array(VS_ERROR)
 
-# np.save(os.path.join(path, "vp_error.npy"), VP_ERROR)
-# np.save(os.path.join(path, "vs_error.npy"), VS_ERROR)
+np.save(f"{loss_dir}/model_error_vp.npy", np.array(VP_ERROR))
+np.save(f"{loss_dir}/model_error_vs.npy", np.array(VS_ERROR))
 
-# VP_ERROR = np.load(os.path.join(path, "vp_error.npy"))
-# VS_ERROR = np.load(os.path.join(path, "vs_error.npy"))
+VP_ERROR = np.load(os.path.join(loss_dir, "model_error_vp.npy"))
+VS_ERROR = np.load(os.path.join(loss_dir, "model_error_vs.npy"))
 
 "Show the vp model error"
 fig,ax=plt.subplots(1,1, figsize=(5,4))

@@ -13,11 +13,11 @@ import argparse
 
 # args = parser.parse_args() 
 
-# d = np.load("/mnt/data/wangsw/inversion/marmousi_10m/data/marmousi_elastic_constrho_nolow5hz.npy")
+# d = np.load("/mnt/data/wangsw/inversion/overthrust/data/overthrust_acoustic.npy")
 
 # print(d.shape, d.max(), d.min())
 # dx = d[...,0]
-# dz = d[...,1]
+# dz = d[...,0]
 
 # no = 55
 # fig,axes = plt.subplots(1,2, figsize=(10,5))
@@ -30,25 +30,36 @@ import argparse
 # exit()
 
 
-F = 4
-epoch = 99
+F = 0
+epoch = 48
 PMLN = 50
+EXPAND = 100
 # # epoch = args.epoch
 
 # # F=args.frequency_index
 # #root_path = r"/public1/home/wangsw/FWI/EFWI/Marmousi/marmousi_10m/ss"
-root_path = r"/mnt/data/wangsw/inversion/marmousi_10m/acoustic/l2_bptt"
+root_path = r"/mnt/data/wangsw/inversion/marmousi/acoustic/envelope/"
+#r"/mnt/data/wangsw/inversion/marmousi/elastic/oldcodes"
 loss = root_path.split("/")[-1]
 coding = "."
-grad_vp = np.load(f"{root_path}/{coding}/gradvpF{F:02d}E{epoch:02d}.npy")#[PMLN:-PMLN,PMLN:-PMLN]
-grad_vs = np.load(f"{root_path}/{coding}/gradvpF{F:02d}E{epoch:02d}.npy")#[PMLN:-PMLN,PMLN:-PMLN]
+grad_vp = np.load(f"{root_path}/{coding}/gradvpF{F:02d}E{epoch:02d}.npy")[PMLN:-PMLN,PMLN:-PMLN]
+grad_vs = np.load(f"{root_path}/{coding}/gradvpF{F:02d}E{epoch:02d}.npy")[PMLN:-PMLN,PMLN:-PMLN]
 print(grad_vs.min(), grad_vs.max(), grad_vp.max(), grad_vp.min())
+# grad_vp[:50]=0
+# grad_vp[-50:]=0
+# grad_vp[..., :50]=0
+# grad_vp[..., -50:]=0
+
+# grad_vs[:50]=0
+# grad_vs[-50:]=0
+# grad_vs[..., :50]=0
+# grad_vs[..., -50:]=0
 # grad_vp[0:52]=0
 fig,axes = plt.subplots(1,2, figsize=(10,3))
-vmin, vmax = np.percentile(grad_vp, [1, 99])
-ax0=axes[0].imshow(grad_vp.squeeze(), vmin=vmin, vmax=vmax, aspect='auto', cmap=plt.cm.jet)
-vmin, vmax = np.percentile(grad_vs, [1, 99])
-ax1=axes[1].imshow(grad_vs.squeeze(), vmin=vmin, vmax=vmax, aspect='auto', cmap=plt.cm.jet)
+vmin, vmax = np.percentile(grad_vp, [2, 98])
+ax0=axes[0].imshow(grad_vp.squeeze(), vmin=vmin, vmax=vmax, aspect='auto', cmap=plt.cm.seismic)
+vmin, vmax = np.percentile(grad_vs, [2, 98])
+ax1=axes[1].imshow(grad_vs.squeeze(), vmin=vmin, vmax=vmax, aspect='auto', cmap=plt.cm.seismic)
 axes[0].set_title(root_path.split("/")[-1])
 axes[1].set_title(root_path.split("/")[-1])
 plt.colorbar(ax1)
@@ -57,10 +68,10 @@ plt.show()
  
 # Acoustic case
 true_vp = np.load("/mnt/data/wangsw/inversion/marmousi_20m/velocity/true_vp.npy")
-vp = np.load(f"{root_path}/{coding}/paravpF{F:02d}E{epoch:02d}.npy")[PMLN:-PMLN,PMLN:-PMLN]
-vs = np.load(f"{root_path}/{coding}/paravpF{F:02d}E{epoch:02d}.npy")[PMLN:-PMLN,PMLN:-PMLN]
+vp = np.load(f"{root_path}/{coding}/paravpF{F:02d}E{epoch:02d}.npy")[PMLN:-PMLN,PMLN+EXPAND:-PMLN-EXPAND]
+vs = np.load(f"{root_path}/{coding}/paravpF{F:02d}E{epoch:02d}.npy")[PMLN:-PMLN,PMLN+EXPAND:-PMLN-EXPAND]
 print(true_vp.max())
-vp[0:48] = 1500.
+# vp[0:48] = 1500.
 fig,axes = plt.subplots(1,2, figsize=(10,3))
 vmin, vmax = (1500, 5500)#(1.5, 5.500)
 ax0=axes[0].imshow(vp.squeeze(), vmin=vmin, vmax=vmax, aspect='auto', cmap=plt.cm.seismic)
@@ -73,7 +84,9 @@ plt.tight_layout()
 plt.show()
 
 loss = np.load(f"{root_path}/loss.npy")
-# plt.plot(loss.flatten()[:100])
-# plt.show()
+for i in range(loss.shape[0]):
+    loss[i]/=loss[i].max()
+plt.plot(loss.flatten())
+plt.show()
 # fig.savefig(f"./figures/{loss}.png")
 

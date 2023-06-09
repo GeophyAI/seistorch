@@ -128,7 +128,7 @@ class CheckpointFunction(torch.autograd.Function):
         ctx.models = args[:para_counts]
         ctx.geoms = args[::-1][0:3][::-1]
 
-        boundarys = [save_boundaries(output) for output in outputs]
+        boundarys = [save_boundaries(output, 49, 1) for output in outputs]
         # CheckpointFunction._bound.append(boundarys)
         ctx.save_for_backward(*itertools.chain(*boundarys))
         # Save the wavefields of the last time step
@@ -138,7 +138,7 @@ class CheckpointFunction(torch.autograd.Function):
 
     @staticmethod
     def backward(ctx, *args):
-
+        ACOUSTIC2nd = ctx.run_function.ACOUSTIC2nd
         if not torch.autograd._is_checkpoint_valid():
             raise RuntimeError(
                 "Checkpointing is not compatible with .grad() or when an `inputs` parameter"
@@ -148,16 +148,15 @@ class CheckpointFunction(torch.autograd.Function):
         # Get the boundarys:
         if ctx.is_last_time_step:
             CheckpointFunction.wavefields = list(ctx.lastframe)
-            if len(CheckpointFunction.wavefields) == 2:
+            if ACOUSTIC2nd == True:
                 CheckpointFunction.wavefields.reverse()
             wavefields = CheckpointFunction.wavefields
-
             return (None, None, None, None, None) + tuple(None for _ in range(len(ctx.requires_grad_list)))
         else:
             wavefields = CheckpointFunction.wavefields
 
         CheckpointFunction.counts+=1
-        if CheckpointFunction.counts == 1 and len(wavefields) == 2:
+        if CheckpointFunction.counts == 1 and ACOUSTIC2nd:
             # When the equaion == "acoustic", it has little difference from other 
             # first order wave equations, since we need to start the backpropagation 
             # from the nt-2.
@@ -171,9 +170,15 @@ class CheckpointFunction(torch.autograd.Function):
         boundaries = packup_boundaries(ctx.saved_tensors, 4)
         inputs = inputs + [boundaries] + [ctx.source_function]
 
-        # Backward propagation for wavefield reconstruction
-        with torch.no_grad():
-            outputs = ctx.back_function(*inputs)
+        # When acoustic 2nd is used, we first need to reconstruct 
+        # the wavefield using backward function, and then calculate
+        # the gradient using forward function.
+        if ACOUSTIC2nd:
+            with torch.no_grad():
+                outputs = ctx.back_function(*inputs)
+        else:
+            with torch.enable_grad():
+                outputs = ctx.back_function(*inputs)
 
         if isinstance(outputs, torch.Tensor):
             outputs = (outputs,)
@@ -183,22 +188,20 @@ class CheckpointFunction(torch.autograd.Function):
                     # outputs[0].cpu().detach().numpy())
 
         # Update wavefields
-        if not (CheckpointFunction.counts == 1 and len(wavefields) == 2) or not CheckpointFunction.counts == 0:
-            #del CheckpointFunction.wavefields
-            #CheckpointFunction.wavefields = list(outputs)
-            #torch.cuda.empty_cache()
+        if not (CheckpointFunction.counts == 1 and ACOUSTIC2nd) or not CheckpointFunction.counts == 0:
             CheckpointFunction.wavefields.clear()
             CheckpointFunction.wavefields.extend(list(outputs))
 
         # Run the forward second time for more accurate gradient calculation.
-        if len(wavefields) == 2:
+        if ACOUSTIC2nd:
             inputs = ctx.models + tuple(list(outputs)[::-1]) + ctx.geoms
-        else:
-            inputs = ctx.models + tuple(list(outputs)) + ctx.geoms
-        inputs = [inp.detach().requires_grad_(value) for inp, value in zip(inputs, ctx.requires_grad_list)]
+            inputs = [inp.detach().requires_grad_(value) for inp, value in zip(inputs, ctx.requires_grad_list)]
 
-        with torch.enable_grad():
-            outputs = ctx.run_function(*inputs)
+            with torch.enable_grad():
+                outputs = ctx.run_function(*inputs)
+        # else:
+        #     inputs = ctx.models + tuple(list(outputs)) + ctx.geoms
+
 
         outputs_with_grad = []
         args_with_grad = []

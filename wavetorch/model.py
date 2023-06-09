@@ -59,6 +59,7 @@ def build_model(config_path, device = "cuda", mode="forward"):
     # Import the forward and backward functions with the specified equation
     forward_func = getattr(module, "_time_step", None)
     backward_func = getattr(module, "_time_step_backward", None)
+    forward_func.ACOUSTIC2nd = True if cfg['equation'] == "acoustic" else False
     # Build Cell
     cell = WaveCell(geom, forward_func, backward_func)
     # Build RNN

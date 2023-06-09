@@ -18,6 +18,7 @@ from wavetorch.loss import Loss
 # from tensorflow.keras.models import load_model
 from wavetorch.model import build_model
 from wavetorch.optimizer import NonlinearConjugateGradient as NCG
+from wavetorch.optimizer import SophiaG
 from wavetorch.eqconfigure import Shape
 from wavetorch.utils import cpu_fft, ricker_wave, roll, to_tensor, get_src_and_rec
 from wavetorch.setup_source_probe import setup_src_coords, setup_rec_coords
@@ -121,6 +122,7 @@ if __name__ == '__main__':
     # In coding fwi, the probes are set only once.
     probes = setup_rec_coords(rec_list[0], cfg['geom']['pml']['N'])
     model.reset_probes(probes)
+
     # print(probes)
     """# Read the wavelet"""
     if not cfg["geom"]["wavelet"]:
@@ -144,15 +146,9 @@ if __name__ == '__main__':
 
     """Define Optimizer"""
     if args.opt=='adam':
-        # optimizer = torch.optim.Adam([
-        #         {'params': model.cell.get_parameters('vp'), 'lr':LEARNING_RATE}], 
-        #         betas=(0.9, 0.999), eps=1e-20)
-        # optimizer = torch.optim.Adam([
-        #         {'params': model.cell.get_parameters('vp'), 'lr':LEARNING_RATE},
-        #         {'params': model.cell.get_parameters('rho'), 'lr':LEARNING_RATE/1.73}], 
-        #         betas=(0.9, 0.999), eps=1e-20)
         if ACOUSTIC:
             optimizer = torch.optim.Adam(model.parameters(), lr=LEARNING_RATE, eps=1e-20)
+            #optimizer = SophiaG(model.parameters(), lr=0.01)
         if ELASTIC: 
             optimizer = torch.optim.Adam([
                     {'params': model.cell.get_parameters('vp'), 'lr':LEARNING_RATE},
@@ -220,11 +216,6 @@ if __name__ == '__main__':
             def closure():
                 optimizer.zero_grad()#set_to_none=True
                 # Get the super shot gathersh
-                # Reset model
-                # cell = WaveCell(model.cell.geom, model.cell.forward_func, model.cell.backward_func)
-                # # Build RNN
-                # model = WaveRNN(cell)
-
                 model.reset_sources(sources)
                 ypred = model(coding_wavelet)
                 loss = criterion(ypred, coding_obs)

@@ -96,8 +96,8 @@ class WaveRNN(torch.nn.Module):
                                 #   source=[self.cell.geom.source_type, super_source, xi.view(xi.size(1), -1)])
             
             # if i %1==0:
-                # np.save(f"/mnt/data/wangsw/inversion/marmousi_10m/inv_rho/l2/forward/forward{i:04d}.npy", 
-                        # wavefield[0].cpu().detach().numpy())
+            #     np.save(f"/mnt/data/wangsw/inversion/marmousi_10m/inv_rho/l2/forward/forward{i:04d}.npy", 
+            #             wavefield[0].cpu().detach().numpy())
 
             # Set the data to vars
             for name, data in zip(wavefield_names, wavefield):

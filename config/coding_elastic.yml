@@ -6,7 +6,7 @@ name: coding_fwi
 # Data type to use for tensors, either float32 or float64
 dtype: float32
 
-equation: acoustic
+equation: elastic
 
 training:
 
@@ -15,7 +15,7 @@ training:
   batch_size: 20
 
   # Number of training epochs
-  N_epochs: 100
+  N_epochs: 200
 
   # Optimizer learning rate
   lr: 5
@@ -29,35 +29,36 @@ training:
 geom:
 
   # The observer data
-  obsPath: /mnt/data/wangsw/inversion/marmousi_10m/data/marmousi_acoustic_nolow5hz.npy
-  #/mnt/data/wangsw/inversion/marmousi_10m/data/marmousi_elastic_constrho.npy
+  obsPath: /mnt/data/wangsw/inversion/marmousi_20m/data/marmousi_elastic_obn.npy
+  #/mnt/data/wangsw/inversion/marmousi_20m/data/marmousi_elastic_constrho.npy
 
   # Wave speed model from disk_file for forward modeling
   truePath:
-    vp: /mnt/data/wangsw/inversion/marmousi_10m/velocity/true_vp.npy
-    vs: /mnt/data/wangsw/inversion/marmousi_10m/velocity/true_vs.npy
-    rho: /mnt/data/wangsw/inversion/marmousi_10m/velocity/rho.npy
+    vp: /mnt/data/wangsw/inversion/marmousi_20m/velocity/true_vp.npy
+    vs: /mnt/data/wangsw/inversion/marmousi_20m/velocity/true_vs.npy
+    rho: /mnt/data/wangsw/inversion/marmousi_20m/velocity/rho.npy
     Q: 
-    #/mnt/data/wangsw/inversion/marmousi_10m/data//velocity/q_const.npy
+    #/mnt/data/wangsw/inversion/marmousi_20m/data//velocity/q_const.npy
 
-  sources: ./geometry/marmousi_obn_10m/sources.pkl
+  sources: ./geometry/marmousi_obn_20m/sources.pkl
 
-  receivers: ./geometry/marmousi_obn_10m/receivers.pkl
+  receivers: ./geometry/marmousi_obn_20m/receivers.pkl
 
   wavelet:
   # ./geometry/ricker_lowcut5hz.npy
 
   source_type:
-    - h1
+    - vz
 
   receiver_type:
-    - h1
+    - vx
+    - vz
 
   # Inital Wave speed model from disk_file
   initPath: 
-    vp: /mnt/data/wangsw/inversion/marmousi_10m/velocity/linear_vp.npy
-    vs: /mnt/data/wangsw/inversion/marmousi_10m/velocity/linear_vs.npy
-    rho: /mnt/data/wangsw/inversion/marmousi_10m/velocity/rho.npy
+    vp: /mnt/data/wangsw/inversion/marmousi_20m/velocity/linear_vp.npy
+    vs: /mnt/data/wangsw/inversion/marmousi_20m/velocity/linear_vs.npy
+    rho: /mnt/data/wangsw/inversion/marmousi_20m/velocity/rho.npy
     Q:
 
   invlist:
@@ -70,9 +71,14 @@ geom:
   ckpt: true
 
   # Save the results of FWI
-  inv_savePath: /mnt/data/wangsw/inversion/marmousi_10m/Test
+  inv_savePath: /mnt/data/wangsw/inversion/marmousi_20m/Test
 
   multiscale:
+    - 1.0
+    - 3.0
+    - 5.0
+    - 8.0
+    - 10.0
     - all
 
   # Time Sampling step
@@ -85,10 +91,7 @@ geom:
   fm: 15.0
 
   # Spatial grid step size
-  h: 10.0
-
-  # Total receivers
-  Nreceivers: 1122
+  h: 20.0
 
   # Total Shots
   Nshots: 111
