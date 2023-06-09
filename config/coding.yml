@@ -29,7 +29,7 @@ training:
 geom:
 
   # The observer data
-  obsPath: /mnt/data/wangsw/inversion/marmousi_10m/data/marmousi_acoustic_nolow5hz.npy
+  obsPath: /mnt/data/wangsw/inversion/marmousi_10m/data/marmousi_acoustic.npy
   #/mnt/data/wangsw/inversion/marmousi_10m/data/marmousi_elastic_constrho.npy
 
   # Wave speed model from disk_file for forward modeling
@@ -73,6 +73,11 @@ geom:
   inv_savePath: /mnt/data/wangsw/inversion/marmousi_10m/Test
 
   multiscale:
+    - 1.0
+    - 3.0
+    - 5.0
+    - 8.0
+    - 10.0
     - all
 
   # Time Sampling step

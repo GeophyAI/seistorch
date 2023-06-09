@@ -4,7 +4,7 @@ python codingfwi.py config/coding.yml \
 --opt adam \
 --loss envelope \
 --mode inversion \
---batchsize 20 \
+--batchsize 10 \
 --global-lr 5 \
 --save-path /mnt/data/wangsw/inversion/marmousi/acoustic/envelope/ \
 --use-cuda \

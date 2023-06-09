@@ -31,7 +31,7 @@ import argparse
 
 
 F = 0
-epoch = 48
+epoch = 99
 PMLN = 50
 EXPAND = 100
 # # epoch = args.epoch
