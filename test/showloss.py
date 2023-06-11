@@ -7,9 +7,9 @@ import numpy as np
 
 """Objective loss function"""
 # path = r"/public1/home/wangsw/FWI/EFWI/Marmousi/marmousi1_20m/compare_loss"
-path = r"/mnt/data/wangsw/inversion/marmousi/elastic/"
+path = r"/mnt/data/wangsw/inversion/marmousi/acoustic/"
 
-losses = ["longepoch"]
+losses = ["l2reg"]
 # losses = ["lr3", "lr5", "lr7", "lr10"]
 
 "Objective function"
@@ -28,11 +28,11 @@ losses = ["longepoch"]
 # plt.show()
 
 "Model error"
-true_vp = np.load("/mnt/data/wangsw/inversion/marmousi_20m/velocity/true_vp.npy")[:,50:-50]
-true_vs = np.load("/mnt/data/wangsw/inversion/marmousi_20m/velocity/true_vs.npy")[:,50:-50]
+true_vp = np.load("/mnt/data/wangsw/inversion/marmousi_10m/velocity/true_vp.npy")[:,50:-50]
+true_vs = np.load("/mnt/data/wangsw/inversion/marmousi_10m/velocity/true_vs.npy")[:,50:-50]
 
-FMAX = 6
-EPOCHMAX = 200
+FMAX = 1
+EPOCHMAX = 100
 PMLN = 50
 VP_ERROR = []
 VS_ERROR = []
