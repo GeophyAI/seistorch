@@ -2,11 +2,11 @@
 python codingfwi.py config/coding.yml \
 --gpuid 0 \
 --opt adam \
---loss envelope \
+--loss l2 \
 --mode inversion \
---batchsize 10 \
+--batchsize 20 \
 --global-lr 5 \
---save-path /mnt/data/wangsw/inversion/marmousi/acoustic/envelope/ \
+--save-path /mnt/data/wangsw/inversion/marmousi/acoustic/l2_20hz/ \
 --use-cuda \
 --grad-cut
 # --grad-smooth

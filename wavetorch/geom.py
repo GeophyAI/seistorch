@@ -182,7 +182,7 @@ class WaveGeometryFreeForm(WaveGeometry):
         Returns:
             _type_: torch.nn.Tensor
         """
-        model = self.pad(load_file_by_type(path), mode="random")
+        model = self.pad(load_file_by_type(path), mode="edge")
         return torch.nn.Parameter(to_tensor(model), requires_grad=requires_grad)
 
     def pad(self, d: np.ndarray, mode='edge'):
@@ -196,8 +196,8 @@ class WaveGeometryFreeForm(WaveGeometry):
             np.ndarray: the data after padding.
         """
         mode_options = ['constant', 'edge', 'linear_ramp', 'maximum', 'mean', 'median', 'minimum', 'reflect', 'symmetric', 'wrap']
+        padding = self.padding
         if mode in mode_options:
-            padding = self.padding
             return np.pad(d, ((padding, padding), (padding,padding)), mode=mode)
         else: # Padding the velocity with random velocites
             return self.pad_model_with_random_values(d, padding)
@@ -207,8 +207,10 @@ class WaveGeometryFreeForm(WaveGeometry):
         nz, nx = model.shape
 
         # 找到模型的最大值和最小值
-        min_val = np.min(model)
-        max_val = np.max(model)
+        # min_val = np.min(model)
+        # max_val = np.max(model)
+        min_val = 400
+        max_val = np.min(model)
 
         # 创建新的填充后的模型
         padded_model = np.zeros((nz + 2 * N, nx + 2 * N))
@@ -223,7 +225,42 @@ class WaveGeometryFreeForm(WaveGeometry):
             padded_model[:, i] = np.random.uniform(min_val, max_val, (nz + 2 * N))  # 左侧
             padded_model[:, -i-1] = np.random.uniform(min_val, max_val, (nz + 2 * N))  # 右侧
 
-        return padded_model 
+        return padded_model
+    
+    # def pad_model_with_random_values(self, model, N):
+
+    #     def scale_values(values, NMAX):
+    #         max_value = np.max(values)
+    #         scaling_factor = NMAX / max_value
+    #         scaled_values = values * scaling_factor
+    #         return scaled_values
+    
+    #     # 获取模型的形状
+    #     nz, nx = model.shape
+
+    #     # 找到模型的最大值和最小值
+    #     min_val = np.min(model)
+    #     max_val = np.max(model)
+
+    #     # 创建新的填充后的模型
+    #     padded_model = np.zeros((nz + 2 * N, nx + 2 * N))
+
+    #     # 将原来的模型复制到新的填充后的模型中心
+    #     padded_model[N:N+nz, N:N+nx] = model
+
+    #     # 在外侧填充随机值
+    #     for i in range(N):
+    #         padded_model[i, :] = np.random.uniform(min_val, max_val, (nx + 2 * N))  # 上侧
+    #         padded_model[-i-1, :] = np.random.uniform(min_val, max_val, (nx + 2 * N))  # 下侧
+    #         padded_model[-i-1, :] = scale_values(padded_model[i, :], model[-1].max()) # 下侧归一化
+    #         padded_model[:, i] = np.random.uniform(min_val, max_val, (nz + 2 * N))  # 左侧
+    #         padded_model[N:-N, i] = padded_model[N:-N, i]/padded_model[:, i].max() * model[:,0] # 左侧归一化
+    #         padded_model[:, -i-1] = np.random.uniform(min_val, max_val, (nz + 2 * N))  # 右侧
+    #         padded_model[N:-N, -i-1] = padded_model[N:-N, -i-1]/padded_model[:, i].max() * model[:,-1] # 右侧归一化
+
+    #     padded_model[:N, :] = scale_values(padded_model[:N, :], model[0].max()) # 上侧归一化
+
+    #     return padded_model 
     
     def tensor_to_img(self, key, array, padding=0, vmin=None, vmax=None, cmap="seismic"):
         cmap = plt.get_cmap(cmap)
@@ -272,6 +309,14 @@ class WaveGeometryFreeForm(WaveGeometry):
                 cut_grad = var.grad.cpu().detach().numpy()
                 cut_grad = self.set_zero_boundaries(cut_grad)
                 var.grad.copy_(to_tensor(cut_grad).to(var.grad.device))
+
+    def reset_random_boundary(self,):
+        for para in self.model_parameters:
+            var = self.__getattr__(para).detach()
+            if var.requires_grad:
+                cut_var = var.cpu().detach().numpy()[self.padding:-self.padding, self.padding:-self.padding]
+                pad_var = self.pad_model_with_random_values(cut_var, self.padding)
+                var.copy_(to_tensor(pad_var).to(var.device))
 
     def save_model(self, path: str, paras: str, freq_idx=1, epoch=1, writer=None, max_epoch=1000):
         """Save the data of model parameters and their gradients(if they have).

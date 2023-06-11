@@ -22,8 +22,7 @@ from wavetorch.optimizer import SophiaG
 from wavetorch.eqconfigure import Shape
 from wavetorch.utils import cpu_fft, ricker_wave, roll, to_tensor, get_src_and_rec
 from wavetorch.setup_source_probe import setup_src_coords, setup_rec_coords
-from wavetorch.cell import WaveCell
-from wavetorch.rnn import WaveRNN
+from wavetorch.regularization import LaplacianRegularization
 # from torchviz import make_dot
 # The flag below controls whether to allow TF32 on matmul. This flag defaults to False
 # in PyTorch 1.12 and later.
@@ -143,7 +142,6 @@ if __name__ == '__main__':
         dump(cfg, f)
 
     # loss_weights = torch.autograd.Variable(torch.ones(3), requires_grad=True)
-
     """Define Optimizer"""
     if args.opt=='adam':
         if ACOUSTIC:
@@ -211,14 +209,17 @@ if __name__ == '__main__':
                 wave_temp, d_temp = roll(lp_wavelet, filtered_data[shot])
                 coding_wavelet[i] = to_tensor(wave_temp).to(args.dev)
                 coding_obs += to_tensor(d_temp).to(args.dev)
-
+            
             """Calculate encoding gradient"""
             def closure():
                 optimizer.zero_grad()#set_to_none=True
                 # Get the super shot gathersh
                 model.reset_sources(sources)
+                # model.cell.geom.reset_random_boundary()
                 ypred = model(coding_wavelet)
+                # loss = criterion(ypred, coding_obs, model.cell.geom.vp)
                 loss = criterion(ypred, coding_obs)
+                # model.cell.geom.reset_random_boundary()
                 loss.backward()
                 return loss
 

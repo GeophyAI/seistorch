@@ -4,7 +4,7 @@ from torch.nn.functional import pairwise_distance
 # from pytorch_msssim import SSIM as _ssim
 from math import exp
 from torchvision.models import vgg19
-import lesio
+import numpy as np
 
 class Loss:
     def __init__(self, loss="mse"):
@@ -122,7 +122,7 @@ class SSIM(torch.nn.Module):
         return 1 - self.ssim(img1, img2, window, self.window_size, channel)
 
 class L2_Reg(torch.nn.Module):
-    def __init__(self, beta=0.001):
+    def __init__(self, beta=1e-2):
         """
         Initializes the RegularizedLoss
 
@@ -135,10 +135,87 @@ class L2_Reg(torch.nn.Module):
     @property
     def name(self,):
         return "l2reg"
+    
+    def huber_regularization(self, x, delta=1.0):
+        """
+        Compute the Huber regularization of a tensor.
+
+        Parameters:
+        - x: the input tensor.
+        - delta: the point at which the loss changes from L1 to L2.
+
+        Returns:
+        - The Huber regularization of x.
+        """
+        abs_x = torch.abs(x)
+        quadratic = torch.minimum(abs_x, delta)
+        linear = abs_x - quadratic
+        return 0.5 * quadratic**2 + delta * linear
+    
+    def create_LoG_kernel(self, kernel_size=5, sigma=1.4):
+        x, y = np.meshgrid(np.linspace(-1, 1, kernel_size), np.linspace(-1, 1, kernel_size))
+        kernel = np.exp(-(x ** 2 + y ** 2) / (2.0 * sigma ** 2))
+        kernel = kernel * (1 - (x ** 2 + y ** 2) / (2.0 * sigma ** 2))
+        kernel = kernel / (2 * np.pi * sigma ** 6)
+        kernel = torch.from_numpy(kernel).float().unsqueeze(0).unsqueeze(0)
+        return kernel
+    
+    def log_regularization(self, image):
+        image = image.unsqueeze(0)
+        # 3x3 LoG kernel
+        log_kernel = self.create_LoG_kernel()# torch.tensor([[0, -1, 0], [-1, 4, -1], [0, -1, 0]]).float().unsqueeze(0).unsqueeze(0)
+
+        log_kernel = log_kernel.to(image.device)
+
+        # Apply the LoG filter
+        edges = F.conv2d(image, log_kernel, padding=1)
+        edge_strength = torch.sqrt(edges**2+1e-10)
+
+        # Regularization term is the sum of the edge strength
+        regularization = torch.sum(edge_strength)
+
+        return regularization
+    
+    def edge_preserving(self, image):
+        image = image.unsqueeze(0)
+        # Sobel filter kernels
+        sobel_x = torch.tensor([[-1, 0, 1], [-2, 0, 2], [-1, 0, 1]]).float().unsqueeze(0).unsqueeze(0)
+        sobel_y = torch.tensor([[-1, -2, -1], [0, 0, 0], [1, 2, 1]]).float().unsqueeze(0).unsqueeze(0)
+
+        sobel_x = sobel_x.to(image.device)
+        sobel_y = sobel_y.to(image.device)
+
+        # Apply the filters to get the edge maps
+        edge_x = F.conv2d(image, sobel_x, padding=1)
+        edge_y = F.conv2d(image, sobel_y, padding=1)
+        
+        # Calculate the edge strength
+        edge_strength = torch.sqrt(edge_x**2 + edge_y**2 + 1e-10)
+
+        # Regularization term is the sum of the edge strength
+        regularization = torch.sum(edge_strength)
+
+        return regularization
+    
+    def laplace_sharpen(self, m):
+        # 定义Laplace滤波器
+        laplace_filter = torch.tensor([[-1,-1,-1],[-1,8,-1],[-1,-1,-1]], dtype=torch.float).unsqueeze(0).unsqueeze(0)
+        laplace_filter = laplace_filter.to(m.device)
+        # 图像扩展channel维度并应用滤波器
+        m = m[None, None, :]
+        m_sharpen = F.conv2d(m, laplace_filter, padding=1)
+        
+        return m_sharpen[0, 0]
+    
+    def tv(self, img):
+        h, w = img.size()
+        return (torch.abs(img[:, :-1] - img[:, 1:]).sum() +torch.abs(img[:-1, :] - img[1:, :]).sum())/(h*w)
 
     def forward(self, x, y, m):
         mse_loss = torch.nn.MSELoss()(x, y)
-        reg_loss = self.beta * torch.norm(m.grad, p=2)
+        # reg_loss = self.beta * self.tv(m) #1e-2
+        # reg_loss = self.beta * self.edge_preserving(m)
+        reg_loss = self.beta * self.log_regularization(m)
         return mse_loss+reg_loss
 
 class NormalizedCrossCorrelation(torch.nn.Module):

@@ -29,14 +29,14 @@ training:
 geom:
 
   # The observer data
-  obsPath: /mnt/data/wangsw/inversion/marmousi_10m/data/marmousi_acoustic.npy
+  obsPath: /mnt/data/wangsw/inversion/marmousi_10m/data/marmousi_acoustic_20hz.npy
   #/mnt/data/wangsw/inversion/marmousi_10m/data/marmousi_elastic_constrho.npy
 
   # Wave speed model from disk_file for forward modeling
   truePath:
     vp: /mnt/data/wangsw/inversion/marmousi_10m/velocity/true_vp.npy
-    vs: /mnt/data/wangsw/inversion/marmousi_10m/velocity/true_vs.npy
-    rho: /mnt/data/wangsw/inversion/marmousi_10m/velocity/rho.npy
+    vs:
+    rho:
     Q: 
     #/mnt/data/wangsw/inversion/marmousi_10m/data//velocity/q_const.npy
 
@@ -56,13 +56,13 @@ geom:
   # Inital Wave speed model from disk_file
   initPath: 
     vp: /mnt/data/wangsw/inversion/marmousi_10m/velocity/linear_vp.npy
-    vs: /mnt/data/wangsw/inversion/marmousi_10m/velocity/linear_vs.npy
-    rho: /mnt/data/wangsw/inversion/marmousi_10m/velocity/rho.npy
+    vs:
+    rho:
     Q:
 
   invlist:
     vp: true
-    vs: true
+    vs: false
     rho: false
     q: false
 
@@ -78,6 +78,9 @@ geom:
     - 5.0
     - 8.0
     - 10.0
+    - 15.0
+    - 18.0
+    - 20.0
     - all
 
   # Time Sampling step
@@ -87,13 +90,10 @@ geom:
   nt: 4000
 
   # Main frequency of ricker wave
-  fm: 15.0
+  fm: 20.0
 
   # Spatial grid step size
   h: 10.0
-
-  # Total receivers
-  Nreceivers: 1122
 
   # Total Shots
   Nshots: 111

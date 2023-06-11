@@ -13,7 +13,7 @@ import argparse
 
 # args = parser.parse_args() 
 
-# d = np.load("/mnt/data/wangsw/inversion/overthrust/data/overthrust_acoustic.npy")
+# d = np.load("/mnt/data/wangsw/inversion/marmousi_10m/data/marmousi_acoustic_20hz.npy")
 
 # print(d.shape, d.max(), d.min())
 # dx = d[...,0]
@@ -30,7 +30,7 @@ import argparse
 # exit()
 
 
-F = 0
+F = 5
 epoch = 99
 PMLN = 50
 EXPAND = 100
@@ -38,7 +38,7 @@ EXPAND = 100
 
 # # F=args.frequency_index
 # #root_path = r"/public1/home/wangsw/FWI/EFWI/Marmousi/marmousi_10m/ss"
-root_path = r"/mnt/data/wangsw/inversion/marmousi/acoustic/envelope/"
+root_path = r"/mnt/data/wangsw/inversion/marmousi/acoustic/l2_20hz/"
 #r"/mnt/data/wangsw/inversion/marmousi/elastic/oldcodes"
 loss = root_path.split("/")[-1]
 coding = "."
@@ -85,7 +85,7 @@ plt.show()
 
 loss = np.load(f"{root_path}/loss.npy")
 for i in range(loss.shape[0]):
-    loss[i]/=loss[i].max()
+    loss[i]/=loss[i][0]
 plt.plot(loss.flatten())
 plt.show()
 # fig.savefig(f"./figures/{loss}.png")

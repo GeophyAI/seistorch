@@ -184,8 +184,8 @@ class CheckpointFunction(torch.autograd.Function):
             outputs = (outputs,)
 
         # if CheckpointFunction.counts%1==0:
-            # np.save(f"/mnt/data/wangsw/inversion/marmousi_10m/inv_rho/l2/backward/backward{CheckpointFunction.counts:04d}.npy", 
-                    # outputs[0].cpu().detach().numpy())
+        #     np.save(f"/mnt/data/wangsw/inversion/marmousi_10m/inv_rho/l2/backward/backward{CheckpointFunction.counts:04d}.npy", 
+        #             outputs[0].cpu().detach().numpy())
 
         # Update wavefields
         if not (CheckpointFunction.counts == 1 and ACOUSTIC2nd) or not CheckpointFunction.counts == 0:
