@@ -1,10 +1,16 @@
+# from pytorch_msssim import SSIM as _ssim
+from math import exp
+
+import numpy as np
+import ot
 import torch
 import torch.nn.functional as F
 from torch.nn.functional import pairwise_distance
-# from pytorch_msssim import SSIM as _ssim
-from math import exp
 from torchvision.models import vgg19
-import numpy as np
+# import geomloss
+from wavetorch.sinkhorn_pointcloud import sinkhorn_loss
+from wavetorch.utils import interp1d
+from torch.nn.functional import pad as tpad
 
 class Loss:
     def __init__(self, loss="mse"):
@@ -122,7 +128,7 @@ class SSIM(torch.nn.Module):
         return 1 - self.ssim(img1, img2, window, self.window_size, channel)
 
 class L2_Reg(torch.nn.Module):
-    def __init__(self, beta=1e-2):
+    def __init__(self, beta=1e-3):
         """
         Initializes the RegularizedLoss
 
@@ -213,9 +219,9 @@ class L2_Reg(torch.nn.Module):
 
     def forward(self, x, y, m):
         mse_loss = torch.nn.MSELoss()(x, y)
-        # reg_loss = self.beta * self.tv(m) #1e-2
+        reg_loss = self.beta * self.tv(m) #1e-2
         # reg_loss = self.beta * self.edge_preserving(m)
-        reg_loss = self.beta * self.log_regularization(m)
+        # reg_loss = self.beta * self.log_regularization(m)
         return mse_loss+reg_loss
 
 class NormalizedCrossCorrelation(torch.nn.Module):
@@ -278,36 +284,6 @@ class Cdist(torch.nn.Module):
 
         # Compute the Wasserstein loss
         loss = torch.mean(distances)
-
-        return loss
-
-class Wasserstein1d(torch.nn.Module):
-    def __init__(self, p=2):
-        super(Wasserstein1d, self).__init__()
-        self.p = p
-
-    @property
-    def name(self,):
-        return "wd1d"
-
-    def forward(self, x, y):
-        """
-        Compute the Wasserstein loss between x and y.
-
-        Args:
-            x: input data, tensor of shape (time_samples, num_traces, num_channels)
-            y: target data, tensor of shape (time_samples, num_traces, num_channels)
-
-        Returns:
-            A tensor representing the Wasserstein loss.
-        """
-
-        # Sort the data
-        sorted_pred_waveform, _ = torch.sort(x.view(-1))
-        sorted_obs_waveform, _ = torch.sort(y.view(-1))
-
-        # Compute the Wasserstein distance
-        loss = torch.abs(sorted_pred_waveform - sorted_obs_waveform).mean()
 
         return loss
 
@@ -387,10 +363,25 @@ class NIMl1(torch.nn.Module):
         """
 
         # Calculate the cumulative distributions of x and y along the first dimension
-        x_cum_distributions = torch.cumsum(x, dim=0)
-        y_cum_distributions = torch.cumsum(y, dim=0)
 
-        return torch.nn.L1Loss()(x_cum_distributions, y_cum_distributions)
+        # For positive purpose
+        x = torch.abs(x)
+        y = torch.abs(y)
+
+        # Normalize the positive distributions
+        x = x/x.sum()
+        y = y/y.sum()
+
+        # Returns the cumulative sum of elements of input in the dimension dim.
+        # y(i) = x1 + x2 + ... + xi
+        x_cum_dist = torch.cumsum(x, dim=0)
+        y_cum_dist = torch.cumsum(y, dim=0)
+
+        # Normalize the cumulative distributions
+        # x_cum_dist = x_cum_dist/x_cum_dist.sum()
+        # y_cum_dist = y_cum_dist/y_cum_dist.sum()
+
+        return torch.nn.MSELoss()(x_cum_dist, y_cum_dist)
 
 
 class NIMl2(torch.nn.Module):
@@ -414,19 +405,109 @@ class NIMl2(torch.nn.Module):
             torch.Tensor: The cumulative distribution distance between the inputs.
         """
 
+        # For positive purpose
+        x = torch.pow(x, 2)
+        y = torch.pow(y, 2)
+
+        # Normalize the positive distributions
+        x = x/x.sum()
+        y = y/y.sum()
+
         # Calculate the cumulative distributions of x and y along the first dimension
-        x_cum_distributions = torch.cumsum(x, dim=0)
-        y_cum_distributions = torch.cumsum(y, dim=0)
-
-        # Calculate the difference between the cumulative distributions
-        diff_cum_distributions = x_cum_distributions - y_cum_distributions
-
-        # Calculate the element-wise square of the differences and sum them along the first dimension
-        squared_diff_cum_distributions = diff_cum_distributions ** 2
-        sum_squared_diff = torch.sum(squared_diff_cum_distributions, dim=0)
+        x_cum_dist = torch.cumsum(x, dim=0)
+        y_cum_dist = torch.cumsum(y, dim=0)
 
         # Take the square root of the sum and calculate the mean
-        loss = torch.mean(torch.sqrt(sum_squared_diff))
+        loss = torch.nn.MSELoss()(x_cum_dist, y_cum_dist)
+
+        return loss
+
+class NIMENVELOPE(torch.nn.Module):
+    def __init__(self):
+        super().__init__()
+
+
+    @property
+    def name(self,):
+        return "nimenvelope"
+    
+    # @torch.no_grad()
+    def hilbert(self, data):
+        """
+        Compute the Hilbert transform of the input data tensor.
+
+        Args:
+            data (torch.Tensor): The input data tensor.
+
+        Returns:
+            torch.Tensor: The Hilbert transform of the input data tensor.
+        """
+
+        nt, _, _ = data.shape
+        nfft = 2 ** (nt - 1).bit_length()
+
+        # Compute the FFT
+        data_fft = torch.fft.fft(data, n=nfft, dim=0)
+
+        # Create the filter
+        h = torch.zeros(nfft, device=data.device).unsqueeze(1).unsqueeze(2)
+        # h[0] = 1
+        h[1:(nfft // 2)] = 2
+        if nfft % 2 == 0:
+            h[nfft // 2] = 1
+
+        # Apply the filter and compute the inverse FFT
+        hilbert_data_fft = data_fft * h
+        hilbert_data = torch.fft.ifft(hilbert_data_fft, dim=0)
+
+        # Truncate the result to the original length
+        hilbert_data = hilbert_data[:nt]
+
+        return hilbert_data
+    
+    def envelope(self, seismograms):
+        """
+        Compute the envelope of the input seismograms tensor.
+
+        Args:
+            seismograms (torch.Tensor): The input seismograms tensor.
+
+        Returns:
+            torch.Tensor: The envelope of the input seismograms tensor.
+        """
+        # Compute the Hilbert transform along the time axis
+        hilbert_transform = self.hilbert(seismograms)
+
+        envelope = torch.abs(hilbert_transform)
+
+        return envelope
+
+    def forward(self, x, y):
+        """
+        Calculates the cumulative distribution distance between two distributions.
+
+        Args:
+            x (torch.Tensor): The first distribution.
+            y (torch.Tensor): The second distribution.
+
+        Returns:
+            torch.Tensor: The cumulative distribution distance between the inputs.
+        """
+
+        # For positive purpose
+        x = self.envelope(x)
+        y = self.envelope(y)
+
+        # Normalize the positive distributions
+        x = x/x.sum()
+        y = y/y.sum()
+
+        # Calculate the cumulative distributions of x and y along the first dimension
+        x_cum_dist = torch.cumsum(x, dim=0)
+        y_cum_dist = torch.cumsum(y, dim=0)
+
+        # Take the square root of the sum and calculate the mean
+        loss = torch.nn.MSELoss()(x_cum_dist, y_cum_dist)
 
         return loss
 
@@ -439,7 +520,7 @@ class Phase(torch.nn.Module):
     def name(self,):
         return "phase"
 
-    
+
     def phase_correlation(self, obs, sim):
         """
         obs: observed data, tensor of shape (time_samples, num_traces, num_channels)
@@ -447,7 +528,8 @@ class Phase(torch.nn.Module):
         """
         obs_fft = torch.fft.fft(obs, dim=0)
         sim_fft = torch.fft.fft(sim, dim=0)
-        phase_diff = torch.abs(torch.angle(obs_fft) - torch.angle(sim_fft))
+
+        phase_diff = torch.pow(torch.angle(obs_fft) - torch.angle(sim_fft), 2)
         loss = phase_diff.mean()
         return loss
 
@@ -495,7 +577,7 @@ class Envelope(torch.nn.Module):
 
         # Create the filter
         h = torch.zeros(nfft, device=data.device).unsqueeze(1).unsqueeze(2)
-        h[0] = 1
+        # h[0] = 1
         h[1:(nfft // 2)] = 2
         if nfft % 2 == 0:
             h[nfft // 2] = 1
@@ -819,6 +901,152 @@ class Sinkhorn(torch.nn.Module):
         "Barycenter subroutine, used by kinetic acceleration through extrapolation."
         return tau * u + (1 - tau) * u1
 
+class Integration(torch.nn.Module):
+
+    def __init__(self, ):
+        super(Integration, self).__init__()
+
+    @property
+    def name(self,):
+        return "integration"
+    
+    def forward(self, x, y):
+        x = torch.abs(x)
+        y = torch.abs(y)
+        inter_x = torch.cumulative_trapezoid(x, dim=0)
+        inter_y = torch.cumulative_trapezoid(y, dim=0)
+        return torch.nn.MSELoss()(inter_x, inter_y)
+
+class Test(torch.nn.Module):
+
+    def __init__(self, ):
+        super(Test, self).__init__()
+
+    @property
+    def name(self,):
+        return "test"
+    
+    def calculate_W2_squared(self, f, g, f_ori=0):
+        T0 = f.size(0)
+        t = torch.linspace(0, T0, len(f))
+        F_t = torch.trapz(f, t)
+        
+        # Perform interpolation manually
+        indices = (F_t * (len(g) - 1) / T0).long()
+        G_inv_F_t = torch.gather(g, 0, indices)
+        
+        integrand = (t - G_inv_F_t) ** 2 * f
+        result = torch.trapz(integrand, t)
+        return result.item()
+    
+    def pos(self, d):
+        return torch.clamp(d, min=0)
+    
+    def neg(self, d):
+        return torch.clamp(-d, min=0)
+
+    def scale(self, d):
+        return d/d.sum()
+    
+    def calculate_W2(f, g, dt=1.0):
+        from scipy import interpolate
+        # 计算F和G
+        F = torch.cumsum(f, dim=0) * dt
+        G = torch.cumsum(g, dim=0) * dt
+
+        # 生成G的逆函数
+        t = torch.arange(f.shape[0], device=f.devcie) * dt
+        G_inverse = interpolate.interp1d(G.cpu().numpy(), t.cpu().numpy(), fill_value="extrapolate")
+
+        # 计算Wasserstein距离
+        W2 = torch.sum((t - torch.tensor(G_inverse(F.detach().cpu().numpy()), dtype=torch.float32).to(f.device))**2 * f) * dt
+
+        return W2
+    
+    def _wd1d2(self, f, g):
+        f = f.squeeze()
+        g = g.squeeze()
+        # Positive
+
+        f = f**2
+        g = g**2
+
+        f = f/f.sum()
+        g = g/g.sum()
+
+        F = torch.cumsum(f, 0)
+        G = torch.cumsum(g, 0)
+
+        # Method 1
+        # t = torch.arange(0, f.size(0), dtype=f.dtype, device=f.device)
+        # G_inverse_F = self.linear_interpolation(F, G, t)#.squeeze()
+        # difft = t - G_inverse_F
+        # loss = torch.sum(difft**2 * f)
+        loss = ot.wasserstein_1d(F, G, p=2)
+
+        return loss
+    
+    def _wd1d(self, f, g):
+        f = f.squeeze()
+        g = g.squeeze()
+        # Positive
+        f_pos = self.scale(self.pos(f))
+        f_neg = self.scale(self.neg(f))
+        g_pos = self.scale(self.pos(g))
+        g_neg = self.scale(self.neg(g))
+
+        F_pos = torch.cumsum(f_pos, 0)
+        F_neg = torch.cumsum(f_neg, 0)
+        G_pos = torch.cumsum(g_pos, 0)
+        G_neg = torch.cumsum(g_neg, 0)
+
+        # Method 1
+        t = torch.arange(0, f.size(0), dtype=f.dtype, device=f.device)
+        G_inverse_F_pos = self.linear_interpolation(F_pos, G_pos, t)#.squeeze()
+        G_inverse_F_neg = self.linear_interpolation(F_neg, G_neg, t)#.squeeze()
+
+        difft_pos = t - G_inverse_F_pos
+        difft_neg = t - G_inverse_F_neg
+        loss_pos = torch.sum(difft_pos**2 * f_pos)
+        loss_neg = torch.sum(difft_neg**2 * f_neg)
+
+        # Method 2
+        #loss_pos = ot.wasserstein_1d(F_pos.squeeze(), G_pos.squeeze(), p=2)
+        #loss_neg = ot.wasserstein_1d(F_neg.squeeze(), G_neg.squeeze(), p=2)
+
+        return loss_pos+loss_neg
+    
+    def forward(self, x, y):
+
+        loss = 0
+
+        nsamples, ntraces, _ = x.size()
+        loss = 0
+        for trace in range(ntraces):
+            _x, _y = x[:,trace, :], y[:,trace, :]
+            loss += self._wd1d(_x, _y)
+        return loss
+    
+    def linear_interpolation(self, t, t_values, y_values):
+        """
+        Perform linear interpolation. Find the values of y corresponding to t using the given (t_values, y_values) pairs.
+        """
+
+        # Make sure the tensor dimensions are compatible
+        t = t.unsqueeze(-1)
+
+        # Find the indices of the t_values that are just smaller than t
+        indices = torch.searchsorted(t_values, t) - 1
+        indices = indices.clamp(min=0, max=t_values.shape[0] - 2)
+
+        # Compute the fraction by which t is larger than the found t_values
+        fraction = (t - t_values[indices]) / (t_values[indices + 1] - t_values[indices] + 1e-10)
+
+        # Use the fraction to interpolate between the y_values
+        interpolated_values = y_values[indices] + fraction * (y_values[indices + 1] - y_values[indices])
+
+        return interpolated_values.squeeze(-1)
+
 class BatchedSinkhorn(Sinkhorn):
     def __init__(self, batch_size=10, *args, **kwargs):
         super(BatchedSinkhorn, self).__init__(*args, **kwargs)
@@ -869,7 +1097,7 @@ class CosineSimilarity(torch.nn.Module):
         x_reshaped = x.view(x.shape[0], -1)
         y_reshaped = y.view(y.shape[0], -1)
         # Compute cosine similarity along the second dimension
-        similarity = F.cosine_similarity(x_reshaped, y_reshaped, dim=1)
+        similarity = F.cosine_similarity(x_reshaped, y_reshaped, dim=1, eps=1e-10)
 
         # Compute the mean difference between similarity and 1
         loss = torch.mean(1 - similarity)

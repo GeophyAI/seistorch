@@ -11,7 +11,7 @@ import logging
 # from skopt import Optimizer
 from yaml import dump, load
 from torch.utils.tensorboard import SummaryWriter
-from torchvision.utils import make_grid
+from ot.utils import proj_simplex
 
 import wavetorch
 from wavetorch.loss import Loss
@@ -234,7 +234,13 @@ if __name__ == '__main__':
                 if GRAD_CUT:
                     model.cell.geom.gradient_cut()
 
+                # Update the model paraeters by SGD
+                # with torch.no_grad():
+                #     lr = 5
+                #     model.cell.geom.vp -= model.cell.geom.vp.grad * lr  # step
+                #     a_torch.grad.zero_()
                 optimizer.step()
+                # model.cell.geom.vp.data = proj_simplex(model.cell.geom.vp)
 
             logging.info(f"Freq {idx_freq:02d} Epoch {epoch:02d} loss: {loss[idx_freq][epoch]}")
             writer.add_scalar(f"Loss", loss[idx_freq][epoch], global_step=idx_freq*EPOCHS+epoch)

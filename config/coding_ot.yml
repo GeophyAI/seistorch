@@ -29,20 +29,20 @@ training:
 geom:
 
   # The observer data
-  obsPath: /mnt/data/wangsw/inversion/marmousi_10m/data/marmousi_acoustic_20hz.npy
+  obsPath: /mnt/data/wangsw/inversion/overthrust/data/overthrust_acoustic.npy
   #/mnt/data/wangsw/inversion/marmousi_10m/data/marmousi_elastic_constrho.npy
 
   # Wave speed model from disk_file for forward modeling
   truePath:
-    vp: /mnt/data/wangsw/inversion/marmousi_10m/velocity/true_vp.npy
+    vp: /mnt/data/wangsw/inversion/overthrust/velocity/true_vp.npy
     vs:
     rho:
     Q: 
     #/mnt/data/wangsw/inversion/marmousi_10m/data//velocity/q_const.npy
 
-  sources: ./geometry/marmousi_obn_10m/sources.pkl
+  sources: ./geometry/overthrust/sources.pkl
 
-  receivers: ./geometry/marmousi_obn_10m/receivers.pkl
+  receivers: ./geometry/overthrust/receivers.pkl
 
   wavelet:
   # ./geometry/ricker_lowcut5hz.npy
@@ -55,7 +55,7 @@ geom:
 
   # Inital Wave speed model from disk_file
   initPath: 
-    vp: /mnt/data/wangsw/inversion/marmousi_10m/velocity/linear_vp.npy
+    vp: /mnt/data/wangsw/inversion/overthrust/velocity/linear_vp.npy
     vs:
     rho:
     Q:
@@ -78,25 +78,22 @@ geom:
     - 5.0
     - 8.0
     - 10.0
-    - 15.0
-    - 18.0
-    - 20.0
     - all
 
   # Time Sampling step
-  dt: 0.001
+  dt: 0.002
 
   # Time samples
-  nt: 4000
+  nt: 2000
 
   # Main frequency of ricker wave
-  fm: 20.0
+  fm: 15.0
 
   # Spatial grid step size
-  h: 10.0
+  h: 25.0
 
   # Total Shots
-  Nshots: 111
+  Nshots: 100
 
   pml:
     N: 50    # PML thickness in number of grid cells

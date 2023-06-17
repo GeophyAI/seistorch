@@ -5,17 +5,18 @@ import pickle
 # Specify the file path where you want to save the list
 
 # 692, 2244, 5m
-shots = 111
-dx = dz = 5 # meter
-shot_interval = 100 # meter
-receiver_depth = 480
-receiver_counts = 2244
+shots = 100
+dx = dz = 25 # meter
+shot_interval = 250 # meter
+receiver_depth = 25
+shot_depth = 25
+receiver_counts = 1000
 
 
 """Generate source list"""
 sources = []
 for shot in range(shots):
-    shot_z = 0
+    shot_z = shot_depth//dz
     shot_x = 1+shot*shot_interval//dx
     sources.append([shot_x, shot_z])
 
@@ -32,8 +33,8 @@ def write_pkl(path: str, data: list):
     with open(path, 'wb') as f:
         pickle.dump(data, f)
 
-write_pkl("./geometry/marmousi_obn_5m/sources.pkl", sources)
-write_pkl("./geometry/marmousi_obn_5m/receivers.pkl", receivers)
+write_pkl("./geometry/bp_25m/sources.pkl", sources)
+write_pkl("./geometry/bp_25m/receivers.pkl", receivers)
 
 """OBC"""
 

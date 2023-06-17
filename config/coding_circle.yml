@@ -12,10 +12,10 @@ training:
 
   minibatch: true
 
-  batch_size: 20
+  batch_size: 11
 
   # Number of training epochs
-  N_epochs: 150
+  N_epochs: 100
 
   # Optimizer learning rate
   lr: 5
@@ -29,20 +29,19 @@ training:
 geom:
 
   # The observer data
-  obsPath: /mnt/data/wangsw/inversion/marmousi_10m/data/marmousi_acoustic_20hz.npy
-  #/mnt/data/wangsw/inversion/marmousi_10m/data/marmousi_elastic_constrho.npy
+  obsPath: /mnt/data/wangsw/inversion/circle/data/acoustic.npy
 
   # Wave speed model from disk_file for forward modeling
   truePath:
-    vp: /mnt/data/wangsw/inversion/marmousi_10m/velocity/true_vp.npy
+    vp: /mnt/data/wangsw/inversion/circle/velocity/true_vp.npy
     vs:
     rho:
     Q: 
     #/mnt/data/wangsw/inversion/marmousi_10m/data//velocity/q_const.npy
 
-  sources: ./geometry/marmousi_obn_10m/sources.pkl
+  sources: ./geometry/circle/sources.pkl
 
-  receivers: ./geometry/marmousi_obn_10m/receivers.pkl
+  receivers: ./geometry/circle/receivers.pkl
 
   wavelet:
   # ./geometry/ricker_lowcut5hz.npy
@@ -55,7 +54,7 @@ geom:
 
   # Inital Wave speed model from disk_file
   initPath: 
-    vp: /mnt/data/wangsw/inversion/marmousi_10m/velocity/linear_vp.npy
+    vp: /mnt/data/wangsw/inversion/circle/velocity/init_vp.npy
     vs:
     rho:
     Q:
@@ -78,25 +77,22 @@ geom:
     - 5.0
     - 8.0
     - 10.0
-    - 15.0
-    - 18.0
-    - 20.0
     - all
 
   # Time Sampling step
   dt: 0.001
 
   # Time samples
-  nt: 4000
+  nt: 1600
 
   # Main frequency of ricker wave
-  fm: 20.0
+  fm: 10.0
 
   # Spatial grid step size
   h: 10.0
 
   # Total Shots
-  Nshots: 111
+  Nshots: 11
 
   pml:
     N: 50    # PML thickness in number of grid cells

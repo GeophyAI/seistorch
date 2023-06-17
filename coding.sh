@@ -1,12 +1,12 @@
 # export LD_LIBRARY_PATH=/home/les_01/anaconda3/lib:$LD_LIBRARY_PATH && \
-python codingfwi.py config/coding.yml \
+python codingfwi.py config/coding_bp.yml \
 --gpuid 0 \
 --opt adam \
---loss l2 \
+--loss niml2 \
 --mode inversion \
---batchsize 20 \
+--batchsize 11 \
 --global-lr 5 \
---save-path /mnt/data/wangsw/inversion/marmousi/acoustic/l2_20hz/ \
+--save-path /mnt/data/wangsw/inversion/bp/compare_loss/niml2 \
 --use-cuda \
 --grad-cut
 # --grad-smooth
