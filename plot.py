@@ -19,7 +19,7 @@ import argparse
 # dx = d[...,0]
 # dz = d[...,0]
 
-# no = 50
+# no = 55
 # fig,axes = plt.subplots(1,2, figsize=(8,5))
 # vmin, vmax = np.percentile(dx[no], [2, 98])
 # axes[0].imshow(dx[no].squeeze(), vmin=vmin, vmax=vmax, aspect='auto', cmap=plt.cm.seismic)
@@ -29,8 +29,8 @@ import argparse
 # # # plt.savefig("test_15hz.png")
 # exit()
 
-F = 3
-epoch = 149
+F = 0
+epoch = 499
 PMLN = 50
 EXPAND = 0
 # # epoch = args.epoch
@@ -60,22 +60,24 @@ plt.show()
 # Acoustic case
 # true_vp = np.load("/mnt/data/wangsw/inversion/overthrust/velocity/true_vp.npy")#[:,expand:-expand]
 # true_vp = np.load("/mnt/data/wangsw/inversion/marmousi_20m/velocity/true_vp.npy")
-true_vp = np.load("/mnt/data/wangsw/inversion/bp/velocity_part/true_vel_z25m_x25m.npy")
-
+true_vp = np.load("/mnt/data/wangsw/inversion/bp/velocity_part/true_vel_z50m_x50m.npy")
+init_vp = np.load("/mnt/data/wangsw/inversion/bp/velocity_part/init_vel_z50m_x50m.npy")
 vp = np.load(f"{root_path}/{coding}/paravpF{F:02d}E{epoch:02d}.npy")[PMLN:-PMLN,PMLN+EXPAND:-PMLN-EXPAND]
 vs = np.load(f"{root_path}/{coding}/paravpF{F:02d}E{epoch:02d}.npy")[PMLN:-PMLN,PMLN+EXPAND:-PMLN-EXPAND]
 print(vp.shape, vp.max(), vp.min())
 
-plt.plot(true_vp[:,50])
-plt.plot(vp[:,50])
+plt.plot(true_vp[:,200])
+plt.plot(vp[:,200])
+plt.plot(init_vp[:,200])
 plt.show()
  
 # vp[0:48] = 1500.
 fig,axes = plt.subplots(1,2, figsize=(10,3))
 vmin, vmax = (true_vp.min(), true_vp.max())#(1.5, 5.500)
-ax0=axes[0].imshow(vp.squeeze(), vmin=vmin, vmax=vmax, aspect='auto', cmap=plt.cm.seismic)
-vmin, vmax = (0, 5500/1.73)#(1.5, 5.500)
-ax1=axes[1].imshow(vs.squeeze(), vmin=vmin, vmax=vmax, aspect='auto', cmap=plt.cm.seismic)
+# vmin, vmax=vp.max(), vp.min()
+ax0=axes[0].imshow(vp.squeeze(), vmin=vmin, vmax=vmax, aspect='auto', cmap=plt.cm.jet)
+# vmin, vmax = (0, 5500/1.73)#(1.5, 5.500)
+ax1=axes[1].imshow(true_vp.squeeze(), vmin=vmin, vmax=vmax, aspect='auto', cmap=plt.cm.jet)
 axes[0].set_title(loss+"_vp")
 axes[1].set_title(loss+"_vs")
 plt.colorbar(ax0);plt.colorbar(ax1)
