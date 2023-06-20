@@ -9,6 +9,8 @@ class Parameters:
                  "acoustic":     ["vp"],
                  "elastic":      ["vp", "vs", "rho"],
                  "acoustic1st":  ["vp", "rho"],
+                 #"ttielastic":   ["vp", "vs", "rho", "epsilon", "gamma", "delta"],
+                 "ttielastic":   ["c11", "c13", "c33", "c15", "c35", "c55", "rho"],
                 }
 
         return paras
@@ -25,7 +27,11 @@ class Wavefield:
     @property
     def acoustic(self,):
         return ["h1", "h2"]
-
+    
+    @property
+    def ttielastic(self,):
+        return ["vx", "vz", "txx", "tzz", "txz"]
+    
     @property
     def acoustic1st(self,):
         return ["vx", "vz", "p"]
@@ -55,6 +61,7 @@ class Shape():
         self.channels = {'acoustic': 1,
                          'acoustic1st': 1,
                          'elastic': 2, 
+                         'ttielastic': 2,
                          'aec': 3}[equation]
 
         # Init library
@@ -71,12 +78,14 @@ class Shape():
                            'acoustic1st': self.__grad2d_acoustic, 
                            'viscoacoustic': self.__grad2d_acoustic, 
                            'elastic': self.__grad2d_elastic,
+                           'ttielastic': self.__grad2d_elastic,
                            "aec" : self.__grad2d_elastic}
         
         self.grad3d_lib = {'acoustic': self.__grad3d_acoustic, 
                            'acoustic1st': self.__grad3d_acoustic,
                            'viscoacoustic': self.__grad3d_acoustic, 
                            'elastic': self.__grad3d_elastic,
+                           'ttielastic': self.__grad3d_elastic,
                            "aec" : self.__grad3d_elastic}
         
     @property

@@ -6,7 +6,7 @@ name: coding_fwi
 # Data type to use for tensors, either float32 or float64
 dtype: float32
 
-equation: acoustic
+equation: ttielastic
 
 training:
 
@@ -15,7 +15,7 @@ training:
   batch_size: 20
 
   # Number of training epochs
-  N_epochs: 500
+  N_epochs: 200
 
   # Optimizer learning rate
   lr: 15.0
@@ -27,30 +27,39 @@ training:
   filter_ord: 3
 
 geom:
-
   # The observer data
-  obsPath: /mnt/data/wangsw/inversion/bp/data/acoustic_bp_part.npy
+  obsPath: /mnt/data/wangsw/inversion/vti/data/acoustic_vti.npy
 
   # Wave speed model from disk_file for forward modeling
   truePath:
-    vp: /mnt/data/wangsw/inversion/bp/velocity_part/true_vel_z50m_x50m.npy
+    vp:
     vs:
-    rho:
+    rho: /mnt/data/wangsw/inversion/vti/velocity/rho.npy
     Q: 
+    epsilon:
+    gamma:
+    delta:
+
+    c11: /mnt/data/wangsw/inversion/vti/velocity/anitpars/c11.npy
+    c13: /mnt/data/wangsw/inversion/vti/velocity/anitpars/c13.npy
+    c33: /mnt/data/wangsw/inversion/vti/velocity/anitpars/c33.npy
+    c15: /mnt/data/wangsw/inversion/vti/velocity/anitpars/c15.npy
+    c35: /mnt/data/wangsw/inversion/vti/velocity/anitpars/c35.npy
+    c55: /mnt/data/wangsw/inversion/vti/velocity/anitpars/c55.npy
     #/mnt/data/wangsw/inversion/marmousi_10m/data//velocity/q_const.npy
 
-  sources: ./geometry/bp_50m/sources.pkl
+  sources: ./geometry/vti_onelayer/sources.pkl
 
-  receivers: ./geometry/bp_50m/receivers.pkl
+  receivers: ./geometry/vti_onelayer/receivers.pkl
 
   wavelet:
   # ./geometry/ricker_lowcut5hz.npy
 
   source_type:
-    - h1
+    - vz
 
   receiver_type:
-    - h1
+    - vz
 
   # Inital Wave speed model from disk_file
   initPath: 
@@ -58,12 +67,25 @@ geom:
     vs:
     rho:
     Q:
+    epsilon:
+    gamma:
+    delta:
 
   invlist:
     vp: true
     vs: false
-    rho: false
+    rho: true
     q: false
+    epsilon: false
+    gamma: false
+    delta: false
+
+    c11: true
+    c13: true
+    c33: true
+    c15: true
+    c35: true
+    c55: true
 
   # using checkpoint for saving memory
   ckpt: true
@@ -72,22 +94,23 @@ geom:
   inv_savePath: /mnt/data/wangsw/inversion/marmousi_10m/Test
 
   multiscale:
+    - 1.0
     - all
 
   # Time Sampling step
-  dt: 0.005
+  dt: 0.001
 
   # Time samples
-  nt: 2000
+  nt: 4000
 
   # Main frequency of ricker wave
-  fm: 3.0
+  fm: 10.0
 
   # Spatial grid step size
-  h: 50.0
+  h: 10.0
 
   # Total Shots
-  Nshots: 100
+  Nshots: 1
 
   pml:
     N: 50    # PML thickness in number of grid cells

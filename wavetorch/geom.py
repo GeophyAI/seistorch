@@ -139,7 +139,7 @@ class WaveGeometryFreeForm(WaveGeometry):
         self.receiver_type = kwargs['geom']['receiver_type']
         self.model_parameters = []
         self.inversion = False
-
+        self.kwargs = kwargs
         super().__init__(domain_shape, h, abs_N)
         self.equation = kwargs["equation"]
         self._init_model(kwargs['VEL_PATH'], kwargs['geom']['invlist'])
@@ -153,13 +153,14 @@ class WaveGeometryFreeForm(WaveGeometry):
             invlist (dict): The dictionary that specify whether invert the model or not.
         """
         valid_model_paras = Parameters.valid_model_paras()
-
+        self.true_models = dict()
         for mname, mpath in modelPath.items():
             # If path is not None, read it and add to graph
             if mpath:
                 assert os.path.exists(mpath), f"Cannot find model '{mpath}'"
                 if mname in valid_model_paras[self.equation]:
                     self.model_parameters.append(mname)
+                    self.true_models[mname]=np.load(self.kwargs['geom']['truePath'][mname])
                     self.__setattr__(mname, self.add_parameter(mpath, invlist[mname]))
                 else:
                     print(f"'{mname}' found, but get equation {self.equation} and skipped")
@@ -330,17 +331,28 @@ class WaveGeometryFreeForm(WaveGeometry):
         if not os.path.exists(path):
             os.makedirs(path, exist_ok=True)
 
-        for para in self.model_parameters:
+        for para in self.model_parameters: # para is in ["vp", "vs", "rho", "Q"]
             var = self.__getattr__(para)
             if var.requires_grad:
                 var_par = var.cpu().detach().numpy()
                 var_grad = var.grad.cpu().detach().numpy()
                 for key, data in zip(["para"+para, "grad"+para], [var_par, var_grad]):
+
+                    # Save the data of model parameters and their gradients(if they have).
                     save_path = os.path.join(path, f"{key}F{freq_idx:02d}E{epoch:02d}.npy")
                     np.save(save_path, data)
+
+                    # Calcualte the model error when the true model is known.
+                    if "para" in key and self.true_models:
+                        _pad = self.padding
+                        model_error = np.sum((data[_pad:-_pad, _pad:-_pad] - self.true_models[para])**2)
+
                     if writer is not None:
                         tensor_data = self.tensor_to_img(key, data, padding=self.padding, vmin=None, vmax=None)
                         writer.add_images(key, 
                                           tensor_data, 
                                           global_step=freq_idx*max_epoch+epoch, 
                                           dataformats='CHW',)
+                        # Write the model error to tensorboard.
+                        writer.add_scalar(f"model_error/{para}", model_error, global_step=freq_idx*max_epoch+epoch)
+                    

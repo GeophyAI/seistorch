@@ -5,6 +5,13 @@ from .utils import restore_boundaries
 def _laplacian(y, h):
     """Laplacian operator"""
     kernel = torch.tensor([[[[0.0, 1.0, 0.0], [1.0, -4.0, 1.0], [0.0, 1.0, 0.0]]]]).to(y.device)
+
+    # kernel = torch.tensor([[[[0.0, 0.0, -0.083, 0.0, 0.0],
+    #                          [0.0, 0.0, 1.333, 0.0, 0.0],
+    #                          [-0.083, 1.333, -2.5, 1.333, -0.083],
+    #                          [0.0, 0.0, 1.333, 0.0, 0.0],
+    #                          [0.0, 0.0, -0.083, 0.0, 0.0]]]]).to(y.device)
+
     operator = h ** (-2) * kernel
     y = y.unsqueeze(1)
     return conv2d(y, operator, padding=1).squeeze(1)

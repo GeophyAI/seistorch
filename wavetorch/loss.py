@@ -1011,8 +1011,8 @@ class Test(torch.nn.Module):
         loss_neg = torch.sum(difft_neg**2 * f_neg)
 
         # Method 2
-        #loss_pos = ot.wasserstein_1d(F_pos.squeeze(), G_pos.squeeze(), p=2)
-        #loss_neg = ot.wasserstein_1d(F_neg.squeeze(), G_neg.squeeze(), p=2)
+        # loss_pos = ot.wasserstein_1d(F_pos.squeeze(), G_pos.squeeze(), p=2)
+        # loss_neg = ot.wasserstein_1d(F_neg.squeeze(), G_neg.squeeze(), p=2)
 
         return loss_pos+loss_neg
     

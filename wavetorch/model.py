@@ -29,9 +29,14 @@ def build_model(config_path, device = "cuda", mode="forward"):
 
     # Try to get the data shape by vel model
     try:
-        ny, nx = np.load(VEL_PATH['vp']).shape
-        cfg['geom'].update({'Nx': nx})
-        cfg['geom'].update({'Ny': ny})
+        for path in VEL_PATH.values():
+            if path is None:
+                continue
+            ny, nx = np.load(path).shape
+            if ny is not None and nx is not None:
+                cfg['geom'].update({'Nx': nx})
+                cfg['geom'].update({'Ny': ny})
+                break
     except Exception as e:
         print(e)
 
