@@ -2,11 +2,12 @@
 python codingfwi.py config/coding_elastic.yml \
 --gpuid 0 \
 --opt adam \
---loss test \
+--loss l2 \
 --mode inversion \
---batchsize 30 \
---global-lr 5 \
---save-path /mnt/data/wangsw/inversion/bp/compare_loss/wd \
+--batchsize 20 \
+--global-lr 10 \
+--save-path /mnt/data/wangsw/inversion/marmousi_10m/elastic/compare_loss/l2 \
 --use-cuda \
 --grad-cut
 # --grad-smooth
+

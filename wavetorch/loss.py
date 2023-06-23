@@ -350,6 +350,16 @@ class NIMl1(torch.nn.Module):
     def name(self,):
         return "niml1"
 
+    def niml1(self, d):
+        d = torch.abs(d)
+        scale = torch.sum(d, axis=0)
+        # Normalize the positive distributions of each trace
+        d = d/scale
+        # Returns the cumulative sum of elements of input in the dimension dim.
+        # y(i) = x1 + x2 + ... + xi
+        d = torch.cumsum(d, axis=0)
+        return d
+
     def forward(self, x, y):
         """
         Calculates the cumulative distribution distance between two distributions.
@@ -363,25 +373,10 @@ class NIMl1(torch.nn.Module):
         """
 
         # Calculate the cumulative distributions of x and y along the first dimension
+        x_cum_dist = self.niml1(x)
+        y_cum_dist = self.niml2(x)
 
-        # For positive purpose
-        x = torch.abs(x)
-        y = torch.abs(y)
-
-        # Normalize the positive distributions
-        x = x/x.sum()
-        y = y/y.sum()
-
-        # Returns the cumulative sum of elements of input in the dimension dim.
-        # y(i) = x1 + x2 + ... + xi
-        x_cum_dist = torch.cumsum(x, dim=0)
-        y_cum_dist = torch.cumsum(y, dim=0)
-
-        # Normalize the cumulative distributions
-        # x_cum_dist = x_cum_dist/x_cum_dist.sum()
-        # y_cum_dist = y_cum_dist/y_cum_dist.sum()
-
-        return torch.nn.MSELoss()(x_cum_dist, y_cum_dist)
+        return torch.nn.L1Loss()(x_cum_dist, y_cum_dist)
 
 
 class NIMl2(torch.nn.Module):
@@ -421,6 +416,57 @@ class NIMl2(torch.nn.Module):
         loss = torch.nn.MSELoss()(x_cum_dist, y_cum_dist)
 
         return loss
+
+class NIMl1ORI(torch.nn.Module):
+    def __init__(self):
+        super().__init__()
+
+    @property
+    def name(self,):
+        return "niml1_ori"
+
+    def forward(self, x, y):
+        """
+        Calculates the cumulative distribution distance between two distributions.
+
+        Args:
+            x (torch.Tensor): The first distribution.
+            y (torch.Tensor): The second distribution.
+
+        Returns:
+            torch.Tensor: The cumulative distribution distance between the inputs.
+        """
+
+        # Calculate the cumulative distributions of x and y along the first dimension
+        x_cum_dist = torch.cumsum(x, dim=0)
+        y_cum_dist = torch.cumsum(y, dim=0)
+        return torch.nn.L1Loss()(x_cum_dist, y_cum_dist)
+
+
+class NIMl2ORI(torch.nn.Module):
+    def __init__(self):
+        super().__init__()
+
+    @property
+    def name(self,):
+        return "niml2_ori"
+
+    def forward(self, x, y):
+        """
+        Calculates the cumulative distribution distance between two distributions.
+
+        Args:
+            x (torch.Tensor): The first distribution.
+            y (torch.Tensor): The second distribution.
+
+        Returns:
+            torch.Tensor: The cumulative distribution distance between the inputs.
+        """
+
+        # Calculate the cumulative distributions of x and y along the first dimension
+        x_cum_dist = torch.cumsum(x, dim=0)
+        y_cum_dist = torch.cumsum(y, dim=0)
+        return torch.nn.MSELoss()(x_cum_dist, y_cum_dist)
 
 class NIMENVELOPE(torch.nn.Module):
     def __init__(self):
@@ -570,24 +616,32 @@ class Envelope(torch.nn.Module):
         """
 
         nt, _, _ = data.shape
-        nfft = 2 ** (nt - 1).bit_length()
+        # nfft = 2 ** (nt - 1).bit_length()
+        nfft = nt # the scipy implementation uses this
 
         # Compute the FFT
         data_fft = torch.fft.fft(data, n=nfft, dim=0)
 
         # Create the filter
-        h = torch.zeros(nfft, device=data.device).unsqueeze(1).unsqueeze(2)
-        # h[0] = 1
-        h[1:(nfft // 2)] = 2
-        if nfft % 2 == 0:
-            h[nfft // 2] = 1
+        # h = torch.zeros(nfft, device=data.device).unsqueeze(1).unsqueeze(2)
+        h = np.zeros(nfft, dtype=np.float32)
 
+        if nfft % 2 == 0:
+            h[0] = h[nfft // 2] = 1
+            h[1:nfft // 2] = 2
+        else:
+            h[0] = 1
+            h[1:(nfft + 1) // 2] = 2
+
+        h = np.expand_dims(h, 1)
+        h = np.expand_dims(h, 2)
+        h = torch.from_numpy(h).to(data.device)
+        # h = h.requires_grad_(True)
         # Apply the filter and compute the inverse FFT
-        hilbert_data_fft = data_fft * h
-        hilbert_data = torch.fft.ifft(hilbert_data_fft, dim=0)
+        hilbert_data = torch.fft.ifft(data_fft * h, dim=0)
 
         # Truncate the result to the original length
-        hilbert_data = hilbert_data[:nt]
+        #hilbert_data = hilbert_data#[:nt]
 
         return hilbert_data
     
@@ -605,14 +659,9 @@ class Envelope(torch.nn.Module):
         hilbert_transform = self.hilbert(seismograms)
 
         # Compute the envelope
-        # ??
-        # analytic_signal = seismograms + \
-        #     hilbert_transform.to(seismograms.device) * 1j
-        # envelope = torch.abs(analytic_signal)
-
-        # envelope = torch.sqrt(seismograms**2+torch.abs(hilbert_transform)**2)
-
         envelope = torch.abs(hilbert_transform)
+
+        # envelope = torch.sqrt(hilbert_transform.real**2 + hilbert_transform.imag**2)
 
         return envelope
 
@@ -631,11 +680,11 @@ class Envelope(torch.nn.Module):
         pred_envelope = self.envelope(pred_seismograms)
         obs_envelope = self.envelope(obs_seismograms)
 
-        # pred_envelope = pred_envelope/torch.norm(pred_envelope, p=2, dim=0)
-        # obs_envelope = obs_envelope/torch.norm(obs_envelope, p=2, dim=0)
+        pred_envelope = pred_envelope/(torch.norm(pred_envelope, p=2, dim=0)+1e-16)
+        obs_envelope = obs_envelope/(torch.norm(obs_envelope, p=2, dim=0)+1e-16)
 
-        loss = F.mse_loss(pred_envelope, obs_envelope, reduction="mean")
-        return loss
+        # loss = F.mse_loss(pred_envelope, obs_envelope, reduction="mean")
+        return torch.nn.MSELoss()(pred_envelope, obs_envelope)
 
     def forward(self, x, y):
         """
@@ -910,11 +959,14 @@ class Integration(torch.nn.Module):
     def name(self,):
         return "integration"
     
+    def intergrate(self, x, times=2):
+        for i in range(times):
+            x = torch.cumulative_trapezoid(x, dim=0)
+        return x
+    
     def forward(self, x, y):
-        x = torch.abs(x)
-        y = torch.abs(y)
-        inter_x = torch.cumulative_trapezoid(x, dim=0)
-        inter_y = torch.cumulative_trapezoid(y, dim=0)
+        inter_x = self.intergrate(x)
+        inter_y = self.intergrate(y)
         return torch.nn.MSELoss()(inter_x, inter_y)
 
 class Test(torch.nn.Module):
@@ -1237,3 +1289,22 @@ class FWILoss(torch.nn.Module):
         loss_tv = self.tv_loss(model)
         loss_total = loss_fwi + loss_tv
         return loss_total
+
+class Laplace(torch.nn.Module):
+    def __init__(self,):
+        super().__init__()
+
+    @property
+    def name(self,):
+        return "laplace"
+
+    def laplace(self, x, dt=0.001, damp=.25):
+        #$$u(s)=\int_0^{\infty} u(t) e^{-s t} \mathrm{~d} t,$$
+        t = torch.arange(0, x.shape[0], dtype=x.dtype, device=x.device)
+        t = t*dt
+        return torch.trapz(x*torch.exp(-damp*t), t, dim=0)
+
+    def forward(self, x, y):
+        lap_x = self.laplace(x)
+        lap_y = self.laplace(y)
+        return torch.log(lap_x - lap_y)

@@ -185,6 +185,8 @@ def read_pkl(path: str):
     return data
 
 def get_src_and_rec(cfg):
+    assert os.path.exists(cfg["geom"]["sources"]), "Cannot found source file."
+    assert os.path.exists(cfg["geom"]["receivers"]), "Cannot found receiver file."
     source_locs = read_pkl(cfg["geom"]["sources"])
     recev_locs = read_pkl(cfg["geom"]["receivers"])
     assert len(source_locs)==len(recev_locs), \

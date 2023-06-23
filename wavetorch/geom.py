@@ -147,26 +147,36 @@ class WaveGeometryFreeForm(WaveGeometry):
         
     def _init_model(self, modelPath: dict, invlist: dict):
         """Initilize the model parameters
-
         Args:
             modelPath (dict): The dictionary that contains the path of model files.
             invlist (dict): The dictionary that specify whether invert the model or not.
         """
         valid_model_paras = Parameters.valid_model_paras()
+        needed_model_paras = Parameters.valid_model_paras()[self.equation]
         self.true_models = dict()
-        for mname, mpath in modelPath.items():
-            # If path is not None, read it and add to graph
-            if mpath:
-                assert os.path.exists(mpath), f"Cannot find model '{mpath}'"
-                if mname in valid_model_paras[self.equation]:
-                    self.model_parameters.append(mname)
-                    self.true_models[mname]=np.load(self.kwargs['geom']['truePath'][mname])
-                    self.__setattr__(mname, self.add_parameter(mpath, invlist[mname]))
-                else:
-                    print(f"'{mname}' found, but get equation {self.equation} and skipped")
-            elif mname in valid_model_paras[self.equation]:
-                print(f"'{mname}' is not found, but required by equation {self.equation}")
+
+        for para in needed_model_paras:
+            # check if the model of <para> is in the modelPath
+            if para not in modelPath.keys():
+                print(f"Model '{para}' is not found in modelPath")
                 exit()
+            # check if the model of <para> is in the invlist
+            if para not in invlist.keys():
+                print(f"Model '{para}' is not found in invlist")
+                exit()
+            # check the existence of the model file
+            if not os.path.exists(modelPath[para]):
+                print(f"Cannot find model file '{modelPath[para]}' which is needed by equation {self.equation}")
+                exit()
+            # add the model to the graph
+            mname, mpath = para, modelPath[para]
+            print(f"Loading model '{mpath}', invert = {invlist[mname]}")
+            # add the model to a list for later use
+            self.model_parameters.append(mname)
+            # load the ground truth model for calculating the model error
+            self.true_models[mname]=np.load(self.kwargs['geom']['truePath'][mname])
+            # load the initial model for the inversion
+            self.__setattr__(mname, self.add_parameter(mpath, invlist[mname]))
 
     
     def __repr__(self):
@@ -331,14 +341,14 @@ class WaveGeometryFreeForm(WaveGeometry):
         if not os.path.exists(path):
             os.makedirs(path, exist_ok=True)
 
-        for para in self.model_parameters: # para is in ["vp", "vs", "rho", "Q"]
+        for para in self.model_parameters: # para is in ["vp", "vs", "rho", "Q", ....]
             var = self.__getattr__(para)
             if var.requires_grad:
                 var_par = var.cpu().detach().numpy()
                 var_grad = var.grad.cpu().detach().numpy()
                 for key, data in zip(["para"+para, "grad"+para], [var_par, var_grad]):
 
-                    # Save the data of model parameters and their gradients(if they have).
+                    # Save the data of model parameters and their gradients(if they have) to disk.
                     save_path = os.path.join(path, f"{key}F{freq_idx:02d}E{epoch:02d}.npy")
                     np.save(save_path, data)
 
@@ -347,8 +357,10 @@ class WaveGeometryFreeForm(WaveGeometry):
                         _pad = self.padding
                         model_error = np.sum((data[_pad:-_pad, _pad:-_pad] - self.true_models[para])**2)
 
+                    # Write the data to tensorboard.
                     if writer is not None:
                         tensor_data = self.tensor_to_img(key, data, padding=self.padding, vmin=None, vmax=None)
+                        # Write the model parameters and their gradients(if they have) to tensorboard.
                         writer.add_images(key, 
                                           tensor_data, 
                                           global_step=freq_idx*max_epoch+epoch, 

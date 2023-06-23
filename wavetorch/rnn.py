@@ -59,7 +59,6 @@ class WaveRNN(torch.nn.Module):
         hidden_state_shape = (1,) + self.cell.geom.domain_shape
 
         wavefield_names = Wavefield(self.cell.geom.equation).wavefields
-
         # Set wavefields
         for name in wavefield_names:
             self.__setattr__(name, torch.zeros(hidden_state_shape, device=device))
@@ -83,6 +82,7 @@ class WaveRNN(torch.nn.Module):
         super_source = WaveSource([s.x for s in self.sources], 
                                   [s.y for s in self.sources]).to(device)
         time_offset = 2 if self.cell.geom.equation == "acoustic" else 0
+
         for i, xi in enumerate(x.chunk(x.size(1), dim=1)):
                 
             # Propagate the fields
@@ -94,13 +94,12 @@ class WaveRNN(torch.nn.Module):
                                   omega=omega, 
                                   source=[self.cell.geom.source_type, super_source, x[..., tmpi].view(xi.size(1), -1)])
                                 #   source=[self.cell.geom.source_type, super_source, xi.view(xi.size(1), -1)])
-            
             # if i %1==0:
             #     np.save(f"/mnt/data/wangsw/inversion/marmousi_10m/inv_rho/l2/forward/forward{i:04d}.npy", 
             #             wavefield[0].cpu().detach().numpy())
-            if i %100==0:
-                np.save(f"/mnt/data/wangsw/inversion/vti/test/{i:04d}.npy", 
-                        wavefield[0].cpu().detach().numpy())
+            # if i %100==0:
+            #     np.save(f"/mnt/data/wangsw/inversion/marmousi_10m/elastic/compare_loss/resume/{i:04d}.npy", 
+            #             wavefield[0].cpu().detach().numpy())
 
             # Set the data to vars
             for name, data in zip(wavefield_names, wavefield):

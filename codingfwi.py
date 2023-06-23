@@ -143,28 +143,28 @@ if __name__ == '__main__':
 
     # loss_weights = torch.autograd.Variable(torch.ones(3), requires_grad=True)
     """Define Optimizer"""
-    if args.opt=='adam':
-        if ACOUSTIC:
-            optimizer = torch.optim.Adam(model.parameters(), lr=LEARNING_RATE, eps=1e-20)
-            #optimizer = SophiaG(model.parameters(), lr=0.01)
-        if ELASTIC: 
-            optimizer = torch.optim.Adam([
-                    {'params': model.cell.get_parameters('vp'), 'lr':LEARNING_RATE},
-                    {'params': model.cell.get_parameters('vs'), 'lr':LEARNING_RATE/1.73},
-                    {'params': model.cell.get_parameters('rho'), 'lr':0.}], 
-                    betas=(0.9, 0.999), eps=1e-20)
+    # if args.opt=='adam':
+    #     if ACOUSTIC:
+    #         optimizer = torch.optim.Adam(model.parameters(), lr=LEARNING_RATE, eps=1e-20)
+    #         #optimizer = SophiaG(model.parameters(), lr=0.01)
+    #     if ELASTIC: 
+    #         optimizer = torch.optim.Adam([
+    #                 {'params': model.cell.get_parameters('vp'), 'lr':LEARNING_RATE},
+    #                 {'params': model.cell.get_parameters('vs'), 'lr':LEARNING_RATE/1.73},
+    #                 {'params': model.cell.get_parameters('rho'), 'lr':0.}], 
+    #                 betas=(0.9, 0.999), eps=1e-20)
             
-    if args.opt == "ncg":
-        optimizer = NCG(model.parameters(), lr=10., max_iter_line_search=10)
+    # if args.opt == "ncg":
+    #     optimizer = NCG(model.parameters(), lr=10., max_iter_line_search=10)
 
     """Define the learning rate decay"""
-    if args.opt!="ncg":
-        lr_milestones = [EPOCHS*(i+1) for i in range(len(cfg['geom']['multiscale']))]
+    # if args.opt!="ncg":
+    #     lr_milestones = [EPOCHS*(i+1) for i in range(len(cfg['geom']['multiscale']))]
 
-        lr_scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, 
-                                                            milestones=lr_milestones, 
-                                                            gamma = cfg['training']['lr_decay'], 
-                                                            verbose=False)
+    #     lr_scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, 
+    #                                                         milestones=lr_milestones, 
+    #                                                         gamma = cfg['training']['lr_decay'], 
+    #                                                         verbose=False)
 
     """Define the misfit function"""
     criterion = Loss(args.loss).loss()
@@ -179,6 +179,20 @@ if __name__ == '__main__':
 
     """Loop over all scale"""
     for idx_freq, freq in enumerate(cfg['geom']['multiscale']):
+
+        # Restart the optimizer for each scale
+        LEARNING_RATE *= cfg['training']['lr_decay'] ** idx_freq
+        print("current lr: ", LEARNING_RATE)
+        if args.opt=='adam':
+            if ACOUSTIC:
+                optimizer = torch.optim.Adam(model.parameters(), lr=LEARNING_RATE, eps=1e-20)
+                #optimizer = SophiaG(model.parameters(), lr=0.01)
+            if ELASTIC: 
+                optimizer = torch.optim.Adam([
+                        {'params': model.cell.get_parameters('vp'), 'lr':LEARNING_RATE},
+                        {'params': model.cell.get_parameters('vs'), 'lr':LEARNING_RATE/1.73},
+                        {'params': model.cell.get_parameters('rho'), 'lr':0.}], 
+                        betas=(0.9, 0.999), eps=1e-20)
 
         logging.info(f"Data filtering: frequency:{freq}")
         # Filter both record and ricker
@@ -218,7 +232,12 @@ if __name__ == '__main__':
                 # model.cell.geom.reset_random_boundary()
                 ypred = model(coding_wavelet)
                 # loss = criterion(ypred, coding_obs, model.cell.geom.vp)
+                # np.save(f"{ROOTPATH}/syn.npy", ypred.cpu().detach().numpy())
+                # np.save(f"{ROOTPATH}/obs.npy", coding_obs.cpu().detach().numpy())
                 loss = criterion(ypred, coding_obs)
+                # adjoint = torch.autograd.grad(loss, ypred)[0]
+                # np.save(f"{ROOTPATH}/adjoint_{cfg['loss']}.npy", 
+                #         adjoint.detach().cpu().numpy())
                 # model.cell.geom.reset_random_boundary()
                 loss.backward()
                 return loss
@@ -227,6 +246,7 @@ if __name__ == '__main__':
             if args.opt == "ncg":
                 loss[idx_freq][epoch] = optimizer.step(closure).item()
             else:
+                # loss = closure()
                 loss[idx_freq][epoch] = closure().item()
 
                 if GRAD_SMOOTH:
@@ -244,8 +264,8 @@ if __name__ == '__main__':
 
             logging.info(f"Freq {idx_freq:02d} Epoch {epoch:02d} loss: {loss[idx_freq][epoch]}")
             writer.add_scalar(f"Loss", loss[idx_freq][epoch], global_step=idx_freq*EPOCHS+epoch)
-            if args.opt!="ncg":
-               lr_scheduler.step()
+            # if args.opt!="ncg":
+            #    lr_scheduler.step()
             pbar.update(1)
             # Save vel and grad
             np.save(os.path.join(ROOTPATH, "loss.npy"), loss)
