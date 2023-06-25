@@ -20,7 +20,7 @@ from wavetorch.model import build_model
 from wavetorch.optimizer import NonlinearConjugateGradient as NCG
 from wavetorch.optimizer import SophiaG
 from wavetorch.eqconfigure import Shape
-from wavetorch.utils import cpu_fft, ricker_wave, roll, to_tensor, get_src_and_rec
+from wavetorch.utils import cpu_fft, ricker_wave, roll, to_tensor, get_src_and_rec, DictAction
 from wavetorch.setup_source_probe import setup_src_coords, setup_rec_coords
 from wavetorch.regularization import LaplacianRegularization
 # from torchviz import make_dot
@@ -46,10 +46,12 @@ parser.add_argument('--name', type=str, default=time.strftime('%Y%m%d%H%M%S'),
                     help='Name to use when saving or loading the model file. If not specified when saving a time and date stamp is used')
 parser.add_argument('--opt', choices=['adam', 'lbfgs', 'ncg'], default='adam',
                     help='optimizer (adam)')
-parser.add_argument('--loss', default='mse',
-                    help='loss function')
+parser.add_argument('--loss', action=DictAction, nargs="+",
+                    help='loss dictionary')
 parser.add_argument('--save-path', default='',
                     help='the root path for saving results')
+parser.add_argument('--lr', action=DictAction, nargs="+",
+                    help='learning rate')
 parser.add_argument('--global-lr', type=int, default=-1,
                     help='learning rate')
 parser.add_argument('--batchsize', type=int, default=-1,
@@ -94,10 +96,11 @@ if __name__ == '__main__':
     ACOUSTIC = cfg['equation'] == 'acoustic'
     EPOCHS = cfg['training']['N_epochs']
     NSHOTS = cfg['geom']['Nshots']
-    LEARNING_RATE = cfg['training']['lr'] if args.global_lr < 0 else args.global_lr
     FILTER_ORDER = cfg['training']['filter_ord']
     MINIBATCH = cfg['training']['minibatch']
     BATCHSIZE = cfg['training']['batch_size'] if args.batchsize < 0 else args.batchsize
+    PARS_NEED_INVERT = [k for k, v in cfg['geom']['invlist'].items() if v]
+    LR_DECAY = cfg['training']['lr_decay']
     ROOTPATH = args.save_path if args.save_path else cfg["geom"]["inv_savePath"]
     GRAD_SMOOTH = args.grad_smooth
     GRAD_CUT = args.grad_cut
@@ -111,7 +114,6 @@ if __name__ == '__main__':
                         filemode='w')  # Set the file mode to write mode
     writer = SummaryWriter(os.path.join(ROOTPATH, "logs"))
     print(f"The results will be saving at '{ROOTPATH}'")
-    print(f"LEARNING_RATE of VP: {LEARNING_RATE}")
     print(f"BATCHSIZE: {args.batchsize}")
     ### Get source-x and source-y coordinate in grid cells
     src_list, rec_list = get_src_and_rec(cfg)
@@ -138,36 +140,18 @@ if __name__ == '__main__':
 
     """Write configure file to the inversion folder"""
     cfg["loss"] = args.loss
+
     with open(os.path.join(ROOTPATH, "configure.yml"), "w") as f:
         dump(cfg, f)
 
-    # loss_weights = torch.autograd.Variable(torch.ones(3), requires_grad=True)
-    """Define Optimizer"""
-    # if args.opt=='adam':
-    #     if ACOUSTIC:
-    #         optimizer = torch.optim.Adam(model.parameters(), lr=LEARNING_RATE, eps=1e-20)
-    #         #optimizer = SophiaG(model.parameters(), lr=0.01)
-    #     if ELASTIC: 
-    #         optimizer = torch.optim.Adam([
-    #                 {'params': model.cell.get_parameters('vp'), 'lr':LEARNING_RATE},
-    #                 {'params': model.cell.get_parameters('vs'), 'lr':LEARNING_RATE/1.73},
-    #                 {'params': model.cell.get_parameters('rho'), 'lr':0.}], 
-    #                 betas=(0.9, 0.999), eps=1e-20)
-            
-    # if args.opt == "ncg":
-    #     optimizer = NCG(model.parameters(), lr=10., max_iter_line_search=10)
-
-    """Define the learning rate decay"""
-    # if args.opt!="ncg":
-    #     lr_milestones = [EPOCHS*(i+1) for i in range(len(cfg['geom']['multiscale']))]
-
-    #     lr_scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, 
-    #                                                         milestones=lr_milestones, 
-    #                                                         gamma = cfg['training']['lr_decay'], 
-    #                                                         verbose=False)
-
-    """Define the misfit function"""
-    criterion = Loss(args.loss).loss()
+    """Define the misfit function for different parameters"""
+    # The parameters needed to be inverted
+    loss_names = set(args.loss.values())
+    MULTI_LOSS = len(loss_names) > 1
+    if len(loss_names) == 1:
+        criterions = Loss(list(loss_names)[0]).loss()
+    else:
+        criterions = {k:Loss(v).loss() for k,v in args.loss.items()}
 
     """Only rank0 will read the full band data"""
     """Rank0 will broadcast the data after filtering"""
@@ -181,18 +165,12 @@ if __name__ == '__main__':
     for idx_freq, freq in enumerate(cfg['geom']['multiscale']):
 
         # Restart the optimizer for each scale
-        LEARNING_RATE *= cfg['training']['lr_decay'] ** idx_freq
-        print("current lr: ", LEARNING_RATE)
         if args.opt=='adam':
-            if ACOUSTIC:
-                optimizer = torch.optim.Adam(model.parameters(), lr=LEARNING_RATE, eps=1e-20)
-                #optimizer = SophiaG(model.parameters(), lr=0.01)
-            if ELASTIC: 
-                optimizer = torch.optim.Adam([
-                        {'params': model.cell.get_parameters('vp'), 'lr':LEARNING_RATE},
-                        {'params': model.cell.get_parameters('vs'), 'lr':LEARNING_RATE/1.73},
-                        {'params': model.cell.get_parameters('rho'), 'lr':0.}], 
-                        betas=(0.9, 0.999), eps=1e-20)
+            optimizers = dict()
+            for para in PARS_NEED_INVERT:
+                lr_this_par = args.lr[para]
+                optimizers[para] = torch.optim.Adam(model.cell.get_parameters(para), 
+                                                    lr=lr_this_par*LR_DECAY**idx_freq, eps=1e-22)
 
         logging.info(f"Data filtering: frequency:{freq}")
         # Filter both record and ricker
@@ -226,7 +204,8 @@ if __name__ == '__main__':
             
             """Calculate encoding gradient"""
             def closure():
-                optimizer.zero_grad()#set_to_none=True
+                for opt in optimizers.values():
+                    opt.zero_grad()
                 # Get the super shot gathersh
                 model.reset_sources(sources)
                 # model.cell.geom.reset_random_boundary()
@@ -234,17 +213,40 @@ if __name__ == '__main__':
                 # loss = criterion(ypred, coding_obs, model.cell.geom.vp)
                 # np.save(f"{ROOTPATH}/syn.npy", ypred.cpu().detach().numpy())
                 # np.save(f"{ROOTPATH}/obs.npy", coding_obs.cpu().detach().numpy())
-                loss = criterion(ypred, coding_obs)
+                if not MULTI_LOSS:
+                    # One loss function for all parameters
+                    loss = criterions(ypred, coding_obs)
+                    loss.backward()
+                else:
+                    # Different loss function for different parameters
+                    for para, criterion in criterions.items():
+                        # set the requires_grad of other parameters to False
+                        for p in PARS_NEED_INVERT:
+                            if p != para:
+                                # if the parameter is not the one to be inverted,
+                                # set the requires_grad to False
+                                model.cell.get_parameters(p).requires_grad = False
+                            else:
+                                # if the parameter is the one to be inverted,
+                                # set the requires_grad to True
+                                model.cell.get_parameters(p).requires_grad = True
+                        loss = criterion(ypred, coding_obs)
+                        loss.backward(retain_graph=True)
+
+                    # Reset the requires_grad of all parameters to True,
+                    # because we need to save the gradient of all parameters in <save_model>
+                    for p in PARS_NEED_INVERT:
+                        model.cell.get_parameters(p).requires_grad = True
+
                 # adjoint = torch.autograd.grad(loss, ypred)[0]
                 # np.save(f"{ROOTPATH}/adjoint_{cfg['loss']}.npy", 
                 #         adjoint.detach().cpu().numpy())
                 # model.cell.geom.reset_random_boundary()
-                loss.backward()
                 return loss
 
             # Run the closure
             if args.opt == "ncg":
-                loss[idx_freq][epoch] = optimizer.step(closure).item()
+                loss[idx_freq][epoch] = optimizers.step(closure).item()
             else:
                 # loss = closure()
                 loss[idx_freq][epoch] = closure().item()
@@ -253,13 +255,10 @@ if __name__ == '__main__':
                     model.cell.geom.gradient_smooth(sigma=2)
                 if GRAD_CUT:
                     model.cell.geom.gradient_cut()
+                # Update the parameters with different optimizer instance
+                for para in PARS_NEED_INVERT:
+                    optimizers[para].step()
 
-                # Update the model paraeters by SGD
-                # with torch.no_grad():
-                #     lr = 5
-                #     model.cell.geom.vp -= model.cell.geom.vp.grad * lr  # step
-                #     a_torch.grad.zero_()
-                optimizer.step()
                 # model.cell.geom.vp.data = proj_simplex(model.cell.geom.vp)
 
             logging.info(f"Freq {idx_freq:02d} Epoch {epoch:02d} loss: {loss[idx_freq][epoch]}")
@@ -276,7 +275,6 @@ if __name__ == '__main__':
                                        freq_idx=idx_freq, 
                                        epoch=epoch,
                                        writer=writer, max_epoch=EPOCHS)
-
 
     # Close the summary writer    
     writer.close()

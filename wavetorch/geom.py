@@ -154,7 +154,7 @@ class WaveGeometryFreeForm(WaveGeometry):
         valid_model_paras = Parameters.valid_model_paras()
         needed_model_paras = Parameters.valid_model_paras()[self.equation]
         self.true_models = dict()
-
+        self.pars_need_invert = []
         for para in needed_model_paras:
             # check if the model of <para> is in the modelPath
             if para not in modelPath.keys():
@@ -171,6 +171,8 @@ class WaveGeometryFreeForm(WaveGeometry):
             # add the model to the graph
             mname, mpath = para, modelPath[para]
             print(f"Loading model '{mpath}', invert = {invlist[mname]}")
+            if invlist[mname]:
+                self.pars_need_invert.append(mname)
             # add the model to a list for later use
             self.model_parameters.append(mname)
             # load the ground truth model for calculating the model error
@@ -343,7 +345,9 @@ class WaveGeometryFreeForm(WaveGeometry):
 
         for para in self.model_parameters: # para is in ["vp", "vs", "rho", "Q", ....]
             var = self.__getattr__(para)
-            if var.requires_grad:
+            # if var.requires_grad:
+            # if the model parameter is in the invlist, then save it.
+            if para in self.pars_need_invert:
                 var_par = var.cpu().detach().numpy()
                 var_grad = var.grad.cpu().detach().numpy()
                 for key, data in zip(["para"+para, "grad"+para], [var_par, var_grad]):

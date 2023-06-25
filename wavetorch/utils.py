@@ -1,13 +1,27 @@
+import argparse
+import contextlib
 import os
 import pickle
 import socket
 import struct
 from typing import Any, Iterable, List, Tuple
-import torch
-import contextlib
+
 import numpy as np
 import torch
 from scipy import signal
+
+
+class DictAction(argparse.Action):
+    def __call__(self, parser, namespace, values, option_string=None):
+        d = {}
+        for item in values:
+            key, value = item.split('=')
+            try:
+                value = float(value)
+            except ValueError:
+                pass
+            d[key] = value
+        setattr(namespace, self.dest, d)
 
 def to_tensor(x, dtype=None):
     dtype = dtype if dtype is not None else torch.get_default_dtype()

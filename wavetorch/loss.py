@@ -374,7 +374,7 @@ class NIMl1(torch.nn.Module):
 
         # Calculate the cumulative distributions of x and y along the first dimension
         x_cum_dist = self.niml1(x)
-        y_cum_dist = self.niml2(x)
+        y_cum_dist = self.niml1(x)
 
         return torch.nn.L1Loss()(x_cum_dist, y_cum_dist)
 
@@ -657,7 +657,7 @@ class Envelope(torch.nn.Module):
         """
         # Compute the Hilbert transform along the time axis
         hilbert_transform = self.hilbert(seismograms)
-
+        
         # Compute the envelope
         envelope = torch.abs(hilbert_transform)
 
@@ -959,7 +959,7 @@ class Integration(torch.nn.Module):
     def name(self,):
         return "integration"
     
-    def intergrate(self, x, times=2):
+    def intergrate(self, x, times=3):
         for i in range(times):
             x = torch.cumulative_trapezoid(x, dim=0)
         return x
@@ -1072,11 +1072,12 @@ class Test(torch.nn.Module):
 
         loss = 0
 
-        nsamples, ntraces, _ = x.size()
+        nsamples, ntraces, channels = x.size()
         loss = 0
         for trace in range(ntraces):
-            _x, _y = x[:,trace, :], y[:,trace, :]
-            loss += self._wd1d(_x, _y)
+            for c in range(channels):
+                _x, _y = x[:,trace, c], y[:,trace, c]
+                loss += self._wd1d(_x, _y)
         return loss
     
     def linear_interpolation(self, t, t_values, y_values):

@@ -15,13 +15,13 @@ training:
   batch_size: 20
 
   # Number of training epochs
-  N_epochs: 50
+  N_epochs: 100
 
   # Optimizer learning rate
   lr: 5
 
   # Milestone decay for lr
-  lr_decay: 0.85
+  lr_decay: 0.75
 
   # Filter order
   filter_ord: 3
@@ -29,20 +29,19 @@ training:
 geom:
 
   # The observer data
-  obsPath: /mnt/data/wangsw/inversion/overthrust_15m/data/overthrust_15m_elastic.npy
-  #/mnt/data/wangsw/inversion/marmousi_10m/data/marmousi_elastic_constrho.npy
+  obsPath: /mnt/data/wangsw/inversion/circle/data/elastic.npy
 
   # Wave speed model from disk_file for forward modeling
   truePath:
-    vp: /mnt/data/wangsw/inversion/overthrust_15m/velocity/true_vp.npy
-    vs: /mnt/data/wangsw/inversion/overthrust_15m/velocity/true_vs.npy
-    rho: /mnt/data/wangsw/inversion/overthrust_15m/velocity/rho.npy
+    vp: /mnt/data/wangsw/inversion/circle/velocity/true_vp.npy
+    vs: /mnt/data/wangsw/inversion/circle/velocity/true_vs.npy
+    rho: /mnt/data/wangsw/inversion/circle/velocity/rho.npy
     Q: 
     #/mnt/data/wangsw/inversion/marmousi_10m/data//velocity/q_const.npy
 
-  sources: ./geometry/overthrust_15m/sources.pkl
+  sources: ./geometry/circle/sources.pkl
 
-  receivers: ./geometry/overthrust_15m/receivers.pkl
+  receivers: ./geometry/circle/receivers.pkl
 
   wavelet:
   # ./geometry/ricker_lowcut5hz.npy
@@ -56,9 +55,9 @@ geom:
 
   # Inital Wave speed model from disk_file
   initPath: 
-    vp: /mnt/data/wangsw/inversion/overthrust_15m/velocity/init_vp.npy
-    vs: /mnt/data/wangsw/inversion/overthrust_15m/velocity/init_vs.npy
-    rho: /mnt/data/wangsw/inversion/overthrust_15m/velocity/rho.npy
+    vp: /mnt/data/wangsw/inversion/circle/velocity/init_vp.npy
+    vs: /mnt/data/wangsw/inversion/circle/velocity/init_vs.npy
+    rho: /mnt/data/wangsw/inversion/circle/velocity/rho.npy
     Q:
 
   invlist:
@@ -82,19 +81,19 @@ geom:
     - all
 
   # Time Sampling step
-  dt: 0.002
+  dt: 0.001
 
   # Time samples
-  nt: 2000
+  nt: 1600
 
   # Main frequency of ricker wave
   fm: 10.0
 
   # Spatial grid step size
-  h: 15.0
+  h: 10.0
 
   # Total Shots
-  Nshots: 100
+  Nshots: 11
 
   pml:
     N: 50    # PML thickness in number of grid cells

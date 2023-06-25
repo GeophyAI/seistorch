@@ -43,8 +43,8 @@ geom:
 
   receivers: /home/wangsw/Desktop/wangsw/fwi/geometry/marmousi_obn_10m/receivers.pkl
 
-  wavelet:
-  # ./geometry/ricker_lowcut5hz.npy
+  wavelet: 
+  #./geometry/ricker_lowcut5hz.npy
 
   source_type:
     - vz

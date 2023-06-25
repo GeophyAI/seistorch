@@ -7,9 +7,9 @@ import numpy as np
 
 """Objective loss function"""
 # path = r"/public1/home/wangsw/FWI/EFWI/Marmousi/marmousi1_20m/compare_loss"
-path = r"/mnt/data/wangsw/inversion/marmousi_10m/elastic/compare_loss/"
-
-losses = ["niml1_ori", "l2"]
+# path = r"/mnt/data/wangsw/inversion/marmousi_10m/elastic/compare_loss/"
+path = r"/mnt/data/wangsw/inversion/marmousi_10m/elastic/good_init/compare_loss"
+losses = ["l2", "l1"]
 EXPAND = 100
 # losses = ["lr3", "lr5", "lr7", "lr10"]
 
@@ -32,8 +32,8 @@ EXPAND = 100
 true_vp = np.load("/mnt/data/wangsw/inversion/marmousi_10m/velocity/true_vp.npy")[:,EXPAND:-EXPAND]
 true_vs = np.load("/mnt/data/wangsw/inversion/marmousi_10m/velocity/true_vs.npy")[:,EXPAND:-EXPAND]
 
-FMAX = 4
-EPOCHMAX = 50
+FMAX = 6
+EPOCHMAX = 49
 PMLN = 50
 VP_ERROR = []
 VS_ERROR = []
@@ -47,7 +47,7 @@ for loss in losses:
     # if os.path.exists(model_error_vp_path):
     #     VP_ERROR.append(np.load(model_error_vp_path))
     #     continue
-    # model_error_vs_path = f"{loss_dir}/model_error_vs.npy"
+    model_error_vs_path = f"{loss_dir}/model_error_vs.npy"
     # if os.path.exists(model_error_vs_path):
     #     VS_ERROR.append(np.load(model_error_vs_path))
     for f in range(FMAX):
@@ -58,10 +58,8 @@ for loss in losses:
             temp_vs.append(np.sum((true_vs-vs)**2)/true_vp.size)
     VP_ERROR.append(temp_vp.copy())
     VS_ERROR.append(temp_vs.copy())
-    # np.save(model_error_vp_path, np.array(temp_vp))
-    # np.save(f"{loss_dir}/model_error_vp.npy", np.array(temp_vs))
-    # np.save(model_error_vs_path, np.array(temp_vs))
-    # np.save(f"{loss_dir}/model_error_vs.npy", np.array(temp_vs))
+    np.save(model_error_vp_path, np.array(temp_vp))
+    np.save(model_error_vs_path, np.array(temp_vs))
     
     del temp_vp, temp_vs
     gc.collect()
