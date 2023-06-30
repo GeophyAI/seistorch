@@ -44,8 +44,8 @@ def pack_files(directory, target_file):
             zipf.write(file_path, arcname=os.path.relpath(file_path, directory))
 
 # 指定目录和输出zip文件名
-directory = '/mnt/data/wangsw/inversion/marmousi_10m/elastic/compare_loss'
-output_zip = '/mnt/data/wangsw/inversion/marmousi_10m/elastic/compare_loss/output.zip'
+directory = '/mnt/data/wangsw/inversion/marmousi_10m/elastic/compare_loss2'
+output_zip = '/mnt/data/wangsw/inversion/marmousi_10m/elastic/compare_loss2/output.zip'
 
 # 执行打包操作
 pack_files(directory, output_zip)

@@ -21,7 +21,7 @@ training:
   lr: 5
 
   # Milestone decay for lr
-  lr_decay: 0.85
+  lr_decay: 0.75
 
   # Filter order
   filter_ord: 3

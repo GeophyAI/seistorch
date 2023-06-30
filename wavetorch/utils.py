@@ -8,8 +8,25 @@ from typing import Any, Iterable, List, Tuple
 
 import numpy as np
 import torch
+from prettytable import PrettyTable
 from scipy import signal
 
+
+def dict2table(dict_data: dict, table: PrettyTable = None):
+    """Convert a dict to a table"""
+    _tmp_table = PrettyTable(["Configures", "Value"]) if table is None else table
+    tables = []
+    for k, v in dict_data.items():
+        if isinstance(v, dict):
+            #table = PrettyTable(["Configures", "Value"])
+            _tables = dict2table(v, PrettyTable([k, "Value"]))
+            # for kk, vv in v.items():
+            #     table.add_row([kk, vv])
+            tables.extend(_tables)
+        else:
+            _tmp_table.add_row([k, v])
+    tables.append(_tmp_table)
+    return tables
 
 class DictAction(argparse.Action):
     def __call__(self, parser, namespace, values, option_string=None):

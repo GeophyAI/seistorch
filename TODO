@@ -1,3 +1,6 @@
 
 TODO: 
 1. eval mode.
+2. Checkpoint mode for resuming
+3. Pretty table for showing the configures.
+4. Start frequency and start epoch

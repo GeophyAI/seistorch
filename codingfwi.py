@@ -19,8 +19,8 @@ from wavetorch.loss import Loss
 from wavetorch.model import build_model
 from wavetorch.optimizer import NonlinearConjugateGradient as NCG
 from wavetorch.optimizer import SophiaG
-from wavetorch.eqconfigure import Shape
-from wavetorch.utils import cpu_fft, ricker_wave, roll, to_tensor, get_src_and_rec, DictAction
+from wavetorch.eqconfigure import Shape, Parameters
+from wavetorch.utils import cpu_fft, ricker_wave, roll, to_tensor, get_src_and_rec, DictAction, dict2table
 from wavetorch.setup_source_probe import setup_src_coords, setup_rec_coords
 from wavetorch.regularization import LaplacianRegularization
 # from torchviz import make_dot
@@ -42,6 +42,8 @@ parser.add_argument('--encoding', action='store_true',
                     help='Use phase encoding to accelerate performance')
 parser.add_argument('--gpuid', type=int, default=0,
                     help='which gpu is used for calculation')
+parser.add_argument('--checkpoint', type=str,
+                    help='checkpoint path for resuming training')
 parser.add_argument('--name', type=str, default=time.strftime('%Y%m%d%H%M%S'),
                     help='Name to use when saving or loading the model file. If not specified when saving a time and date stamp is used')
 parser.add_argument('--opt', choices=['adam', 'lbfgs', 'ncg'], default='adam',
@@ -100,6 +102,7 @@ if __name__ == '__main__':
     MINIBATCH = cfg['training']['minibatch']
     BATCHSIZE = cfg['training']['batch_size'] if args.batchsize < 0 else args.batchsize
     PARS_NEED_INVERT = [k for k, v in cfg['geom']['invlist'].items() if v]
+    PARS_NEED_BY_EQ = Parameters.valid_model_paras()[cfg['equation']]
     LR_DECAY = cfg['training']['lr_decay']
     ROOTPATH = args.save_path if args.save_path else cfg["geom"]["inv_savePath"]
     GRAD_SMOOTH = args.grad_smooth
@@ -123,6 +126,17 @@ if __name__ == '__main__':
     # In coding fwi, the probes are set only once.
     probes = setup_rec_coords(rec_list[0], cfg['geom']['pml']['N'])
     model.reset_probes(probes)
+    # print(model.state_dict())
+    # Resume training from checkpoint
+    # assert os.path.exists(args.checkpoint), "Checkpoint not found"
+    # Load the checkpoint
+    # checkpoint = torch.load(args.checkpoint)
+
+    # print("model state dict:", model.state_dict())
+    # print("\n\n\n\n\n\n")
+    # print(checkpoint)
+    # # model.load_state_dict(checkpoint['model_state_dict'])
+    # exit()
 
     # print(probes)
     """# Read the wavelet"""
@@ -143,15 +157,20 @@ if __name__ == '__main__':
 
     with open(os.path.join(ROOTPATH, "configure.yml"), "w") as f:
         dump(cfg, f)
-
+    # convert the configure to table
+    cfg_table = dict2table(cfg)
+    for _t in cfg_table:
+        logging.info(cfg_table)
     """Define the misfit function for different parameters"""
     # The parameters needed to be inverted
     loss_names = set(args.loss.values())
     MULTI_LOSS = len(loss_names) > 1
-    if len(loss_names) == 1:
+    if not MULTI_LOSS:
+        print("Only one loss function is used.")
         criterions = Loss(list(loss_names)[0]).loss()
     else:
         criterions = {k:Loss(v).loss() for k,v in args.loss.items()}
+        print(f"Multiple loss functions are used:\n {criterions}")
 
     """Only rank0 will read the full band data"""
     """Rank0 will broadcast the data after filtering"""
@@ -163,14 +182,16 @@ if __name__ == '__main__':
 
     """Loop over all scale"""
     for idx_freq, freq in enumerate(cfg['geom']['multiscale']):
-
         # Restart the optimizer for each scale
+        # Old codes
         if args.opt=='adam':
-            optimizers = dict()
-            for para in PARS_NEED_INVERT:
-                lr_this_par = args.lr[para]
-                optimizers[para] = torch.optim.Adam(model.cell.get_parameters(para), 
-                                                    lr=lr_this_par*LR_DECAY**idx_freq, eps=1e-22)
+            paras_for_optim = []
+            for para in PARS_NEED_BY_EQ:
+                # Set the learning rate for each parameter
+                _lr = 0. if para not in PARS_NEED_INVERT else args.lr[para]*LR_DECAY**idx_freq
+                paras_for_optim.append({'params': model.cell.get_parameters(para), 
+                                        'lr':_lr})
+            optimizers = torch.optim.Adam(paras_for_optim, betas=(0.9, 0.999), eps=1e-20)
 
         logging.info(f"Data filtering: frequency:{freq}")
         # Filter both record and ricker
@@ -204,8 +225,9 @@ if __name__ == '__main__':
             
             """Calculate encoding gradient"""
             def closure():
-                for opt in optimizers.values():
-                    opt.zero_grad()
+                optimizers.zero_grad()
+                # for opt in optimizers.values():
+                #     opt.zero_grad()
                 # Get the super shot gathersh
                 model.reset_sources(sources)
                 # model.cell.geom.reset_random_boundary()
@@ -217,26 +239,31 @@ if __name__ == '__main__':
                     # One loss function for all parameters
                     loss = criterions(ypred, coding_obs)
                     loss.backward()
-                else:
+                if MULTI_LOSS:
+                    # l1_loss = criterions['l1'](ypred, coding_obs)
+                    # niml1_loss = criterions['niml1'](ypred, coding_obs)
+
                     # Different loss function for different parameters
-                    for para, criterion in criterions.items():
+                    LOSSES = []
+                    for _i, (para, criterion)in enumerate(criterions.items()):
                         # set the requires_grad of other parameters to False
                         for p in PARS_NEED_INVERT:
-                            if p != para:
-                                # if the parameter is not the one to be inverted,
-                                # set the requires_grad to False
-                                model.cell.get_parameters(p).requires_grad = False
-                            else:
-                                # if the parameter is the one to be inverted,
-                                # set the requires_grad to True
-                                model.cell.get_parameters(p).requires_grad = True
+                            # if the parameter is not the one to be inverted,
+                            # set the requires_grad to False
+                            # if the parameter is the one to be inverted,
+                            # set the requires_grad to True
+                            requires_grad = False if p != para else True
+                            model.cell.geom.__getattr__(p).requires_grad = requires_grad
+                        # Calculate the loss
                         loss = criterion(ypred, coding_obs)
-                        loss.backward(retain_graph=True)
+                        # if the para is the last loss, do not retain the graph
+                        retain_graph = False if _i == len(criterions)-1 else True
+                        loss.backward(retain_graph=retain_graph)
 
                     # Reset the requires_grad of all parameters to True,
                     # because we need to save the gradient of all parameters in <save_model>
                     for p in PARS_NEED_INVERT:
-                        model.cell.get_parameters(p).requires_grad = True
+                        model.cell.geom.__getattr__(p).requires_grad = True
 
                 # adjoint = torch.autograd.grad(loss, ypred)[0]
                 # np.save(f"{ROOTPATH}/adjoint_{cfg['loss']}.npy", 
@@ -256,10 +283,16 @@ if __name__ == '__main__':
                 if GRAD_CUT:
                     model.cell.geom.gradient_cut()
                 # Update the parameters with different optimizer instance
-                for para in PARS_NEED_INVERT:
-                    optimizers[para].step()
-
+                # for para in PARS_NEED_INVERT:
+                #     optimizers[para].step()
+                optimizers.step()
                 # model.cell.geom.vp.data = proj_simplex(model.cell.geom.vp)
+
+            # Saving checkpoint
+            torch.save({'epoch': idx_freq*EPOCHS+epoch, 
+                        'model_state_dict': model.state_dict(), 
+                        'optimizer_state_dict': optimizers.state_dict()}, 
+                        f"{ROOTPATH}/ckpt_{epoch}.pt")
 
             logging.info(f"Freq {idx_freq:02d} Epoch {epoch:02d} loss: {loss[idx_freq][epoch]}")
             writer.add_scalar(f"Loss", loss[idx_freq][epoch], global_step=idx_freq*EPOCHS+epoch)

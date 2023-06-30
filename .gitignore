@@ -2,6 +2,7 @@
 *.png
 *.npy
 *.pyc
+__pycache__
 test
 figures
 plot.py

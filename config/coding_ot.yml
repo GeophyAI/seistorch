@@ -74,7 +74,6 @@ geom:
   inv_savePath: /mnt/data/wangsw/inversion/marmousi_10m/Test
 
   multiscale:
-    - 1.0
     - 3.0
     - 5.0
     - 8.0

@@ -15,7 +15,7 @@ training:
   batch_size: 20
 
   # Number of training epochs
-  N_epochs: 100
+  N_epochs: 1
 
   # Optimizer learning rate
   lr: 5
@@ -29,7 +29,7 @@ training:
 geom:
 
   # The observer data
-  obsPath: /mnt/data/wangsw/inversion/marmousi_10m/data/marmousi_acoustic.npy
+  obsPath: /mnt/data/wangsw/inversion/marmousi_10m/data/marmousi_acoustic_nolow5hz.npy
   #/mnt/data/wangsw/inversion/marmousi_10m/data/marmousi_elastic_constrho.npy
 
   # Wave speed model from disk_file for forward modeling
@@ -73,7 +73,7 @@ geom:
   inv_savePath: /mnt/data/wangsw/inversion/marmousi_10m/Test
 
   multiscale:
-    - all
+    - 8.0
 
   # Time Sampling step
   dt: 0.001
