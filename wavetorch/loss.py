@@ -505,7 +505,7 @@ class WD1d(torch.nn.Module):
         x_pos = self.scale(x_pos)
         y_pos = self.scale(y_pos)
 
-        C = torch.cdist(x_pos.unsqueeze(0), y_pos.unsqueeze(0)).to(x.device)
+        C = torch.cdist(x_pos.unsqueeze(1), y_pos.unsqueeze(1)).to(x.device)
         c = C.detach().cpu().numpy()
         row_ind, col_ind = linear_sum_assignment(c)
         row_ind, col_ind = torch.from_numpy(row_ind).to(x.device), torch.from_numpy(col_ind).to(x.device)
@@ -524,7 +524,7 @@ class WD1d(torch.nn.Module):
         x_neg = self.scale(x_neg)
         y_neg = self.scale(y_neg)
 
-        C = torch.cdist(x_neg.unsqueeze(0), y_neg.unsqueeze(0)).to(x.device)
+        C = torch.cdist(x_neg.unsqueeze(1), y_neg.unsqueeze(1)).to(x.device)
         c = C.detach().cpu().numpy()
         row_ind, col_ind = linear_sum_assignment(c)
         row_ind, col_ind = torch.from_numpy(row_ind).to(x.device), torch.from_numpy(col_ind).to(x.device)
@@ -534,27 +534,35 @@ class WD1d(torch.nn.Module):
 
     def otloss(self, syn, obs):
 
-        syn = syn**2
-        obs = obs**2
+        #syn = syn**2
+        #obs = obs**2
 
         mind = torch.min(torch.min(syn), torch.min(obs))
-
-        syn = syn - mind
-        obs = obs - mind
-
-        syn_norm = syn / torch.sum(syn, dim=0, keepdim=True)
-        obs_norm = obs / torch.sum(obs, dim=0, keepdim=True)
 
         nt = syn.shape[0]
         t = torch.arange(nt, device=syn.device)
 
-        cdf_syn = torch.cumsum(syn_norm, dim=0)
-        cdf_obs = torch.cumsum(obs_norm, dim=0)
+        # Step1. Make sure they are positive
+        syn = syn - mind
+        obs = obs - mind
 
-        idx = torch.searchsorted(cdf_obs, cdf_syn)
-        idx[idx == t.shape[-1]] = -1
+        # Step2. Calculate the cumulative distribution
+        # cdf_syn = torch.cumsum(syn, dim=0)
+        # cdf_obs = torch.cumsum(obs, dim=0)
+        cdf_syn = torch.cumulative_trapezoid(syn, dim=0)
+        cdf_obs = torch.cumulative_trapezoid(obs, dim=0)
+
+        # Step3. Normalize the distributions for satisfacing the total mass constraint
+        syn_norm = cdf_syn / torch.sum(cdf_syn, dim=0, keepdim=True)
+        obs_norm = cdf_obs / torch.sum(cdf_obs, dim=0, keepdim=True)
+
+        idx = torch.searchsorted(obs_norm, syn_norm)
+        #idx[idx == t.shape[-1]] = -1
+        idx = torch.clamp(idx, max = t.shape[-1]-1)
+        # idx = torch.clamp(idx, 0, t.shape[-1])
         tidx = t[idx]
-        return ((t - tidx)**2 * syn).sum()
+
+        return ((t[1:] - tidx)**2 * syn_norm).sum()
 
     def forward(self, x, y):
         """
@@ -573,7 +581,7 @@ class WD1d(torch.nn.Module):
             for _nc in range(nchannels):
                 _x, _y = x[:, _t, _nc], y[:, _t, _nc]
                 loss += self.otloss(_x, _y)
-                #loss += self.wd1d_pos(_x, _y) + self.wd1d_neg(_x, _y)
+                # loss += self.wd1d_pos(_x, _y) + self.wd1d_neg(_x, _y)
 
         return loss
 
@@ -781,16 +789,66 @@ class Phase(torch.nn.Module):
     def name(self,):
         return "phase"
 
-    def phase_correlation(self, obs, sim):
+    def analytic(self, data):
+        """
+        Compute the Hilbert transform of the input data tensor.
+
+        Args:
+            data (torch.Tensor): The input data tensor.
+
+        Returns:
+            torch.Tensor: The Hilbert transform of the input data tensor.
+        """
+
+        nt, _, _ = data.shape
+        # nfft = 2 ** (nt - 1).bit_length()
+        nfft = nt # the scipy implementation uses this
+
+        # Compute the FFT
+        data_fft = torch.fft.fft(data, n=nfft, dim=0)
+
+        # Create the filter
+        # h = torch.zeros(nfft, device=data.device).unsqueeze(1).unsqueeze(2)
+        h = np.zeros(nfft, dtype=np.float32)
+
+        if nfft % 2 == 0:
+            h[0] = h[nfft // 2] = 1
+            h[1:nfft // 2] = 2
+        else:
+            h[0] = 1
+            h[1:(nfft + 1) // 2] = 2
+
+        h = np.expand_dims(h, 1)
+        h = np.expand_dims(h, 2)
+        h = torch.from_numpy(h).to(data.device)
+        # h = h.requires_grad_(True)
+        # Apply the filter and compute the inverse FFT
+        hilbert_data = torch.fft.ifft(data_fft * h, dim=0)
+
+        # Truncate the result to the original length
+        #hilbert_data = hilbert_data#[:nt]
+
+        return hilbert_data
+
+    def phase_correlation(self, obs, syn):
         """
         obs: observed data, tensor of shape (time_samples, num_traces, num_channels)
         sim: simulated data, tensor of shape (time_samples, num_traces, num_channels)
         """
-        obs_fft = torch.fft.fft(obs, dim=0)
-        sim_fft = torch.fft.fft(sim, dim=0)
+        # obs_fft = torch.fft.fft(obs, dim=0)
+        # sim_fft = torch.fft.fft(syn, dim=0)
 
-        phase_diff = torch.pow(torch.angle(obs_fft) - torch.angle(sim_fft), 2)
-        loss = phase_diff.mean()
+        # Calculate the analytic signal of the inputs
+        analytic_syn = self.analytic(syn)
+        phase_syn = torch.arctan2(torch.imag(analytic_syn), torch.real(analytic_syn))
+
+        analytic_obs = self.analytic(obs)
+        phase_obs = torch.arctan2(torch.imag(analytic_obs), torch.real(analytic_obs))
+
+        pi = 3.1415926
+        #phase_diff = torch.pow(torch.angle(obs_fft*180/pi) - torch.angle(sim_fft*180/pi), 2)
+        loss = torch.nn.MSELoss()(phase_syn, phase_obs)
+        #loss = phase_diff.mean()
         return loss
     
     def spec(self, x, y):
@@ -804,13 +862,13 @@ class Phase(torch.nn.Module):
         # obs_phase = self.instantaneous_phase(y)
 
         # loss = F.mse_loss(pred_phase, obs_phase)
-        # loss = self.phase_correlation(x, y)
-        nt, ntraces, nchannels = x.shape
-        loss = 0.
-        for _t in range(ntraces):
-            for _nc in range(nchannels):
-                _x, _y = x[:, _t, _nc], y[:, _t, _nc]
-                loss += self.spec(_x, _y)
+        loss = self.phase_correlation(x, y)
+        # nt, ntraces, nchannels = x.shape
+        # loss = 0.
+        # for _t in range(ntraces):
+        #     for _nc in range(nchannels):
+        #         _x, _y = x[:, _t, _nc], y[:, _t, _nc]
+        #         loss += self.spec(_x, _y)
         return loss
 
 class Envelope(torch.nn.Module):
@@ -1084,97 +1142,48 @@ class DTW(torch.nn.Module):
 
 class Sinkhorn(torch.nn.Module):
     r"""
-    git@github.com:dfdazac/wassdistance.git
-    Given two empirical measures each with :math:`P_1` locations
-    :math:`x\in\mathbb{R}^{D_1}` and :math:`P_2` locations :math:`y\in\mathbb{R}^{D_2}`,
-    outputs an approximation of the regularized OT cost for point clouds.
-
-    Args:
-        eps (float): regularization coefficient
-        max_iter (int): maximum number of Sinkhorn iterations
-        reduction (string, optional): Specifies the reduction to apply to the output:
-            'none' | 'mean' | 'sum'. 'none': no reduction will be applied,
-            'mean': the sum of the output will be divided by the number of
-            elements in the output, 'sum': the output will be summed. Default: 'none'
-
-    Shape:
-        - Input: :math:`(N, P_1, D_1)`, :math:`(N, P_2, D_2)`
-        - Output: :math:`(N)` or :math:`()`, depending on `reduction`
+    Sinkhorn divergence between two records :math:`x` and :math:`y`:
     """
-    def __init__(self, eps=1e-16, max_iter=50, reduction='mean'):
+    def __init__(self, reg=1e-1):
         super(Sinkhorn, self).__init__()
-        self.eps = eps
-        self.max_iter = max_iter
-        self.reduction = reduction
+        self.eps = reg
 
     @property
     def name(self,):
         return "sinkhorn"
+    
+    def _sinkhorn(self, x, y):
+        nt = x.shape[0]
+        t = torch.arange(nt, dtype=torch.float, device=x.device)
+        M = ot.dist(t.reshape(-1, 1), t.reshape(-1, 1), metric='euclidean')
+        #M /= M.max()#*0.1
+        # emd = ot.emd2(x, y, M)
+
+        # x = x**2
+        # y = y**2
+
+        x = torch.clamp(x, min=0.)
+        y = torch.clamp(y, min=0.)
+
+        x = torch.cumsum(x, dim=0)
+        y = torch.cumsum(y, dim=0)
+
+        x = x/x.sum()
+        y = y/y.sum()
+
+        emd = ot.emd2_1d(x, y, t, t)
+        #emd = ot.emd(x, y, M)
+        #emd = ot.sinkhorn2(x, y, M, 0.)
+        return emd
 
     def forward(self, x, y):
-        # The Sinkhorn algorithm takes as input three variables :
-        C = self._cost_matrix(x, y)  # Wasserstein cost function
-        x_points = x.shape[-2]
-        y_points = y.shape[-2]
-        if x.dim() == 2:
-            batch_size = 1
-        else:
-            batch_size = x.shape[0]
-
-        # both marginals are fixed with equal weights
-        mu = torch.empty(batch_size, x_points, dtype=torch.float, device=C.device,
-                         requires_grad=False).fill_(1.0 / x_points).squeeze()
-        nu = torch.empty(batch_size, y_points, dtype=torch.float, device=C.device,
-                         requires_grad=False).fill_(1.0 / y_points).squeeze()
-
-        u = torch.zeros_like(mu)
-        v = torch.zeros_like(nu)
-        # To check if algorithm terminates because of threshold
-        # or max iterations reached
-        actual_nits = 0
-        # Stopping criterion
-        thresh = 1e-1
-        # Sinkhorn iterations
-        for i in range(self.max_iter):
-            u1 = u  # useful to check the update
-            u = self.eps * (torch.log(mu+1e-8) - torch.logsumexp(self.M(C, u, v), dim=-1)) + u
-            v = self.eps * (torch.log(nu+1e-8) - torch.logsumexp(self.M(C, u, v).transpose(-2, -1), dim=-1)) + v
-            err = (u - u1).abs().sum(-1).mean()
-
-            actual_nits += 1
-            if err.item() < thresh:
-                break
-
-        U, V = u, v
-        # Transport plan pi = diag(a)*K*diag(b)
-        pi = torch.exp(self.M(C, U, V))
-        # Sinkhorn distance
-        cost = torch.sum(pi * C, dim=(-2, -1))
-
-        if self.reduction == 'mean':
-            cost = cost.mean()
-        elif self.reduction == 'sum':
-            cost = cost.sum()
-
-        return cost
-
-    def M(self, C, u, v):
-        "Modified cost for logarithmic updates"
-        "$M_{ij} = (-c_{ij} + u_i + v_j) / \epsilon$"
-        return (-C + u.unsqueeze(-1) + v.unsqueeze(-2)) / self.eps
-
-    @staticmethod
-    def _cost_matrix(x, y, p=2):
-        "Returns the matrix of $|x_i-y_j|^p$."
-        x_col = x.unsqueeze(-2)
-        y_lin = y.unsqueeze(-3)
-        C = torch.sum((torch.abs(x_col - y_lin)) ** p, -1)
-        return C
-
-    @staticmethod
-    def ave(u, u1, tau):
-        "Barycenter subroutine, used by kinetic acceleration through extrapolation."
-        return tau * u + (1 - tau) * u1
+        nt, ntraces, nchannels = x.shape
+        loss = 0.
+        for _t in range(ntraces):
+            for _nc in range(nchannels):
+                _x, _y = x[:, _t, _nc], y[:, _t, _nc]
+                loss += self._sinkhorn(_x, _y)
+        return loss
 
 class Integration(torch.nn.Module):
 

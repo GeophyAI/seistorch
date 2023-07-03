@@ -208,7 +208,7 @@ if __name__ == '__main__':
 
         lr_scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, 
                                                             milestones=lr_milestones, 
-                                                            gamma = cfg['training']['lr_decay'], 
+                                                            gamma = cfg['training']['scale_decay'], 
                                                             verbose=False)
     
         """Define the misfit function"""

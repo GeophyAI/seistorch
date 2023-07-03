@@ -104,6 +104,7 @@ if __name__ == '__main__':
     PARS_NEED_INVERT = [k for k, v in cfg['geom']['invlist'].items() if v]
     PARS_NEED_BY_EQ = Parameters.valid_model_paras()[cfg['equation']]
     LR_DECAY = cfg['training']['lr_decay']
+    SCALE_DECAY = cfg['training']['scale_decay']
     ROOTPATH = args.save_path if args.save_path else cfg["geom"]["inv_savePath"]
     GRAD_SMOOTH = args.grad_smooth
     GRAD_CUT = args.grad_cut
@@ -165,7 +166,7 @@ if __name__ == '__main__':
     # The parameters needed to be inverted
     loss_names = set(args.loss.values())
     MULTI_LOSS = len(loss_names) > 1
-    if not MULTI_LOSS:
+    if not MULTI_LOSS or ACOUSTIC:
         print("Only one loss function is used.")
         criterions = Loss(list(loss_names)[0]).loss()
     else:
@@ -188,11 +189,15 @@ if __name__ == '__main__':
             paras_for_optim = []
             for para in PARS_NEED_BY_EQ:
                 # Set the learning rate for each parameter
-                _lr = 0. if para not in PARS_NEED_INVERT else args.lr[para]*LR_DECAY**idx_freq
+                _lr = 0. if para not in PARS_NEED_INVERT else args.lr[para]*SCALE_DECAY**idx_freq
                 paras_for_optim.append({'params': model.cell.get_parameters(para), 
                                         'lr':_lr})
-            optimizers = torch.optim.Adam(paras_for_optim, betas=(0.9, 0.999), eps=1e-20)
+            optimizers = torch.optim.Adam(paras_for_optim, betas=(0.9, 0.999), eps=1e-22)
 
+            lr_scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizers, LR_DECAY, last_epoch=- 1, verbose=False)
+
+
+        logging.info(f"Info. of optimizers:{optimizers}")
         logging.info(f"Data filtering: frequency:{freq}")
         # Filter both record and ricker
         filtered_data[:] = cpu_fft(full_band_data.copy(), cfg['geom']['dt'], N=FILTER_ORDER, low=freq, axis = 1, mode='lowpass')
@@ -240,9 +245,6 @@ if __name__ == '__main__':
                     loss = criterions(ypred, coding_obs)
                     loss.backward()
                 if MULTI_LOSS:
-                    # l1_loss = criterions['l1'](ypred, coding_obs)
-                    # niml1_loss = criterions['niml1'](ypred, coding_obs)
-
                     # Different loss function for different parameters
                     LOSSES = []
                     for _i, (para, criterion)in enumerate(criterions.items()):
@@ -286,6 +288,11 @@ if __name__ == '__main__':
                 # for para in PARS_NEED_INVERT:
                 #     optimizers[para].step()
                 optimizers.step()
+                lr_scheduler.step()
+                vp = model.cell.geom.vp.data.detach().cpu().numpy()
+                vp[50:50+48,:] = 1500.
+                model.cell.geom.vp.data = torch.from_numpy(vp).to(torch.cuda.current_device())
+
                 # model.cell.geom.vp.data = proj_simplex(model.cell.geom.vp)
 
             # Saving checkpoint

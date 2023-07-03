@@ -54,7 +54,7 @@ geom:
 
   # Inital Wave speed model from disk_file
   initPath: 
-    vp: /mnt/data/wangsw/inversion/bp/velocity_part/init_vel_z50m_x50m.npy
+    vp: /mnt/data/wangsw/inversion/bp/velocity_part/smth_vel_z50m_x50m.npy
     vs:
     rho:
     Q:
@@ -72,7 +72,7 @@ geom:
   inv_savePath: /mnt/data/wangsw/inversion/marmousi_10m/Test
 
   multiscale:
-    - all
+    - 1.0
 
   # Time Sampling step
   dt: 0.005

@@ -133,19 +133,6 @@ def load_file_by_type(filepath, shape = None, pml_width = None):
     #     vel=np.array(vel).T
     #     return vel
     
-# def diff_using_roll(input, dim=-1, append=True, padding_value=0):
-
-#     dim = input.dim() + dim if dim < 0 else dim
-#     shifts = -1 if append else 1
-#     rolled_input = torch.roll(input, shifts=shifts, dims=dim)
-
-#     # Fill the idex with value padding_value
-#     index = [slice(None)] * input.dim()
-#     index[dim] = -1 if append else 0
-#     rolled_input[tuple(index)] = padding_value
-
-#     diff_result = rolled_input - input if append else input-rolled_input
-#     return diff_result
 
 def diff_using_roll(input, dim=-1, forward=True, padding_value=0):
 

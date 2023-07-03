@@ -170,15 +170,16 @@ class CheckpointFunction(torch.autograd.Function):
         boundaries = packup_boundaries(ctx.saved_tensors, 4)
         inputs = inputs + [boundaries] + [ctx.source_function]
 
-        # When acoustic 2nd is used, we first need to reconstruct 
-        # the wavefield using backward function, and then calculate
-        # the gradient using forward function.
-        if ACOUSTIC2nd:
-            with torch.no_grad():
-                outputs = ctx.back_function(*inputs)
-        else:
-            with torch.enable_grad():
-                outputs = ctx.back_function(*inputs)
+        # We first need to reconstruct the wavefield using backward function, 
+        # and then calculate the gradient using forward function.
+        with torch.no_grad():
+            outputs = ctx.back_function(*inputs)
+        # if ACOUSTIC2nd:
+        #     with torch.no_grad():
+        #         outputs = ctx.back_function(*inputs)
+        # else:
+        #     with torch.enable_grad():
+        #         outputs = ctx.back_function(*inputs)
 
         if isinstance(outputs, torch.Tensor):
             outputs = (outputs,)
@@ -194,14 +195,16 @@ class CheckpointFunction(torch.autograd.Function):
 
         # Run the forward second time for more accurate gradient calculation.
         if ACOUSTIC2nd:
+            # acoustic
             inputs = ctx.models + tuple(list(outputs)[::-1]) + ctx.geoms
-            inputs = [inp.detach().requires_grad_(value) for inp, value in zip(inputs, ctx.requires_grad_list)]
+        if not ACOUSTIC2nd:
+            # not acoustic
+            inputs = ctx.models + tuple(list(outputs)) + ctx.geoms
 
-            with torch.enable_grad():
-                outputs = ctx.run_function(*inputs)
-        # else:
-        #     inputs = ctx.models + tuple(list(outputs)) + ctx.geoms
+        inputs = [inp.detach().requires_grad_(value) for inp, value in zip(inputs, ctx.requires_grad_list)]
 
+        with torch.enable_grad():
+            outputs = ctx.run_function(*inputs)
 
         outputs_with_grad = []
         args_with_grad = []
