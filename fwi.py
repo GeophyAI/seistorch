@@ -1,19 +1,22 @@
 """Perform full waveform inversion."""
+import torch
+torch.backends.cudnn.enabled = True
+torch.backends.cudnn.benchmark = True
 import setproctitle
 import wavetorch
 import numpy as np
-import argparse, os, sys, time, tqdm, torch, socket
+import argparse, os, sys, time, tqdm, torch, socket, pickle
 from mpi4py import MPI
-from wavetorch.utils import ricker_wave, to_tensor, cpu_fft, get_src_and_rec
+from wavetorch.utils import ricker_wave, to_tensor, cpu_fft, get_src_and_rec, low_pass
+from wavetorch.utils import DictAction
 # from tensorflow.keras.models import load_model
 from wavetorch.model import build_model
 from wavetorch.loss import Loss
 from wavetorch.optimizer import NonlinearConjugateGradient as NCG
-from wavetorch.eqconfigure import Shape
+from wavetorch.eqconfigure import Shape, Parameters
 # from skopt import Optimizer
 from wavetorch.setup_source_probe import setup_src_coords, setup_rec_coords
 from yaml import load, dump
-torch.backends.cudnn.benchmark = True
 
 try:
     from yaml import CLoader as Loader, CDumper as Dumper
@@ -23,8 +26,6 @@ except ImportError:
 parser = argparse.ArgumentParser()
 parser.add_argument('config', type=str, 
                     help='Configuration file for geometry, training, and data preparation')
-parser.add_argument('mpiconfig', type=str, 
-                    help='Configuration file for multi-nodes mpirun')
 parser.add_argument('--num_threads', type=int, default=2,
                     help='Number of threads to use')
 parser.add_argument('--use-cuda', action='store_true',
@@ -33,8 +34,12 @@ parser.add_argument('--name', type=str, default=time.strftime('%Y%m%d%H%M%S'),
                     help='Name to use when saving or loading the model file. If not specified when saving a time and date stamp is used')
 parser.add_argument('--opt', choices=['adam', 'lbfgs', 'ncg'], default='adam',
                     help='optimizer (adam)')
+parser.add_argument('--save-path', default='',
+                    help='the root path for saving results')
 parser.add_argument('--loss', default='mse',
                     help='loss function')
+parser.add_argument('--lr', action=DictAction, nargs="+",
+                    help='learning rate')
 parser.add_argument('--mode', choices=['forward', 'inversion', 'rtm'], default='forward',
                     help='forward modeling, inversion or reverse time migration mode')
 
@@ -74,15 +79,16 @@ if __name__ == '__main__':
     else:
         setproctitle.setproctitle("TaskAssign")
 
+    ### Get source-x and source-y coordinate in grid cells
+    src_list, rec_list = get_src_and_rec(cfg)
+
     """Short cuts of the configures"""
     ELASTIC = cfg['equation'] in ['elastic', 'aec']
     ACOUSTIC = cfg['equation'] == 'acoustic'
     EPOCHS = cfg['training']['N_epochs']
-    NSHOTS = cfg['geom']['Nshots']
+    NSHOTS = min(cfg['geom']['Nshots'], len(src_list))
     LEARNING_RATE = cfg['training']['lr']
     FILTER_ORDER = cfg['training']['filter_ord']
-    ### Get source-x and source-y coordinate in grid cells
-    src_list, rec_list = get_src_and_rec(cfg)
 
     use_mpi = size > 1
     if (use_mpi and rank!=0) or (not use_mpi):
@@ -106,21 +112,24 @@ if __name__ == '__main__':
     if args.mode == 'forward':
 
         if rank==0:
-            record = np.zeros(shape.record3d, dtype=np.float32)
+            # each record have the same shape
+            #record = np.zeros(shape.record3d, dtype=np.float32)
+            # each record have different shape
+            record = np.empty(NSHOTS, dtype=np.ndarray) 
         else:
             record = np.zeros(shape.record2d, dtype=np.float32)
             x = torch.unsqueeze(x, 0)
 
         comm.Barrier()
-        # 主节点
+        # Rank 0 is the master node for assigning tasks
         if rank == 0:
-            pbar = tqdm.trange(cfg['geom']['Nshots'], position=0)
+            pbar = tqdm.trange(NSHOTS, position=0)
             pbar.set_description(cfg['equation'])
-            num_tasks = cfg['geom']['Nshots']  # 任务总数=炮数
+            num_tasks = NSHOTS  # total number of tasks is the number of shots
             task_index = 0
             completed_tasks = 0
             active_workers = min(size-1, num_tasks)
-            # 向所有其他节点发送初始任务
+            # send initial tasks to all workers
             for i in range(1, size):
                 if task_index < num_tasks:
                     comm.send(task_index, dest=i, tag=1)
@@ -129,26 +138,28 @@ if __name__ == '__main__':
                     comm.send(-1, dest=i, tag=0)
 
             while completed_tasks < num_tasks:
-                # 接收已完成任务的节点信息
-                completed_task, sender_rank, record[completed_task][:]= comm.recv(source=MPI.ANY_SOURCE, tag=1)
-                # 任务计数器
+                # receive results from any worker
+                completed_task, sender_rank, record[completed_task]= comm.recv(source=MPI.ANY_SOURCE, tag=1)
+                # task_index plus one
                 completed_tasks += 1
                 pbar.update(1)
 
-                # 如果还有未完成任务，分配新任务给完成任务的节点
+                # if there are still tasks to be completed, 
+                # assign them to the worker who just completed a task
                 if task_index < num_tasks:
                     comm.send(task_index, dest=sender_rank, tag=1)
                     task_index += 1
                 else:
-                    # 向已完成任务的节点发送停止信号
+                    # send stop signal to the worker who just completed a task
                     comm.send(-1, dest=sender_rank, tag=0)
                     active_workers -= 1
         else:
+            # Other ranks are the worker nodes
             while True:
-                # 接收任务
+                # receive task from the master node
                 task = comm.recv(source=0, tag=MPI.ANY_TAG)
 
-                # 如果接收到停止信号，跳出循环
+                # break the loop if the master node has sent stop signal
                 if task == -1:
                     break
 
@@ -160,7 +171,7 @@ if __name__ == '__main__':
                     model.reset_sources(source)
                     model.reset_probes(probes)
                     y = model(x)
-                    record[:] = y.cpu().detach().numpy()
+                    record = y.cpu().detach().numpy()
 
                 comm.send((task, rank, record), dest=0, tag=1)
 
@@ -179,52 +190,36 @@ if __name__ == '__main__':
 
     if args.mode == 'inversion':
 
-
         """Write configure file to the inversion folder"""
         if rank==0:
-            os.makedirs(cfg['geom']['inv_savePath'], exist_ok=True)
-            with open(os.path.join(cfg['geom']['inv_savePath'], "configure.yml"), "w") as f:
+            ROOTPATH = args.save_path if args.save_path else cfg["geom"]["inv_savePath"]
+            os.makedirs(ROOTPATH, exist_ok=True)
+            with open(os.path.join(ROOTPATH, "configure.yml"), "w") as f:
                 dump(cfg, f)
 
-        """Define Optimizer"""
-        if args.opt=='adam':
-            if ACOUSTIC:
-                optimizer = torch.optim.Adam(model.parameters(), lr=LEARNING_RATE, eps=1e-16)
-            if ELASTIC: 
-                optimizer = torch.optim.Adam([
-                        {'params': model.cell.get_parameters('vp'), 'lr':LEARNING_RATE},
-                        {'params': model.cell.get_parameters('vs'), 'lr':LEARNING_RATE/1.73},
-                        {'params': model.cell.get_parameters('rho'), 'lr':0.}], 
-                        betas=(0.9, 0.999), eps=1e-16)
-                
-                # opt_bayesian = Optimizer(dimensions=[(-10.0, 10.0)]*shape.numel, 
-                #                          base_estimator="gp", n_initial_points=0, acq_func="EI")
-
+        # Build the optimizer based on the parameters that need to be updated
+        PARS_NEED_BY_EQ = Parameters.valid_model_paras()[cfg['equation']]
+        PARS_NEED_INVERT = [k for k, v in cfg['geom']['invlist'].items() if v]
+        LR_DECAY = cfg['training']['lr_decay']
+        SCALE_DECAY = cfg['training']['scale_decay']
+ 
         if args.opt == "ncg":
             optimizer = NCG(model.parameters(), lr=0.001, max_iter=10)
 
-        """Define the learning rate decay"""
-        lr_milestones = [EPOCHS*(i+1) for i in range(len(cfg['geom']['multiscale']))]
-
-        lr_scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, 
-                                                            milestones=lr_milestones, 
-                                                            gamma = cfg['training']['scale_decay'], 
-                                                            verbose=False)
-    
         """Define the misfit function"""
         criterion = Loss(args.loss).loss()
 
         """Only rank0 will read the full band data"""
         """Rank0 will broadcast the data after filtering"""
         if rank == 0:
-            full_band_data = np.load(cfg['geom']['obsPath'])
-            filtered_data = np.zeros(shape.record3d, dtype=np.float32)
+            full_band_data = np.load(cfg['geom']['obsPath'], allow_pickle=True)
+            #filtered_data = np.zeros(shape.record3d, dtype=np.float32)
             loss = np.zeros((len(cfg['geom']['multiscale']), EPOCHS, NSHOTS), np.float32)
             # The gradient in rank0 is a 3D array.
             grad3d = np.zeros(shape.grad3d, np.float32)
             grad2d = np.zeros(shape.grad2d, np.float32)
         else:
-            filtered_data = np.zeros(shape.record3d, dtype=np.float32)
+            #filtered_data = np.zeros(shape.record3d, dtype=np.float32)
             # The gradient of other ranks are 2D arrays.
             grad2d = np.zeros(shape.grad2d, np.float32)
             #hessian = np.zeros(shape.hessian, np.float32)
@@ -235,12 +230,30 @@ if __name__ == '__main__':
             if rank==0:
                 print(f"Data filtering: frequency:{freq}")
                 # Filter both record and ricker
-                filtered_data[:] = cpu_fft(full_band_data.copy(), cfg['geom']['dt'], N=FILTER_ORDER, low=freq, axis = 1, mode='lowpass')
-            else:
-                filtered_data[:] = 0.
+                filtered_data = low_pass(full_band_data.copy(), cfg['geom']['dt'], N=FILTER_ORDER, low=freq, axis = 0)
+                data_str = pickle.dumps(filtered_data)
 
             # Broadcast the filtered data to other processors
-            comm.Bcast(filtered_data, root=0)
+            if rank==0:
+                comm.bcast(data_str, root=0)
+            else:
+                data_str = comm.bcast(None, root=0)
+                filtered_data = pickle.loads(data_str)
+
+            #comm.Bcast(filtered_data, root=0)
+            print(filtered_data.shape)
+            # Reset the optimizer at each scale
+            if args.opt=='adam':
+                paras_for_optim = []
+                for para in PARS_NEED_BY_EQ:
+                    # Set the learning rate for each parameter
+                    _lr = 0. if para not in PARS_NEED_INVERT else args.lr[para]*SCALE_DECAY**idx_freq
+                    paras_for_optim.append({'params': model.cell.get_parameters(para), 
+                                            'lr':_lr})
+                optimizers = torch.optim.Adam(paras_for_optim, betas=(0.9, 0.999), eps=1e-22)
+
+                lr_scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizers, LR_DECAY, last_epoch=- 1, verbose=False)
+
 
             if (use_mpi and rank!=0) or (not use_mpi):
                 # Low pass filtered wavelet
@@ -298,7 +311,7 @@ if __name__ == '__main__':
 
                         """Calculate one shot gradient"""
                         def closure(srcs):
-                            optimizer.zero_grad()
+                            optimizers.zero_grad()
                             shot_nums_cur_epoch = [shot]
                             """Although it is a for loop """
                             """But only one shot here when traditional workflow is using"""
@@ -353,7 +366,7 @@ if __name__ == '__main__':
                     pbar.close()
                     # Calculate the gradient of other ranks
                     grad2d[:] = np.sum(grad3d, axis=0)
-                    np.save(f"{cfg['geom']['inv_savePath']}/loss.npy", loss)
+                    np.save(f"{ROOTPATH}/loss.npy", loss)
 
                 comm.Bcast(grad2d, root=0)
 
@@ -363,12 +376,12 @@ if __name__ == '__main__':
                         var = model.cell.geom.__getattr__(para)
                         var.grad.data = to_tensor(grad2d[idx]).to(args.dev)
                     # Update the model parameters and learning rate
-                    optimizer.step()
+                    optimizers.step()
                     lr_scheduler.step()
 
                 if rank==1:
                     # Save vel and grad
-                    model.cell.geom.save_model(cfg['geom']['inv_savePath'], 
+                    model.cell.geom.save_model(ROOTPATH, 
                                                paras=["vel", "grad"], 
                                                freq_idx=idx_freq, 
                                                epoch=epoch)

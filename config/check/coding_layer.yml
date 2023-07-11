@@ -6,7 +6,7 @@ name: coding_fwi
 # Data type to use for tensors, either float32 or float64
 dtype: float32
 
-equation: elastic
+equation: acoustic
 
 training:
 
@@ -21,7 +21,9 @@ training:
   lr: 5
 
   # Milestone decay for lr
-  lr_decay: 0.75
+  lr_decay: 0.99
+
+  scale_decay: 0.75
 
   # Filter order
   filter_ord: 3
@@ -29,7 +31,7 @@ training:
 geom:
 
   # The observer data
-  obsPath: /mnt/data/wangsw/inversion/layer/data/elastic.npy
+  obsPath: /mnt/data/wangsw/inversion/layer/data/acoustic.npy
   #/mnt/data/wangsw/inversion/layer/data/marmousi_elastic_constrho.npy
 
   # Wave speed model from disk_file for forward modeling
@@ -48,11 +50,10 @@ geom:
   # ./geometry/ricker_lowcut5hz.npy
 
   source_type:
-    - vx
+    - h1
 
   receiver_type:
-    - vx
-    - vz
+    - h1
 
   # Inital Wave speed model from disk_file
   initPath: 

@@ -252,8 +252,15 @@ class NormalizedCrossCorrelation(torch.nn.Module):
     @property
     def name(self,):
         return "ncc"
+    
+    def autocorrelation(self, d, dt):
+        D = torch.fft.fft(d, dim=0)
+        D_mag_sq = torch.abs(D)**2
+        E = dt * torch.sum(D_mag_sq)/len(D_mag_sq)
+        return E+1e-10
 
-    def forward(self, x, y):
+
+    def forward(self, x, y, dt=0.001):
         """
         Calculates the normalized cross-correlation loss between two sequences of vectors.
 
@@ -264,10 +271,36 @@ class NormalizedCrossCorrelation(torch.nn.Module):
         Returns:
             torch.Tensor: The normalized cross-correlation loss between the sequences.
         """
+        loss = 0
 
-        x = x/(torch.norm(x, p=2, dim=0)+1e-20)
-        y = y/(torch.norm(y, p=2, dim=0)+1e-20)
-        loss = torch.nn.MSELoss()(x, y)
+        for t in range(x.shape[1]):
+            for c in range(x.shape[2]):
+                _x = x[:, t, c]
+                _y = y[:, t, c]#.flip(0)
+                if torch.max(torch.abs(_x)) >0:
+                    #_xnorm = torch.linalg.norm(_x, ord=2)+1e-10
+                    #_ynorm = torch.linalg.norm(_y, ord=2)+1e-10
+                    #_xn = _x / _xnorm
+                    #_yn = _y / _ynorm
+                    # Method 1 not work
+                    #cc = -torch.dot(_xn*dt, _yn)
+                    # Method 2 not work
+                    #cc = torch.sum(F.conv1d(_xn.unsqueeze(0).unsqueeze(0), _yn.unsqueeze(0).unsqueeze(0)))
+                    # Method 3
+                    _xnorm = self.autocorrelation(_x, dt)
+                    _ynorm = self.autocorrelation(_y, dt)
+                    cc = torch.dot(_x, _y)/(torch.sqrt(_xnorm*_ynorm))
+                    loss += cc
+                else:
+                    loss += 0.
+            #loss += self.ncc(x[i], y[i])
+
+        # x = x.transpose(0, 1).transpose(1, 2)
+        # y = y.transpose(0, 1).transpose(1, 2)
+        # print(x.shape, y.shape)
+        # cc = F.conv1d(x, y)
+        # print(cc.shape) # ntraces, ntraces, nchannels
+
         return loss
 
 class Cdist(torch.nn.Module):
@@ -1458,11 +1491,23 @@ class KLDivergenceLoss(torch.nn.Module):
     @property
     def name(self,):
         return "kld"
-
+        
     def forward(self, x, y):
-        P = torch.nn.functional.softmax(x, dim=0)
-        Q = torch.nn.functional.softmax(y, dim=0)
-        return torch.sum(P * torch.log(P / Q))
+
+        x = x**2
+        y = y**2
+
+        x = torch.cumsum(x, dim=0)
+        y = torch.cumsum(y, dim=0)
+
+        P = x/torch.sum(x, dim=0)
+        Q = y/torch.sum(y, dim=0)
+
+        P = torch.log(P)
+
+        # P = torch.nn.functional.log_softmax(x, dim=0)
+        # Q = torch.nn.functional.softmax(y, dim=0)
+        return torch.nn.KLDivLoss()(P, Q)
 
 class Perceptual(torch.nn.Module):
     def __init__(self):

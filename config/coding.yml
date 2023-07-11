@@ -20,8 +20,11 @@ training:
   # Optimizer learning rate
   lr: 5
 
-  # Milestone decay for lr
-  lr_decay: 0.75
+  # decay the lr by each of epochs
+  lr_decay: 0.995
+
+  # Decay the learning rate by each of multi-scale
+  scale_decay: 0.75
 
   # Filter order
   filter_ord: 3
@@ -85,10 +88,10 @@ geom:
   fm: 15.0
 
   # Spatial grid step size
-  h: 10.0
+  h: 12.5
 
   # Total Shots
-  Nshots: 111
+  Nshots: 308
 
   pml:
     N: 50    # PML thickness in number of grid cells

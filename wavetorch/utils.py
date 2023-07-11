@@ -98,6 +98,22 @@ def cpu_fft(d, dt, N = 5, low = 5, if_plot = True, axis = -1, mode = 'lowpass'):
         d_filter = signal.filtfilt(b, a, d, axis = axis)
         return d_filter.astype(np.float32)
     
+
+def low_pass(d, dt, N = 5, low = 5, axis = -1):
+    """
+        implementation of low pass filter.
+    """
+    if low == "all":
+        return d
+    else:
+        wn = 2*low/(1/dt)
+        b, a = signal.butter(N, wn, 'lowpass')
+        nshots  = d.shape[0]
+        d_filter = np.empty(nshots, dtype=np.ndarray)
+        for i in range(nshots):
+            d_filter[i] = signal.filtfilt(b, a, d[i], axis = axis).astype(np.float32)
+        return d_filter
+
 def pad_by_value(d, pad, mode = 'double'):
     """pad the input by <pad>
     """

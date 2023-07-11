@@ -6,6 +6,8 @@ import gc
 import numpy as np
 import setproctitle
 import torch
+torch.backends.cudnn.enabled = True
+torch.backends.cudnn.benchmark = True
 import tqdm
 import logging
 # from skopt import Optimizer
@@ -21,6 +23,7 @@ from wavetorch.optimizer import NonlinearConjugateGradient as NCG
 from wavetorch.optimizer import SophiaG
 from wavetorch.eqconfigure import Shape, Parameters
 from wavetorch.utils import cpu_fft, ricker_wave, roll, to_tensor, get_src_and_rec, DictAction, dict2table
+from wavetorch.utils import low_pass
 from wavetorch.setup_source_probe import setup_src_coords, setup_rec_coords
 from wavetorch.regularization import LaplacianRegularization
 # from torchviz import make_dot
@@ -121,13 +124,26 @@ if __name__ == '__main__':
     print(f"BATCHSIZE: {args.batchsize}")
     ### Get source-x and source-y coordinate in grid cells
     src_list, rec_list = get_src_and_rec(cfg)
-
+    rec_are_same = all(rec_list[i]==rec_list[i+1] for i in range(len(rec_list)-1))
+    if not rec_are_same: 
+        print(f"Inconsistent receiver location detected.")
+        receiver_counts = cfg['geom']['_oriNx']
+        rec_depth = rec_list[0][1][0]
+        full_rec_list = [[i for i in range(receiver_counts)], [rec_depth]*receiver_counts]
+    else:
+        print(f"Receiver locations are fixed.")
+        full_rec_list = rec_list[0]
+    # Send the model to the device(CPU/GPU)
     model.to(args.dev)
     model.train()
-    # In coding fwi, the probes are set only once.
-    probes = setup_rec_coords(rec_list[0], cfg['geom']['pml']['N'])
+    
+    # In coding fwi, the probes are set only once, 
+    # because they are fixed with respect to moving source.
+    probes = setup_rec_coords(full_rec_list, cfg['geom']['pml']['N'])
     model.reset_probes(probes)
     # print(model.state_dict())
+
+    # TODO: add checkpoint
     # Resume training from checkpoint
     # assert os.path.exists(args.checkpoint), "Checkpoint not found"
     # Load the checkpoint
@@ -175,12 +191,12 @@ if __name__ == '__main__':
 
     """Only rank0 will read the full band data"""
     """Rank0 will broadcast the data after filtering"""
-    full_band_data = np.load(cfg['geom']['obsPath'])
-    filtered_data = np.zeros(shape.record3d, dtype=np.float32)
+    full_band_data = np.load(cfg['geom']['obsPath'], allow_pickle=True)
+    NSHOTS = min(NSHOTS, full_band_data.shape[0])
+    #filtered_data = np.zeros(shape.record3d, dtype=np.float32)
     coding_obs = torch.zeros(shape.record2d, device=args.dev)
     coding_wavelet = torch.zeros((BATCHSIZE, shape.nt), device=args.dev)
     loss = np.zeros((len(cfg['geom']['multiscale']), EPOCHS), np.float32)
-
     """Loop over all scale"""
     for idx_freq, freq in enumerate(cfg['geom']['multiscale']):
         # Restart the optimizer for each scale
@@ -200,7 +216,8 @@ if __name__ == '__main__':
         logging.info(f"Info. of optimizers:{optimizers}")
         logging.info(f"Data filtering: frequency:{freq}")
         # Filter both record and ricker
-        filtered_data[:] = cpu_fft(full_band_data.copy(), cfg['geom']['dt'], N=FILTER_ORDER, low=freq, axis = 1, mode='lowpass')
+        #filtered_data = cpu_fft(full_band_data.copy(), cfg['geom']['dt'], N=FILTER_ORDER, low=freq, axis = 1, mode='lowpass')
+        filtered_data = low_pass(full_band_data.copy(), cfg['geom']['dt'], N=FILTER_ORDER, low=freq, axis = 0)
         # Low pass filtered wavelet
         if isinstance(x, torch.Tensor): x = x.numpy()
         lp_wavelet = cpu_fft(x.copy(), cfg['geom']['dt'], N=FILTER_ORDER, low=freq, axis=0, mode='lowpass')
@@ -224,10 +241,18 @@ if __name__ == '__main__':
             for i, shot in enumerate(shots):
                 src = setup_src_coords(src_list[shot], cfg['geom']['pml']['N'])
                 sources.append(src)
+                # For OBN data, the receivers are fixed and the receivers are the same for all shots
+                # so we only need to setup the receivers once, and the data can be summed immediately
+                # But for non-fixed receivers, we need to setup the receivers for each shot,
+                # reconstruct a pseudo-OBN data and then sum them up
                 wave_temp, d_temp = roll(lp_wavelet, filtered_data[shot])
                 coding_wavelet[i] = to_tensor(wave_temp).to(args.dev)
-                coding_obs += to_tensor(d_temp).to(args.dev)
-            
+                if rec_are_same:
+                    coding_obs += to_tensor(d_temp).to(args.dev)
+                else:
+                    index = [int(x) for x in rec_list[shot][0]]
+                    coding_obs[..., index,:] += to_tensor(d_temp).to(args.dev)
+
             """Calculate encoding gradient"""
             def closure():
                 optimizers.zero_grad()
@@ -243,7 +268,15 @@ if __name__ == '__main__':
                 if not MULTI_LOSS:
                     # One loss function for all parameters
                     loss = criterions(ypred, coding_obs)
-                    loss.backward()
+                    loss.backward() #retain_graph=True
+                    # TODO: HESSIAN
+                    #loss.backward(create_graph=True)
+                    # grad = model.cell.geom.vp.grad.detach().clone()
+                    # model.cell.geom.vp.grad.data.zero_()
+                    # model.cell.geom.vp.grad.backward(torch.ones_like(grad))
+                    # np.save(f"{ROOTPATH}/grad.npy", grad.cpu().detach().numpy())
+                    # np.save(f"{ROOTPATH}/hess.npy", model.cell.geom.vp.grad.cpu().detach().numpy())
+
                 if MULTI_LOSS:
                     # Different loss function for different parameters
                     LOSSES = []
@@ -268,7 +301,7 @@ if __name__ == '__main__':
                         model.cell.geom.__getattr__(p).requires_grad = True
 
                 # adjoint = torch.autograd.grad(loss, ypred)[0]
-                # np.save(f"{ROOTPATH}/adjoint_{cfg['loss']}.npy", 
+                # np.save(f"{ROOTPATH}/adjoint.npy", 
                 #         adjoint.detach().cpu().numpy())
                 # model.cell.geom.reset_random_boundary()
                 return loss
@@ -289,11 +322,11 @@ if __name__ == '__main__':
                 #     optimizers[para].step()
                 optimizers.step()
                 lr_scheduler.step()
-                vp = model.cell.geom.vp.data.detach().cpu().numpy()
-                vp[50:50+48,:] = 1500.
-                model.cell.geom.vp.data = torch.from_numpy(vp).to(torch.cuda.current_device())
 
-                # model.cell.geom.vp.data = proj_simplex(model.cell.geom.vp)
+                # Reset water velocity to 1500
+                vp = model.cell.geom.vp.data.detach().cpu().numpy()
+                vp[50:50+35,:] = 1500.
+                model.cell.geom.vp.data = torch.from_numpy(vp).to(torch.cuda.current_device())
 
             # Saving checkpoint
             torch.save({'epoch': idx_freq*EPOCHS+epoch, 

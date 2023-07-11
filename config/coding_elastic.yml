@@ -24,7 +24,7 @@ training:
   scale_decay: 0.75
 
   # decay the lr by each of epochs
-  lr_decay: 0.99
+  lr_decay: 0.995
 
   # Filter order
   filter_ord: 3

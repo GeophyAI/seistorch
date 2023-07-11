@@ -2,9 +2,9 @@
 
 # List of script files to execute
 SCRIPTS=(
-    ./task1.sh
-    ./task2.sh
-    ./task3.sh
+    ./task5.sh
+    ./task6.sh
+    ./task7.sh
 )
 
 # Loop over scripts and execute them
