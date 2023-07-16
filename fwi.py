@@ -191,8 +191,9 @@ if __name__ == '__main__':
     if args.mode == 'inversion':
 
         """Write configure file to the inversion folder"""
+        ROOTPATH = args.save_path if args.save_path else cfg["geom"]["inv_savePath"]
+
         if rank==0:
-            ROOTPATH = args.save_path if args.save_path else cfg["geom"]["inv_savePath"]
             os.makedirs(ROOTPATH, exist_ok=True)
             with open(os.path.join(ROOTPATH, "configure.yml"), "w") as f:
                 dump(cfg, f)

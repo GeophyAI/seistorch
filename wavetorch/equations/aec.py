@@ -1,8 +1,9 @@
+import torch
 from .utils import restore_boundaries, diff_using_roll
 
-NPML=50
-N=2
-
+NPML=49
+N=1
+@torch.compile
 def _time_step_backward(*args):
 
     vp, vs, rho = args[0:3]
@@ -91,7 +92,7 @@ def _time_step_backward(*args):
 
     return p_copy, vx_copy, vz_copy, txx_copy, tzz_copy, txz_copy
     
-    
+@torch.compile
 def _time_step(*args):
 
     vp, vs, rho = args[:3]

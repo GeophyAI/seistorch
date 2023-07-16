@@ -42,10 +42,13 @@ class DictAction(argparse.Action):
 
 def to_tensor(x, dtype=None):
     dtype = dtype if dtype is not None else torch.get_default_dtype()
-    if type(x) is np.ndarray:
-        return torch.from_numpy(x).type(dtype=dtype)
+    if isinstance(x, np.ndarray):
+        return torch.from_numpy(x).type(dtype)
+    elif isinstance(x, float):
+        return torch.tensor(x).type(dtype)
     else:
-        return torch.as_tensor(x, dtype=dtype)
+        x = np.array(x)
+        return torch.from_numpy(x).type(dtype)
 
 
 def set_dtype(dtype=None):

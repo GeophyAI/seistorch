@@ -10,6 +10,7 @@ torch.backends.cudnn.enabled = True
 torch.backends.cudnn.benchmark = True
 import tqdm
 import logging
+logging.basicConfig(level=logging.ERROR)
 # from skopt import Optimizer
 from yaml import dump, load
 from torch.utils.tensorboard import SummaryWriter
@@ -91,7 +92,6 @@ if __name__ == '__main__':
     # Set random seed
     torch.manual_seed(cfg["seed"])
     np.random.seed(cfg["seed"])
-    #model = torch.compile(model)
 
     # Set the name of the process
     setproctitle.setproctitle("coding_fwi")
@@ -111,6 +111,8 @@ if __name__ == '__main__':
     ROOTPATH = args.save_path if args.save_path else cfg["geom"]["inv_savePath"]
     GRAD_SMOOTH = args.grad_smooth
     GRAD_CUT = args.grad_cut
+    SEABED = np.load(cfg['geom']['seabed']) if 'seabed' in cfg['geom'].keys() else None
+    SEABED = torch.from_numpy(SEABED).to(args.dev) if SEABED is not None else None
     # Check the working folder
     if not os.path.exists(ROOTPATH):
         os.makedirs(ROOTPATH, exist_ok=True)
@@ -136,7 +138,7 @@ if __name__ == '__main__':
     # Send the model to the device(CPU/GPU)
     model.to(args.dev)
     model.train()
-    
+    #model = torch.compile(model)
     # In coding fwi, the probes are set only once, 
     # because they are fixed with respect to moving source.
     probes = setup_rec_coords(full_rec_list, cfg['geom']['pml']['N'])
@@ -163,6 +165,8 @@ if __name__ == '__main__':
     else:
         print("Loading wavelet from file")
         x = to_tensor(np.load(cfg["geom"]["wavelet"]))
+    # Save the wavelet
+    np.save(os.path.join(ROOTPATH, "wavelet.npy"), x.cpu().numpy())
     shape = Shape(cfg)
 
     """---------------------------------------------"""
@@ -171,22 +175,25 @@ if __name__ == '__main__':
 
     """Write configure file to the inversion folder"""
     cfg["loss"] = args.loss
-
+    cfg["ROOTPATH"] = ROOTPATH
     with open(os.path.join(ROOTPATH, "configure.yml"), "w") as f:
         dump(cfg, f)
     # convert the configure to table
     cfg_table = dict2table(cfg)
-    for _t in cfg_table:
-        logging.info(cfg_table)
+    for _t in cfg_table: logging.info(cfg_table)
     """Define the misfit function for different parameters"""
     # The parameters needed to be inverted
     loss_names = set(args.loss.values())
     MULTI_LOSS = len(loss_names) > 1
     if not MULTI_LOSS or ACOUSTIC:
         print("Only one loss function is used.")
-        criterions = Loss(list(loss_names)[0]).loss()
+        criterions = Loss(list(loss_names)[0]).loss(cfg)
+        #criterions.cfg = cfg # Adde the cfg file to the loss function
     else:
-        criterions = {k:Loss(v).loss() for k,v in args.loss.items()}
+        criterions = {k:Loss(v).loss(cfg) for k,v in args.loss.items()}
+        # Add the cfg file to the loss function
+        #for k, v in criterions.items():
+        #    v.cfg = cfg
         print(f"Multiple loss functions are used:\n {criterions}")
 
     """Only rank0 will read the full band data"""
@@ -194,7 +201,8 @@ if __name__ == '__main__':
     full_band_data = np.load(cfg['geom']['obsPath'], allow_pickle=True)
     NSHOTS = min(NSHOTS, full_band_data.shape[0])
     #filtered_data = np.zeros(shape.record3d, dtype=np.float32)
-    coding_obs = torch.zeros(shape.record2d, device=args.dev)
+    #coding_obs = torch.zeros(shape.record2d, device=args.dev)
+    coding_obs = torch.zeros_like(to_tensor(full_band_data[0]), device=args.dev)
     coding_wavelet = torch.zeros((BATCHSIZE, shape.nt), device=args.dev)
     loss = np.zeros((len(cfg['geom']['multiscale']), EPOCHS), np.float32)
     """Loop over all scale"""
@@ -301,7 +309,7 @@ if __name__ == '__main__':
                         model.cell.geom.__getattr__(p).requires_grad = True
 
                 # adjoint = torch.autograd.grad(loss, ypred)[0]
-                # np.save(f"{ROOTPATH}/adjoint.npy", 
+                # np.save(f"{ROOTPATH}/adjoint_{cfg['loss']['vp']}.npy", 
                 #         adjoint.detach().cpu().numpy())
                 # model.cell.geom.reset_random_boundary()
                 return loss
@@ -316,17 +324,16 @@ if __name__ == '__main__':
                 if GRAD_SMOOTH:
                     model.cell.geom.gradient_smooth(sigma=2)
                 if GRAD_CUT:
-                    model.cell.geom.gradient_cut()
+                    model.cell.geom.gradient_cut(SEABED, cfg['geom']['pml']['N'])
                 # Update the parameters with different optimizer instance
                 # for para in PARS_NEED_INVERT:
                 #     optimizers[para].step()
+                if isinstance(SEABED, torch.Tensor):
+                    for p in PARS_NEED_INVERT:
+                        model.cell.geom.__getattr__(p).requires_grad = True
+
                 optimizers.step()
                 lr_scheduler.step()
-
-                # Reset water velocity to 1500
-                vp = model.cell.geom.vp.data.detach().cpu().numpy()
-                vp[50:50+35,:] = 1500.
-                model.cell.geom.vp.data = torch.from_numpy(vp).to(torch.cuda.current_device())
 
             # Saving checkpoint
             torch.save({'epoch': idx_freq*EPOCHS+epoch, 

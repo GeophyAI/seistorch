@@ -288,7 +288,7 @@ class WaveGeometryFreeForm(WaveGeometry):
         array = np.clip(array, vmin, vmax)
         
         # 将数据缩放到[0, 1]
-        array = (array - vmin) / (vmax - vmin)
+        array = (array - vmin) / (vmax - vmin+1e-10)
         
         # 将数据转换为RGBA图像
         img = cmap(array)
@@ -315,13 +315,15 @@ class WaveGeometryFreeForm(WaveGeometry):
                 var.grad.copy_(to_tensor(smoothed_grad).to(var.grad.device))
 
 
-    def gradient_cut(self,):
+    def gradient_cut(self, mask=None, padding=50):
+        mask = torch.nn.functional.pad(mask, (padding, padding, padding, padding), mode='constant', value=1)
         for para in self.model_parameters:
             var = self.__getattr__(para)
             if var.requires_grad:
-                cut_grad = var.grad.cpu().detach().numpy()
-                cut_grad = self.set_zero_boundaries(cut_grad)
-                var.grad.copy_(to_tensor(cut_grad).to(var.grad.device))
+                var.grad.data = var.grad.data * mask
+                # cut_grad = var.grad.cpu().detach().numpy()
+                # cut_grad = self.set_zero_boundaries(cut_grad)
+                # var.grad.copy_(to_tensor(cut_grad).to(var.grad.device))
 
     def reset_random_boundary(self,):
         for para in self.model_parameters:

@@ -1,8 +1,6 @@
 import torch
 from .utils import to_tensor
 from .checkpoint import checkpoint as ckpt
-
-
 class WaveCell(torch.nn.Module):
     """The recurrent neural network cell implementing the scalar wave equation"""
 

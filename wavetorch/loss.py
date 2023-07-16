@@ -1,4 +1,5 @@
 # from pytorch_msssim import SSIM as _ssim
+import os
 from math import exp
 
 import numpy as np
@@ -6,6 +7,7 @@ import ot
 import torch
 import torch.nn.functional as F
 import torchaudio
+from scipy.fftpack import fft, fftfreq
 from scipy.optimize import linear_sum_assignment
 from torch.nn.functional import pad as tpad
 from torch.nn.functional import pairwise_distance
@@ -14,26 +16,29 @@ from torchvision.models import vgg19
 # import geomloss
 from wavetorch.sinkhorn_pointcloud import sinkhorn_loss
 from wavetorch.utils import interp1d
+from wavetorch.signal import batch_sta_lta
 
 
 class Loss:
+    """A warpper class for loss functions.
+    """
     def __init__(self, loss="mse"):
         self.loss_name = loss
 
     def __call__(self, *args, **kwargs):
         return self.loss(*args, **kwargs)
 
-    def loss(self, ):
+    def loss(self, cfg):
         loss_obj = self._get_loss_object()
+        loss_obj.cfg = cfg
         return loss_obj
 
-    def _get_loss_object(self):
+    def _get_loss_object(self,):
         loss_classes = [c for c in globals().values() if isinstance(c, type) and issubclass(c, torch.nn.Module)]
         for loss_class in loss_classes:
             if hasattr(loss_class, "name") and getattr(loss_class(), "name") == self.loss_name:
                 return loss_class()
         raise ValueError(f"Cannot find loss named {self.loss_name}")
-
     
 class L1(torch.nn.Module):
     def __init__(self, ):
@@ -258,7 +263,6 @@ class NormalizedCrossCorrelation(torch.nn.Module):
         D_mag_sq = torch.abs(D)**2
         E = dt * torch.sum(D_mag_sq)/len(D_mag_sq)
         return E+1e-10
-
 
     def forward(self, x, y, dt=0.001):
         """
@@ -1109,15 +1113,35 @@ class Traveltime(torch.nn.Module):
     def __init__(self):
         super(Traveltime, self).__init__() 
 
-
     @property
     def name(self,):
         return "traveltime"
+    
+    def cc(self, x, y):
+        scale = 1e2
+        dt = self.cfg['geom']['dt']
+        nt = x.shape[0]
+        padding = nt-1
+        if torch.max(torch.abs(x))>0:
+            # Calculate the cross-correlation with full padding
+            cc = torch.abs(F.conv1d(x.unsqueeze(0), y.flip(-1).unsqueeze(0).unsqueeze(0), padding=padding))
+            # using gumbel-softmax for differentiable argmax
+            # in logits, the maximum value is 1, and the others are 0
+            logits = F.gumbel_softmax(cc*scale, tau=1, hard=True)
+            max_index = torch.sum(torch.arange(cc.shape[1], device=x.device) * logits)
+            return (max_index-nt+1)*dt
+        else:
+            return 0.
 
     def forward(self, x, y):
-        x_traveltime = torch.argmax(torch.real(torch.fft.ifft(torch.fft.fft(x**2, dim=0), dim=0)), dim=0)
-        y_traveltime = torch.argmax(torch.real(torch.fft.ifft(torch.fft.fft(y**2, dim=0), dim=0)), dim=0)
-        loss= torch.nn.MSELoss()(x_traveltime.float(), y_traveltime.float())
+        # x_traveltime = torch.argmax(torch.real(torch.fft.ifft(torch.fft.fft(x**2, dim=0), dim=0)), dim=0)
+        # y_traveltime = torch.argmax(torch.real(torch.fft.ifft(torch.fft.fft(y**2, dim=0), dim=0)), dim=0)
+        # loss= torch.nn.MSELoss()(x_traveltime.float(), y_traveltime.float())
+        loss = 0
+        nsamples, ntraces, nchannels = x.shape
+        for t in range(ntraces):
+            for c in range(nchannels):
+                loss += self.cc(x[:, t, c], y[:, t, c])
         return loss
     
 class DTW(torch.nn.Module):
@@ -1593,3 +1617,179 @@ class Laplace(torch.nn.Module):
         lap_x = self.laplace(x)
         lap_y = self.laplace(y)
         return torch.log(lap_x / lap_y).mean()
+
+class FirstArrivalTravelTime(torch.nn.Module):
+    def __init__(self,):
+        super().__init__()
+
+    def setup(self,):
+        self.nsta = 10
+        self.nlta = 100
+        self.thresh_on = 0.5
+        self.thresh_off = 1.0
+        self.dt = self.cfg['geom']['dt']
+
+    @property
+    def name(self,):
+        return "fatt"
+        
+    def batch_sta_lta_torch(self, traces, sta_len, lta_len, threshold_on=0.5, threshold_off=1.0):
+        """Summary: Calculate the STA/LTA ratio of a signal
+
+        Args:
+            traces (np.ndarray): 2D array of traces with shape (nsamples, ntraces)
+            sta_len (int): Length of the short-term average window
+            lta_len (int): Length of the long-term average window
+            threshold_on (float): Threshold for turning on the trigger
+            threshold_off (float): Threshold for turning off the trigger
+        """
+        nsamples, _, = traces.shape
+        traces = traces.view(nsamples, 1, -1)
+        def apply_along_axis(function, arr=None, axis: int = 0):
+            return torch.stack([
+                function(x_i) for x_i in torch.unbind(arr, dim=axis)
+            ], dim=axis)
+        sta_kernel = torch.ones(1, 1, sta_len, device=traces.device)
+        lta_kernel = torch.ones(1, 1, lta_len, device=traces.device)
+
+        # Apply convolve along the first axis of the array
+        # conv 1d: input shape: (batch_size, in_channels, signal_len)
+        #           kernel shape: (out_channels, in_channels, kernel_size)
+        sta = apply_along_axis(lambda x: torch.nn.functional.conv1d(x.unsqueeze(0), sta_kernel, padding='same'), arr=traces, axis=0)
+        lta = apply_along_axis(lambda x: torch.nn.functional.conv1d(x.unsqueeze(0), lta_kernel, padding='same'), arr=traces, axis=0)
+
+        ratio = sta / (lta+0.001)
+
+        # Track trigger
+        trigger = (ratio > threshold_on).int()
+        trigger[1:] -= (ratio[:-1] < threshold_off).int()
+        
+        # Get first arrival time 
+        fa_time = torch.argmax(trigger, axis=0)
+        
+        return fa_time.squeeze().int()
+    
+    def process_channels(self, d, *args, **kwargs):
+        _, ntraces, nchannels = d.shape
+        fa_times = []
+        for c in range(nchannels):
+            fa_times.append(self.batch_sta_lta_torch(d[:, :, c], *args, **kwargs).view(ntraces, 1))
+        return torch.cat(fa_times, dim=1)
+
+    def forward(self, x, y):
+        self.setup()
+        nsamples, ntraces, nchannles = x.shape
+        params = {"sta_len": self.nsta,
+                  "lta_len": self.nlta, 
+                  "threshold_on": self.thresh_on, 
+                  "threshold_off": self.thresh_off}
+        # Pick the first arrival travel time
+        x_arrivals = self.process_channels(x, **params)
+        y_arrivals = self.process_channels(y, **params)
+        # Cut the traces according to the arrivals
+        # Only retain the events before the first arrival + a fixed time window
+        t_after = 200 # ms
+        n_reserve = int(t_after/1000/self.dt)
+
+        # Construct the boolean index which is used to select the data
+        # Only retain the events before the first arrival + a fixed time window
+        # x_index = torch.arange(self.dt, device=x.device)[:, None] < x_arrivals+n_reserve
+        # y_index = torch.arange(self.dt, device=x.device)[:, None] < y_arrivals+n_reserve
+
+        x_index = torch.empty_like(x, device=x.device).bool()
+        y_index = torch.empty_like(y, device=x.device).bool()
+        for i in range(nchannles):
+            x_index[...,i] = torch.arange(nsamples, device=x.device)[:, None] < x_arrivals[...,i]+n_reserve
+            y_index[...,i] = torch.arange(nsamples, device=x.device)[:, None] < y_arrivals[...,i]+n_reserve
+
+        # Get first arrival
+        x_cut = x_index * x
+        y_cut = y_index * y
+        padding = nsamples - 1
+        # Calculate the trace-wise cross-correlation
+        loss = 0.
+        scale = 1e2
+        for t in range(ntraces):
+            for c in range(nchannles):
+                _x = x_cut[:, t, c]
+                _y = y_cut[:, t, c]
+
+                if torch.max(torch.abs(x))>0:
+                    cc = torch.abs(F.conv1d(_x.unsqueeze(0), _y.flip(-1).unsqueeze(0).unsqueeze(0), padding=padding))
+                    # using gumbel-softmax for differentiable argmax
+                    # in logits, the maximum value is 1, and the others are 0
+                    logits = F.gumbel_softmax(cc*scale, tau=1, hard=True)
+                    max_index = torch.sum(torch.arange(cc.shape[1], device=x.device) * logits)
+                    return (max_index-nsamples+1)*nsamples
+                else:
+                    loss += 0.
+        return loss
+
+# class SourceEncoding(torch.nn.Module):
+#     def __init__(self,):
+#         super().__init__()
+    
+#     @property
+#     def name(self,):
+#         return "se"
+    
+#     def setup(self, nrec, period, dobs):
+
+#         root_path = self.cfg['ROOTPATH']
+#         nevents = self.cfg['geom']['Nshots']
+#         dt = self.cfg['geom']['dt']
+#         bw_l = self.cfg['source_encoding']['BW_L']
+#         bw_h = self.cfg['source_encoding']['BW_H']
+#         max_freq_shift = self.cfg['source_encoding']['MAX_FREQ_SHIFT']
+#         if 'GAMMA' not in self.cfg['source_encoding'].keys():
+#             self.cfg['source_encoding']['GAMMA'] = 0
+#         gamma = self.cfg['source_encoding']['GAMMA']
+#         f0 = self.cfg['source_encoding']['F0']
+
+#         freq_min = float(bw_l)
+#         freq_max = float(bw_h)+float(max_freq_shift)
+
+#         #create a mask on relevant frequencies
+#         freq  = fftfreq(period, dt)
+#         df = freq[1] - freq[0]
+#         m = np.array(np.where( (freq_min <= freq) & (freq <= freq_max ) ))
+#         num_freqs = m.shape[1]
+#         print ('number of frequencies considered : ' +str(num_freqs))
+#         print ("")
+#         print ('frequency step : ' + str(df) + ' Hz')
+#         print ("")
+#         stf_file = os.path.join(root_path +'/wavelet.npy')
+#         ft_stf_file = os.path.join(root_path +'/ft_stf.npy')
+#         if not os.path.isfile(ft_stf_file):
+#             tmp=np.load(stf_file)
+#             stf_raw=tmp
+#             dt_stf = dt
+#             nt_stf_tmp = stf_raw.shape[0]
+#             ntcal = nt_stf_tmp
+#             if nt_stf_tmp>period:
+#                 ntcal = period
+#             stf=np.zeros(period)
+#             stf[:ntcal] = stf_raw[:ntcal,1]
+#             #assert period == stf.shape[0]
+#             #calculate the laplace coeff of the source time function
+#             ft_stf = np.fft.fft(stf*np.exp(-self.gamma*(np.arange(period)*self.dt)))
+#             #czt(x=stf[:period,1],m=period,a=self.a)
+#             #ft_stf = fft(stf[:period,1])
+#             np.save(ft_stf_file,ft_stf[m[0,:]])
+
+#         t_period = 1./f0
+#         # calculate early-arrival time for the observed data and save it
+#         # for all the source-receiver pairs
+#         if not os.path.isfile(os.path.join(self.cfg['ROOTPATH'], 't0array.npy')):
+#             self.t0array = np.zeros((self.nrec,nevents))
+#             for isrc in range(nevents):
+#                 self.t0array[:,isrc] = dt*batch_sta_lta(dobs, dt, t_period)
+#             np.save(os.path.join(self.cfg['ROOTPATH'], 't0array.npy'), self.t0array)
+#         else:
+#             self.t0array = np.load(os.path.join(self.cfg['ROOTPATH'], 't0array.npy'))
+
+#     def forward(self, x, y):
+#         loss = 0.
+#         self.nsamples, self.nrecs, self.nchannels = x.shape
+#         self.setup(self.nrecs, self.nsamples, dobs=y)
+#         return loss
