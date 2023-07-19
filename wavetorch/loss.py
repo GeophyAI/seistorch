@@ -14,7 +14,6 @@ from torch.nn.functional import pairwise_distance
 from torchvision.models import vgg19
 
 # import geomloss
-from wavetorch.sinkhorn_pointcloud import sinkhorn_loss
 from wavetorch.utils import interp1d
 from wavetorch.signal import batch_sta_lta
 
@@ -24,6 +23,9 @@ class Loss:
     """
     def __init__(self, loss="mse"):
         self.loss_name = loss
+
+    def __repr__(self,):
+        return f"Loss(loss={self.loss_name})"
 
     def __call__(self, *args, **kwargs):
         return self.loss(*args, **kwargs)
@@ -888,11 +890,11 @@ class Phase(torch.nn.Module):
         #loss = phase_diff.mean()
         return loss
     
-    def spec(self, x, y):
-        stft_x = torchaudio.transforms.Spectrogram(n_fft=1024)(x).abs()
-        stft_y = torchaudio.transforms.Spectrogram(n_fft=1024)(y).abs()
+    # def spec(self, x, y):
+    #     stft_x = torchaudio.transforms.Spectrogram(n_fft=1024)(x).abs()
+    #     stft_y = torchaudio.transforms.Spectrogram(n_fft=1024)(y).abs()
 
-        return torch.nn.MSELoss()(stft_x, stft_y)
+    #     return torch.nn.MSELoss()(stft_x, stft_y)
 
     def forward(self, x, y):
         # pred_phase = self.phase_correlation(x)

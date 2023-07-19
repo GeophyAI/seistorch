@@ -17,6 +17,7 @@ from wavetorch.eqconfigure import Shape, Parameters
 # from skopt import Optimizer
 from wavetorch.setup_source_probe import setup_src_coords, setup_rec_coords
 from yaml import load, dump
+from mpi4py.util import pkl5
 
 try:
     from yaml import CLoader as Loader, CDumper as Dumper
@@ -46,7 +47,7 @@ parser.add_argument('--mode', choices=['forward', 'inversion', 'rtm'], default='
 if __name__ == '__main__':
     args = parser.parse_args()
 
-    comm = MPI.COMM_WORLD
+    comm = pkl5.Intracomm(MPI.COMM_WORLD)
     rank = comm.Get_rank()
     size = comm.Get_size()
 
@@ -208,7 +209,7 @@ if __name__ == '__main__':
             optimizer = NCG(model.parameters(), lr=0.001, max_iter=10)
 
         """Define the misfit function"""
-        criterion = Loss(args.loss).loss()
+        criterion = Loss(args.loss).loss(cfg)
 
         """Only rank0 will read the full band data"""
         """Rank0 will broadcast the data after filtering"""

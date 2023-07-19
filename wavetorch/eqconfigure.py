@@ -22,7 +22,7 @@ class Wavefield:
     Specify which wavefield variables are required by a given equation. 
     """
     def __init__(self, equation="acoustic"):
-        self.wavefields = self.__getattribute__(equation)
+        self.wavefields = getattr(self, equation)
 
     @property
     def acoustic(self,):

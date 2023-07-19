@@ -6,7 +6,7 @@ python codingfwi.py config/fixed_elastic.yml \
 --mode inversion \
 --batchsize 10 \
 --lr vp=10.0 vs=5.78 rho=2.89 \
---save-path /mnt/data/wangsw/inversion/elastic_marmousi/results/fixed/aec/iml1_xz \
+--save-path /mnt/data/wangsw/inversion/elastic_marmousi/results/fixed/aec/test \
 --checkpoint /mnt/data/wangsw/inversion/marmousi_10m/elastic/compare_loss2/l2_newopt/ckpt_9.pt \
 --use-cuda \
 --grad-cut

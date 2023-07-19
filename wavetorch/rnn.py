@@ -61,7 +61,8 @@ class WaveRNN(torch.nn.Module):
         wavefield_names = Wavefield(self.cell.geom.equation).wavefields
         # Set wavefields
         for name in wavefield_names:
-            self.__setattr__(name, torch.zeros(hidden_state_shape, device=device))
+            # self.__setattr__(name, torch.zeros(hidden_state_shape, device=device))
+            setattr(self, name, torch.zeros(hidden_state_shape, device=device))
             # if not hasattr(self, name):
             #     setattr(self, name, torch.zeros(hidden_state_shape, device=device))
             # else:
@@ -72,11 +73,11 @@ class WaveRNN(torch.nn.Module):
 
         # Set model parameters
         for name in self.cell.geom.model_parameters:
-            self.__setattr__(name, self.cell.geom.__getattr__(name))
-
+            # self.__setattr__(name, self.cell.geom.__getattr__(name))
+            setattr(self, name, self.cell.geom.__getattr__(name))
         # Pack parameters
-        model_paras = [self.__getattr__(name) for name in self.cell.geom.model_parameters]
-
+        # model_paras = [self.__getattr__(name) for name in self.cell.geom.model_parameters]
+        model_paras = [getattr(self, name) for name in self.cell.geom.model_parameters]
         # Loop through time
         x = x.to(device)
         super_source = WaveSource([s.x for s in self.sources], 
@@ -86,7 +87,8 @@ class WaveRNN(torch.nn.Module):
         for i, xi in enumerate(x.chunk(x.size(1), dim=1)):
                 
             # Propagate the fields
-            wavefield = [self.__getattribute__(name) for name in wavefield_names]
+            # wavefield = [self.__getattribute__(name) for name in wavefield_names]
+            wavefield = [getattr(self, name) for name in wavefield_names]
             tmpi = min(i+time_offset, x.shape[1]-1)
             wavefield = self.cell(wavefield, 
                                   model_paras, 
@@ -103,18 +105,18 @@ class WaveRNN(torch.nn.Module):
 
             # Set the data to vars
             for name, data in zip(wavefield_names, wavefield):
-                #getattr(self, name).copy_(data)
-                self.__setattr__(name, data)
+                # self.__setattr__(name, data)
+                setattr(self, name, data)
 
             # Add source
             for source_type in self.cell.geom.source_type:
-                self.__setattr__(source_type, super_source(self.__getattribute__(source_type), xi.view(xi.size(1), -1)))
-
+                # self.__setattr__(source_type, super_source(self.__getattribute__(source_type), xi.view(xi.size(1), -1)))
+                setattr(self, source_type, super_source(getattr(self, source_type), xi.view(xi.size(1), -1)))
             # Measure probe(s)
             for probe in self.probes:
                 for receiver, p_all_sub in zip(self.cell.geom.receiver_type, p_all):
-                    p_all_sub.append(probe(self.__getattribute__(receiver)))
-
+                    #p_all_sub.append(probe(self.__getattribute__(receiver)))
+                    p_all_sub.append(probe(getattr(self, receiver)))
         # Combine outputs into a single tensor
         y = torch.concat([torch.stack(y, dim=1).permute(1, 2, 0) for y in p_all], dim = 2)
         has_nan = torch.isnan(y).any()

@@ -10,6 +10,7 @@ import numpy as np
 import torch
 from prettytable import PrettyTable
 from scipy import signal
+from joblib import Parallel, delayed
 
 
 def dict2table(dict_data: dict, table: PrettyTable = None):
@@ -101,8 +102,10 @@ def cpu_fft(d, dt, N = 5, low = 5, if_plot = True, axis = -1, mode = 'lowpass'):
         d_filter = signal.filtfilt(b, a, d, axis = axis)
         return d_filter.astype(np.float32)
     
+def _low_pass_filter(d, b, a, axis):
+    return signal.filtfilt(b, a, d, axis=axis).astype(np.float32)
 
-def low_pass(d, dt, N = 5, low = 5, axis = -1):
+def low_pass(d, dt, N = 5, low = 5, axis = -1, threads=1):
     """
         implementation of low pass filter.
     """
@@ -113,8 +116,15 @@ def low_pass(d, dt, N = 5, low = 5, axis = -1):
         b, a = signal.butter(N, wn, 'lowpass')
         nshots  = d.shape[0]
         d_filter = np.empty(nshots, dtype=np.ndarray)
-        for i in range(nshots):
-            d_filter[i] = signal.filtfilt(b, a, d[i], axis = axis).astype(np.float32)
+
+        d_filter = Parallel(n_jobs=threads)(
+            delayed(_low_pass_filter)(d[i], b, a, axis)
+            for i in range(nshots)
+        )
+
+        # serial version
+        #for i in range(nshots):
+        #    d_filter[i] = signal.filtfilt(b, a, d[i], axis = axis).astype(np.float32)
         return d_filter
 
 def pad_by_value(d, pad, mode = 'double'):

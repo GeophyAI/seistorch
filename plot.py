@@ -35,7 +35,11 @@ import argparse
 # exit()
 
 F = 0
+<<<<<<< HEAD
 epoch = 90
+=======
+epoch = 5
+>>>>>>> 51531e4 (Updates setup.)
 PMLN = 50
 dx = dz = 12.5
 EXPAND = 100
@@ -45,7 +49,11 @@ EXPAND = 100
 # #root_path = r"/public1/home/wangsw/FWI/EFWI/Marmousi/marmousi_10m/ss"
 # root_path = r"/mnt/data/wangsw/inversion/marmousi_10m/elastic/cycleskipping/envelope"
 # root_path = r"/mnt/data/wangsw/inversion/overthrust_15m/compare_loss/l2"
+<<<<<<< HEAD
 root_path = r"/mnt/data/wangsw/inversion/elastic_marmousi/results/fixed/aec/iml1_xz"
+=======
+root_path = r"/mnt/data/wangsw/inversion/elastic_marmousi/results/fixed/aec/test"
+>>>>>>> 51531e4 (Updates setup.)
 
 #r"/mnt/data/wangsw/inversion/marmousi/elastic/oldcodes"
 loss = root_path.split("/")[-1]

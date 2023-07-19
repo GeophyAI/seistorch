@@ -314,7 +314,6 @@ class WaveGeometryFreeForm(WaveGeometry):
                     smoothed_grad = gaussian_filter(smoothed_grad, sigma)
                 var.grad.copy_(to_tensor(smoothed_grad).to(var.grad.device))
 
-
     def gradient_cut(self, mask=None, padding=50):
         mask = torch.nn.functional.pad(mask, (padding, padding, padding, padding), mode='constant', value=1)
         for para in self.model_parameters:
@@ -347,30 +346,29 @@ class WaveGeometryFreeForm(WaveGeometry):
 
         for para in self.model_parameters: # para is in ["vp", "vs", "rho", "Q", ....]
             var = self.__getattr__(para)
-            # if var.requires_grad:
+            if para not in self.pars_need_invert:
+                continue
             # if the model parameter is in the invlist, then save it.
-            if para in self.pars_need_invert:
-                var_par = var.cpu().detach().numpy()
-                var_grad = var.grad.cpu().detach().numpy()
-                for key, data in zip(["para"+para, "grad"+para], [var_par, var_grad]):
+            var_par = var.cpu().detach().numpy()
+            var_grad = var.grad.cpu().detach().numpy()
+            for key, data in zip(["para"+para, "grad"+para], [var_par, var_grad]):
+                # Save the data of model parameters and their gradients(if they have) to disk.
+                save_path = os.path.join(path, f"{key}F{freq_idx:02d}E{epoch:02d}.npy")
+                np.save(save_path, data)
 
-                    # Save the data of model parameters and their gradients(if they have) to disk.
-                    save_path = os.path.join(path, f"{key}F{freq_idx:02d}E{epoch:02d}.npy")
-                    np.save(save_path, data)
+                # Calcualte the model error when the true model is known.
+                if "para" in key and self.true_models:
+                    _pad = self.padding
+                    model_error = np.sum((data[_pad:-_pad, _pad:-_pad] - self.true_models[para])**2)
 
-                    # Calcualte the model error when the true model is known.
-                    if "para" in key and self.true_models:
-                        _pad = self.padding
-                        model_error = np.sum((data[_pad:-_pad, _pad:-_pad] - self.true_models[para])**2)
-
-                    # Write the data to tensorboard.
-                    if writer is not None:
-                        tensor_data = self.tensor_to_img(key, data, padding=self.padding, vmin=None, vmax=None)
-                        # Write the model parameters and their gradients(if they have) to tensorboard.
-                        writer.add_images(key, 
-                                          tensor_data, 
-                                          global_step=freq_idx*max_epoch+epoch, 
-                                          dataformats='CHW',)
-                        # Write the model error to tensorboard.
-                        writer.add_scalar(f"model_error/{para}", model_error, global_step=freq_idx*max_epoch+epoch)
-                    
+                # Write the data to tensorboard.
+                if writer is not None:
+                    tensor_data = self.tensor_to_img(key, data, padding=self.padding, vmin=None, vmax=None)
+                    # Write the model parameters and their gradients(if they have) to tensorboard.
+                    writer.add_images(key, 
+                                        tensor_data, 
+                                        global_step=freq_idx*max_epoch+epoch, 
+                                        dataformats='CHW',)
+                    # Write the model error to tensorboard.
+                    writer.add_scalar(f"model_error/{para}", model_error, global_step=freq_idx*max_epoch+epoch)
+                
