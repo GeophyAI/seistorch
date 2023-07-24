@@ -2,13 +2,16 @@ import os
 from copy import deepcopy
 from typing import Tuple
 
+import matplotlib.pyplot as plt
 import numpy as np
 import torch
+from scipy.ndimage import gaussian_filter
 from torch.nn.functional import conv2d
-import matplotlib.pyplot as plt
+
 from .eqconfigure import Parameters
 from .utils import load_file_by_type, to_tensor
-from scipy.ndimage import gaussian_filter
+from .siren import Siren
+
 
 class WaveGeometry(torch.nn.Module):
     def __init__(self, domain_shape: Tuple, h: float, abs_N: int = 20, equation: str = "acoustic"):
@@ -129,10 +132,10 @@ class WaveGeometryFreeForm(WaveGeometry):
 
         h = kwargs['geom']['h']
         abs_N = kwargs['geom']['pml']['N']
-        domain_shape = kwargs['domain_shape']
+        self.domain_shape = kwargs['domain_shape']
         self.autodiff = True
         self.dt = kwargs['geom']['dt']
-        self.checkpoint = kwargs['geom']['ckpt']
+        self.boundary_saving = kwargs['geom']['boundary_saving']
         self.device = kwargs['device']
         self.padding = abs_N
         self.source_type = kwargs['geom']['source_type']
@@ -140,10 +143,17 @@ class WaveGeometryFreeForm(WaveGeometry):
         self.model_parameters = []
         self.inversion = False
         self.kwargs = kwargs
-        super().__init__(domain_shape, h, abs_N)
+        super().__init__(self.domain_shape, h, abs_N)
         self.equation = kwargs["equation"]
+        self._init_siren()
         self._init_model(kwargs['VEL_PATH'], kwargs['geom']['invlist'])
 
+    def _init_siren(self,):
+        self.siren = Siren(in_features=2, out_features=1, hidden_features=128, 
+                           hidden_layers=4, outermost_linear=True)
+        self.siren.load_state_dict(torch.load(self.kwargs['training']['implicit']['pretrained']))
+        self.coords = self.get_mgrid_from_vel(self.domain_shape)
+        self.siren.to(self.device)
         
     def _init_model(self, modelPath: dict, invlist: dict):
         """Initilize the model parameters
@@ -151,7 +161,6 @@ class WaveGeometryFreeForm(WaveGeometry):
             modelPath (dict): The dictionary that contains the path of model files.
             invlist (dict): The dictionary that specify whether invert the model or not.
         """
-        valid_model_paras = Parameters.valid_model_paras()
         needed_model_paras = Parameters.valid_model_paras()[self.equation]
         self.true_models = dict()
         self.pars_need_invert = []
@@ -178,8 +187,21 @@ class WaveGeometryFreeForm(WaveGeometry):
             # load the ground truth model for calculating the model error
             self.true_models[mname]=np.load(self.kwargs['geom']['truePath'][mname])
             # load the initial model for the inversion
-            self.__setattr__(mname, self.add_parameter(mpath, invlist[mname]))
+            #self.__setattr__(mname, self.add_parameter(mpath, invlist[mname]))
 
+        # Loop over all the model parameters (invert=True)
+        for par in self.pars_need_invert:
+            # Adding support for implicit velocity model
+            nz, nx = self.domain_shape
+            model = self.siren(self.coords)[0].view(nz, nx)
+            # an-ti normalization for getting the true values
+            mean = 1000.
+            std = 3000.
+            model = model * std + mean
+            self.__setattr__(par, model)
+    
+    def anti_normalization(self, model, mean=1000., std=3000.):
+        return model * std + mean
     
     def __repr__(self):
         return f"Paramters of {self.model_parameters} have been defined."
@@ -305,6 +327,18 @@ class WaveGeometryFreeForm(WaveGeometry):
         tensor[..., :, -pad:] = 0
         return tensor
 
+    def get_mgrid_from_vel(self, shape):
+        '''Generates a flattened grid of (x,y,...) coordinates in a range of -1 to 1.
+        sidelen: int
+        dim: int'''
+        nz, nx = shape
+        xtensor = torch.linspace(-1, 1, steps=nx)
+        ztensor = torch.linspace(-1, 1, steps=nz)
+        mgrid = torch.stack(torch.meshgrid(ztensor, xtensor, indexing='ij'), dim=-1)
+        mgrid = mgrid.reshape(-1, 2)
+        return mgrid.to(self.device)
+
+
     def gradient_smooth(self, sigma=2):
         for para in self.model_parameters:
             var = self.__getattr__(para)
@@ -345,12 +379,16 @@ class WaveGeometryFreeForm(WaveGeometry):
             os.makedirs(path, exist_ok=True)
 
         for para in self.model_parameters: # para is in ["vp", "vs", "rho", "Q", ....]
-            var = self.__getattr__(para)
+            #var = self.__getattr__(para)
+            var = getattr(self, para)
             if para not in self.pars_need_invert:
                 continue
             # if the model parameter is in the invlist, then save it.
             var_par = var.cpu().detach().numpy()
-            var_grad = var.grad.cpu().detach().numpy()
+            if var.grad is not None:
+                var_grad = var.grad.cpu().detach().numpy()
+            else:
+                var_grad = np.zeros_like(var_par)
             for key, data in zip(["para"+para, "grad"+para], [var_par, var_grad]):
                 # Save the data of model parameters and their gradients(if they have) to disk.
                 save_path = os.path.join(path, f"{key}F{freq_idx:02d}E{epoch:02d}.npy")

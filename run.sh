@@ -1,5 +1,5 @@
 mpirun -n 2 \
-python fwi.py config/fixed_elastic.yml  \
+python fwi.py config/fixed_acoustic.yml  \
 --opt adam \
 --loss ncc \
 --lr vp=10.0 \

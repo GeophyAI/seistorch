@@ -32,13 +32,13 @@ training:
 geom:
 
   # The observer data
-  obsPath: /mnt/data/wangsw/inversion/elastic_marmousi/data/elastic_fixed_vxz.npy
+  obsPath: /public1/home/wangsw/FWI/AFWI/marmousi2/data/acoustic.npy
 
   # Wave speed model from disk_file for forward modeling
   truePath:
-    vp: /mnt/data/wangsw/inversion/elastic_marmousi/velocity/true_vp_z12.5m_x12.5m_expand.npy
-    vs: /mnt/data/wangsw/inversion/elastic_marmousi/velocity/true_vs_z12.5m_x12.5m_expand.npy
-    rho: /mnt/data/wangsw/inversion/elastic_marmousi/velocity/true_rho_z12.5m_x12.5m_expand.npy
+    vp: /home/les_01/wangsw/models/marmousi/elastic_modified/true_vp_z12.5m_x12.5m_expand.npy
+    vs: /home/les_01/wangsw/models/marmousi/elastic_modified/true_vs_z12.5m_x12.5m_expand.npy
+    rho: /home/les_01/wangsw/models/marmousi/elastic_modified/true_rho_z12.5m_x12.5m_expand.npy
     Q: 
 
   sources: ./geometry/marmousi_fixed/sources.pkl
@@ -59,9 +59,9 @@ geom:
 
   # Inital Wave speed model from disk_file
   initPath: 
-    vp: /mnt/data/wangsw/inversion/elastic_marmousi/velocity/init_vp_z12.5m_x12.5m_expand.npy
-    vs: /mnt/data/wangsw/inversion/elastic_marmousi/velocity/init_vs_z12.5m_x12.5m_expand.npy
-    rho: /mnt/data/wangsw/inversion/elastic_marmousi/velocity/init_rho_z12.5m_x12.5m_expand.npy
+    vp: /home/les_01/wangsw/models/marmousi/elastic_modified/init_vp_z12.5m_x12.5m_expand.npy
+    vs: /home/les_01/wangsw/models/marmousi/elastic_modified/init_vs_z12.5m_x12.5m_expand.npy
+    rho: /home/les_01/wangsw/models/marmousi/elastic_modified/init_rho_z12.5m_x12.5m_expand.npy
     Q:
 
   invlist:

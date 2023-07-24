@@ -29,7 +29,7 @@ def setup_criteria(cfg: dict, loss: dict, *args, **kwargs):
         print(f"Multiple loss functions are used:\n {criterions}")
     return criterions
 
-def setup_optimizer(model, cfg, idx_freq=0, *args, **kwargs):
+def setup_optimizer(model, cfg, idx_freq=0, implicit=False, *args, **kwargs):
     """Setup the optimizer for the model
 
     Args:
@@ -44,12 +44,17 @@ def setup_optimizer(model, cfg, idx_freq=0, *args, **kwargs):
 
     # Setup the learning rate for each parameter
     paras_for_optim = []
-    for para in pars_need_by_eq:
-        # Set the learning rate for each parameter
-        _lr = 0. if para not in pars_need_invert else lr[para]*scale_decay**idx_freq
-        paras_for_optim.append({'params': model.cell.get_parameters(para), 
+    if not implicit:
+        for para in pars_need_by_eq:
+            # Set the learning rate for each parameter
+            _lr = 0. if para not in pars_need_invert else lr[para]*scale_decay**idx_freq
+            paras_for_optim.append({'params': model.cell.get_parameters(para), 
+                                    'lr':_lr})
+    if implicit:
+        _lr = 1e-4
+        paras_for_optim.append({'params': model.cell.geom.siren.parameters(), 
                                 'lr':_lr})
-    
+
     # Setup the optimizer
     optimizers = torch.optim.Adam(paras_for_optim, betas=(0.9, 0.999), eps=1e-22)
     # Setup the learning rate scheduler

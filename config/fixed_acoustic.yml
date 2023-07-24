@@ -10,12 +10,16 @@ equation: acoustic
 
 training:
 
+  implicit: 
+    use: true
+    pretrained: /home/les_01/wangsw/fwi/pretrained/linear_vp_z12.5m_x12.5m_expand.pt
+
   minibatch: true
 
   batch_size: 20
 
   # Number of training epochs
-  N_epochs: 100
+  N_epochs: 1000
 
   # Optimizer learning rate
   lr: 5
@@ -32,11 +36,11 @@ training:
 geom:
 
   # The observer data
-  obsPath: /mnt/data/wangsw/inversion/elastic_marmousi/data/acoustic_fixed.npy
+  obsPath: /public1/home/wangsw/FWI/AFWI/marmousi2/data/acoustic_fixed.npy
 
   # Wave speed model from disk_file for forward modeling
   truePath:
-    vp: /mnt/data/wangsw/inversion/elastic_marmousi/velocity/true_vp_z12.5m_x12.5m_expand.npy
+    vp: /home/les_01/wangsw/models/marmousi/elastic_modified/true_vp_z12.5m_x12.5m_expand.npy
     vs:
     rho:
     Q: 
@@ -56,7 +60,7 @@ geom:
 
   # Inital Wave speed model from disk_file
   initPath: 
-    vp: /mnt/data/wangsw/inversion/elastic_marmousi/velocity/linear_vp_z12.5m_x12.5m_expand.npy
+    vp: /home/les_01/wangsw/models/marmousi/elastic_modified/linear_vp_z12.5m_x12.5m_expand.npy
     vs:
     rho:
     Q:
@@ -68,7 +72,7 @@ geom:
     q: false
 
   # using checkpoint for saving memory
-  ckpt: true
+  boundary_saving: true
 
   # Save the results of FWI
   inv_savePath: /mnt/data/wangsw/inversion/marmousi_10m/Test

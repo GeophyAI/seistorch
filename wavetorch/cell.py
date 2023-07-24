@@ -19,7 +19,8 @@ class WaveCell(torch.nn.Module):
             yield param
 
     def get_parameters(self, key=None, recursive=True):
-        yield self.geom.__getattr__(key)
+        #yield self.geom.__getattr__(key)
+        yield getattr(self.geom, key)
 
     def forward(self, wavefields, model_vars, **kwargs):
         """Take a step through time
@@ -37,14 +38,14 @@ class WaveCell(torch.nn.Module):
         save_condition=kwargs["is_last_frame"]
         source_term = kwargs["source"]
 
-        checkpoint = self.geom.checkpoint
+        using_boundary_saving = self.geom.boundary_saving
         forward = not self.geom.inversion
         inversion = self.geom.inversion
         geoms = self.dt, self.geom.h, self.geom.d
 
-        if checkpoint and inversion:
+        if using_boundary_saving and inversion:
             hidden = ckpt(self.forward_func, self.backward_func, source_term, save_condition, len(model_vars), *model_vars, *wavefields, *geoms)
-        if forward or (inversion and not checkpoint):
+        if forward or (inversion and not using_boundary_saving):
             hidden = self.forward_func(*model_vars, *wavefields, *geoms)
 
         return hidden

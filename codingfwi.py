@@ -24,6 +24,7 @@ from yaml import dump
 from wavetorch.eqconfigure import Shape
 # from tensorflow.keras.models import load_model
 from wavetorch.model import build_model
+from wavetorch.siren import Siren
 from wavetorch.setup import *
 from wavetorch.setup_source_probe import setup_rec_coords, setup_src_coords
 from wavetorch.utils import (DictAction, cpu_fft, dict2table,
@@ -91,7 +92,7 @@ if __name__ == '__main__':
     torch.set_num_threads(args.num_threads)
     # Build model
     cfg, model = build_model(args.config, device=args.dev, mode=args.mode)
-
+    #exit()
     # Set random seed
     torch.manual_seed(cfg["seed"])
     np.random.seed(cfg["seed"])
@@ -105,6 +106,7 @@ if __name__ == '__main__':
     EPOCHS = cfg['training']['N_epochs']
     NSHOTS = cfg['geom']['Nshots']
     FILTER_ORDER = cfg['training']['filter_ord']
+    IMPLICIT = cfg['training']['implicit']['use']
     MINIBATCH = cfg['training']['minibatch']
     BATCHSIZE = cfg['training']['batch_size'] if args.batchsize < 0 else args.batchsize
     PARS_NEED_INVERT = [k for k, v in cfg['geom']['invlist'].items() if v]
@@ -182,12 +184,17 @@ if __name__ == '__main__':
 
     # The total number of epochs is the number of epochs times the number of scales
     for epoch in range(EPOCHS*len(cfg['geom']['multiscale'])):
+
+        vp = model.cell.geom.siren(model.cell.geom.coords)[0].view(model.cell.geom.domain_shape)
+
+        model.cell.geom.vp = model.cell.geom.anti_normalization(vp)
+        print(model.cell.geom.vp.max(), model.cell.geom.vp.min())
         # Reset for each scale
         idx_freq, local_epoch = divmod(epoch, EPOCHS)
         if local_epoch==0:
             freq = cfg['geom']['multiscale'][idx_freq]
             # reset the optimizer
-            optimizers, lr_scheduler = setup_optimizer(model, cfg, idx_freq)
+            optimizers, lr_scheduler = setup_optimizer(model, cfg, idx_freq, IMPLICIT)
             # filter the data
             # Filter both record and ricker
             lp_rec = low_pass(full_band_data.copy(), cfg['geom']['dt'], N=FILTER_ORDER, low=freq, axis=0, threads=args.num_threads)

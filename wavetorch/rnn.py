@@ -74,7 +74,8 @@ class WaveRNN(torch.nn.Module):
         # Set model parameters
         for name in self.cell.geom.model_parameters:
             # self.__setattr__(name, self.cell.geom.__getattr__(name))
-            setattr(self, name, self.cell.geom.__getattr__(name))
+            #setattr(self, name, self.cell.geom.__getattr__(name))
+            setattr(self, name, getattr(self.cell.geom, name))
         # Pack parameters
         # model_paras = [self.__getattr__(name) for name in self.cell.geom.model_parameters]
         model_paras = [getattr(self, name) for name in self.cell.geom.model_parameters]
