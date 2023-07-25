@@ -185,10 +185,7 @@ if __name__ == '__main__':
     # The total number of epochs is the number of epochs times the number of scales
     for epoch in range(EPOCHS*len(cfg['geom']['multiscale'])):
 
-        vp = model.cell.geom.siren(model.cell.geom.coords)[0].view(model.cell.geom.domain_shape)
-
-        model.cell.geom.vp = model.cell.geom.anti_normalization(vp)
-        print(model.cell.geom.vp.max(), model.cell.geom.vp.min())
+        model.cell.geom.step()
         # Reset for each scale
         idx_freq, local_epoch = divmod(epoch, EPOCHS)
         if local_epoch==0:

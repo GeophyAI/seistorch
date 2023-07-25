@@ -44,6 +44,7 @@ def setup_optimizer(model, cfg, idx_freq=0, implicit=False, *args, **kwargs):
 
     # Setup the learning rate for each parameter
     paras_for_optim = []
+    # 
     if not implicit:
         for para in pars_need_by_eq:
             # Set the learning rate for each parameter

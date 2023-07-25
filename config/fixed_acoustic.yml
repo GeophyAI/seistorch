@@ -14,12 +14,14 @@ training:
     use: true
     pretrained: /home/les_01/wangsw/fwi/pretrained/linear_vp_z12.5m_x12.5m_expand.pt
 
+  # Using minibatch for training
   minibatch: true
 
+  # Batchsize of coding
   batch_size: 20
 
   # Number of training epochs
-  N_epochs: 1000
+  N_epochs: 500
 
   # Optimizer learning rate
   lr: 5

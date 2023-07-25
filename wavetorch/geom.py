@@ -145,16 +145,28 @@ class WaveGeometryFreeForm(WaveGeometry):
         self.kwargs = kwargs
         super().__init__(self.domain_shape, h, abs_N)
         self.equation = kwargs["equation"]
-        self._init_siren()
+        self.use_implicit = kwargs["training"]['implicit']['use']
+        # Initialize the model parameters if not using implicit neural network
         self._init_model(kwargs['VEL_PATH'], kwargs['geom']['invlist'])
+        # Initialize the implicit neural network if using implicit neural network
+        if self.use_implicit: self._init_siren()
 
     def _init_siren(self,):
-        self.siren = Siren(in_features=2, out_features=1, hidden_features=128, 
-                           hidden_layers=4, outermost_linear=True)
-        self.siren.load_state_dict(torch.load(self.kwargs['training']['implicit']['pretrained']))
+        # inn stands for implicit neural network
         self.coords = self.get_mgrid_from_vel(self.domain_shape)
-        self.siren.to(self.device)
-        
+        self.siren = dict()
+        for par in self.pars_need_invert:
+            self.siren[par] = Siren(in_features=2, out_features=1, hidden_features=128,
+                                    hidden_layers=4, outermost_linear=True)
+            # load the pretrained model if it exists
+            pretrained = self.kwargs['training']['implicit']['pretrained']
+            if os.path.exists(pretrained):
+                self.siren[par].load_state_dict(torch.load())
+            else:
+                print(f"Cannot find the pretrained model '{pretrained}'")
+            # send the siren to the target device
+            self.siren[par].to(self.device)
+
     def _init_model(self, modelPath: dict, invlist: dict):
         """Initilize the model parameters
         Args:
@@ -187,20 +199,42 @@ class WaveGeometryFreeForm(WaveGeometry):
             # load the ground truth model for calculating the model error
             self.true_models[mname]=np.load(self.kwargs['geom']['truePath'][mname])
             # load the initial model for the inversion
-            #self.__setattr__(mname, self.add_parameter(mpath, invlist[mname]))
+            if not self.use_implicit:
+                self.__setattr__(mname, self.add_parameter(mpath, invlist[mname]))
 
         # Loop over all the model parameters (invert=True)
+        # for par in self.pars_need_invert:
+        #     # Adding support for implicit velocity model
+        #     nz, nx = self.domain_shape
+        #     model = self.siren(self.coords)[0].view(nz, nx)
+        #     # an-ti normalization for getting the true values
+        #     mean = 1000.
+        #     std = 3000.
+        #     model = model * std + mean
+        #     self.__setattr__(par, model)
+
+    def step_implicit(self,):
+        coords = self.coords # x, y coordinates
+        shape = self.domain_shape # shape of the model
         for par in self.pars_need_invert:
-            # Adding support for implicit velocity model
-            nz, nx = self.domain_shape
-            model = self.siren(self.coords)[0].view(nz, nx)
+            par_value = self.siren[par](coords)[0].view(shape)
             # an-ti normalization for getting the true values
-            mean = 1000.
-            std = 3000.
-            model = model * std + mean
-            self.__setattr__(par, model)
+            setattr(self, par, self.anti_normalization(par_value))
+
+    def step(self,):
+        """
+            Doing this step for each iteration.
+        """
+        # If we use implicit neural network for reparameterization, 
+        # we need to reset model parameters by input the coords of 
+        # the model to the implicit neural network.
+        # e.g: vp = siren_vp(coords); 
+        # e.g: vs = siren_vs(coords);
+        if self.use_implicit:
+            self.step_implicit()
+
     
-    def anti_normalization(self, model, mean=1000., std=3000.):
+    def anti_normalization(self, model, mean=3000., std=1000.):
         return model * std + mean
     
     def __repr__(self):
@@ -262,41 +296,6 @@ class WaveGeometryFreeForm(WaveGeometry):
 
         return padded_model
     
-    # def pad_model_with_random_values(self, model, N):
-
-    #     def scale_values(values, NMAX):
-    #         max_value = np.max(values)
-    #         scaling_factor = NMAX / max_value
-    #         scaled_values = values * scaling_factor
-    #         return scaled_values
-    
-    #     # 获取模型的形状
-    #     nz, nx = model.shape
-
-    #     # 找到模型的最大值和最小值
-    #     min_val = np.min(model)
-    #     max_val = np.max(model)
-
-    #     # 创建新的填充后的模型
-    #     padded_model = np.zeros((nz + 2 * N, nx + 2 * N))
-
-    #     # 将原来的模型复制到新的填充后的模型中心
-    #     padded_model[N:N+nz, N:N+nx] = model
-
-    #     # 在外侧填充随机值
-    #     for i in range(N):
-    #         padded_model[i, :] = np.random.uniform(min_val, max_val, (nx + 2 * N))  # 上侧
-    #         padded_model[-i-1, :] = np.random.uniform(min_val, max_val, (nx + 2 * N))  # 下侧
-    #         padded_model[-i-1, :] = scale_values(padded_model[i, :], model[-1].max()) # 下侧归一化
-    #         padded_model[:, i] = np.random.uniform(min_val, max_val, (nz + 2 * N))  # 左侧
-    #         padded_model[N:-N, i] = padded_model[N:-N, i]/padded_model[:, i].max() * model[:,0] # 左侧归一化
-    #         padded_model[:, -i-1] = np.random.uniform(min_val, max_val, (nz + 2 * N))  # 右侧
-    #         padded_model[N:-N, -i-1] = padded_model[N:-N, -i-1]/padded_model[:, i].max() * model[:,-1] # 右侧归一化
-
-    #     padded_model[:N, :] = scale_values(padded_model[:N, :], model[0].max()) # 上侧归一化
-
-    #     return padded_model 
-    
     def tensor_to_img(self, key, array, padding=0, vmin=None, vmax=None, cmap="seismic"):
         cmap = plt.get_cmap(cmap)
         array = array[padding:-padding, padding:-padding]
@@ -337,7 +336,6 @@ class WaveGeometryFreeForm(WaveGeometry):
         mgrid = torch.stack(torch.meshgrid(ztensor, xtensor, indexing='ij'), dim=-1)
         mgrid = mgrid.reshape(-1, 2)
         return mgrid.to(self.device)
-
 
     def gradient_smooth(self, sigma=2):
         for para in self.model_parameters:
