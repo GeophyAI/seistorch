@@ -309,7 +309,7 @@ if __name__ == '__main__':
         logging.info(f"Freq {idx_freq:02d} Epoch {local_epoch:02d} loss: {loss[idx_freq][local_epoch]}")
 
         # Add scalars to tensorboard
-        writer.add_scalar(f"Loss", loss[idx_freq][local_epoch], global_step=local_epoch)
+        writer.add_scalar(f"Loss", loss[idx_freq][local_epoch], global_step=epoch)
         writer.add_scalar(f"GPU allocated", torch.cuda.max_memory_allocated()/ (1024 ** 3), global_step=epoch)
         writer.add_scalar(f"CPU Usage", torch.cuda.memory_stats()['allocated_bytes.all.current']/ (1024 ** 3), global_step=epoch)
 

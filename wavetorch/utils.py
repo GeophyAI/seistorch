@@ -215,8 +215,13 @@ def update_cfg(cfg, geom = 'geom', device='cpu'):
     cfg[geom]['_oriNx'] = Nx
     cfg[geom]['_oriNz'] = Ny
     cfg[geom].update({'Nx':Nx + 2*cfg[geom]['pml']['N']})
-    cfg[geom].update({'Ny':Ny + 2*cfg[geom]['pml']['N']})
-    cfg.update({'domain_shape': (cfg['geom']['Ny'], cfg['geom']['Nx'])})
+
+    if cfg[geom]['multiple']:
+        nz = Ny + cfg[geom]['pml']['N']
+    else:
+        nz = Ny + 2*cfg[geom]['pml']['N']
+    cfg[geom].update({'Ny': nz})
+    cfg.update({'domain_shape': (cfg[geom]['Ny'], cfg[geom]['Nx'])})
     cfg.update({'device': device})
     return cfg
 

@@ -1,5 +1,5 @@
 # Random seed for pytorch and all shuffle functions
-seed: 20230503
+seed: 20230731
 
 name: coding_fwi
 
@@ -10,25 +10,24 @@ equation: acoustic
 
 training:
 
-  implicit:
+  implicit: 
     use: false
-    pretrained:
+    pretrained: 
 
   minibatch: true
 
   batch_size: 20
 
   # Number of training epochs
-  N_epochs: 100
+  N_epochs: 50
 
   # Optimizer learning rate
   lr: 5
 
-  # decay the lr by each of epochs
-  lr_decay: 0.995
+  # Milestone decay for lr
+  lr_decay: 0.99
 
-  # Decay the learning rate by each of multi-scale
-  scale_decay: 0.75
+  scale_decay: 0.95
 
   # Filter order
   filter_ord: 3
@@ -36,22 +35,19 @@ training:
 geom:
 
   # The observer data
-  obsPath: /mnt/data/wangsw/inversion/marmousi_10m/data/marmousi_acoustic.npy
-  #/mnt/data/wangsw/inversion/marmousi_10m/data/marmousi_elastic_constrho.npy
+  obsPath: /home/wangsw/inversion/2d/layer/data/acoustic2d.npy
 
   # Wave speed model from disk_file for forward modeling
   truePath:
-    vp: /mnt/data/wangsw/inversion/marmousi_10m/velocity/true_vp.npy
+    vp: /home/wangsw/inversion/2d/layer/velocity/true_vp.npy
     vs:
     rho:
     Q: 
-    #/mnt/data/wangsw/inversion/marmousi_10m/data//velocity/q_const.npy
+    #/mnt/data/wangsw/inversion/layer/data//velocity/q_const.npy
 
-  sources: ./geometry/marmousi_obn_10m/sources.pkl
+  sources: ./geometry/layer2d/sources.pkl
 
-  receivers: ./geometry/marmousi_obn_10m/receivers.pkl
-
-  boundary_saving: true
+  receivers: ./geometry/layer2d/receivers.pkl
 
   wavelet:
   # ./geometry/ricker_lowcut5hz.npy
@@ -64,7 +60,7 @@ geom:
 
   # Inital Wave speed model from disk_file
   initPath: 
-    vp: /mnt/data/wangsw/inversion/marmousi_10m/velocity/linear_vp.npy
+    vp: /home/wangsw/inversion/2d/layer/velocity/smooth_vp.npy
     vs:
     rho:
     Q:
@@ -76,30 +72,32 @@ geom:
     q: false
 
   # using checkpoint for saving memory
+  boundary_saving: true
+
+  # using checkpoint for saving memory
   ckpt: true
 
   # Save the results of FWI
-  inv_savePath: /mnt/data/wangsw/inversion/marmousi_10m/Test
+  inv_savePath: /mnt/data/wangsw/inversion/layer/Test
 
   multiscale:
-    - 1.0
-    - 3.0
     - 5.0
+    - all
 
   # Time Sampling step
   dt: 0.001
 
   # Time samples
-  nt: 4000
+  nt: 2000
 
   # Main frequency of ricker wave
-  fm: 15.0
+  fm: 5.0
 
   # Spatial grid step size
-  h: 12.5
+  h: 8.0
 
   # Total Shots
-  Nshots: 308
+  Nshots: 999
 
   pml:
     N: 50    # PML thickness in number of grid cells

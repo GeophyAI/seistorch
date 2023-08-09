@@ -1,8 +1,9 @@
+export LD_LIBRARY_PATH=/home/wangsw/anaconda3/lib:$LD_LIBRARY_PATH && \
 mpirun -n 2 \
-python fwi.py config/fixed_acoustic.yml  \
+python fwi.py config/check/layer2d.yml  \
 --opt adam \
---loss ncc \
+--loss l2 \
 --lr vp=10.0 \
 --mode inversion \
---save-path /mnt/data/wangsw/inversion/elastic_marmousi/results/fixed/aec/test \
+--save-path /home/wangsw/inversion/2d/layer/results/l2_nocoding \
 --use-cuda

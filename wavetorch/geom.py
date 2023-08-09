@@ -14,18 +14,21 @@ from .siren import Siren
 
 
 class WaveGeometry(torch.nn.Module):
-    def __init__(self, domain_shape: Tuple, h: float, abs_N: int = 20, equation: str = "acoustic"):
+    def __init__(self, domain_shape: Tuple, h: float, abs_N: int = 20, equation: str = "acoustic", multiple: bool = False):
         super().__init__()
 
         self.domain_shape = domain_shape
+
+        self.multiple = multiple
 
         self.register_buffer("h", to_tensor(h))
 
         self.register_buffer("abs_N", to_tensor(abs_N, dtype=torch.uint8))
 
         # INIT boundary coefficients
-        self._init_b(abs_N)
-        self._init_cpml(abs_N)
+        # self._init_b(abs_N)
+        # self._init_cpml(abs_N)
+        self.generate_pml_coefficients_2d(abs_N)
     
     def state_reconstruction_args(self):
         return {"h": self.h.item(),
@@ -57,14 +60,15 @@ class WaveGeometry(torch.nn.Module):
         self._init_d(abs_N, cp=cp, order=pd)
         #np.save("/home/wangsw/Desktop/wangsw/fwi/pmld.npy", self.d.cpu().detach().numpy())
 
-    def _corners(self, abs_N, d, dx, dy):
+    def _corners(self, abs_N, d, dx, dy, multiple=False):
         Nx, Ny = self.domain_shape
         for j in range(Ny):
             for i in range(Nx):
                 # Left-Top
-                if i < abs_N+1 and j< abs_N+1:
-                    if i < j: d[i,j] = dy[i,j]
-                    else: d[i,j] = dx[i,j]
+                if not multiple:
+                    if i < abs_N+1 and j< abs_N+1:
+                        if i < j: d[i,j] = dy[i,j]
+                        else: d[i,j] = dx[i,j]
                 # Left-Bottom
                 if i > (Nx-abs_N-2) and j < abs_N+1:
                     if i + j < Nx: d[i,j] = dx[i,j]
@@ -74,9 +78,34 @@ class WaveGeometry(torch.nn.Module):
                     if i - j > Nx-Ny: d[i,j] = dy[i,j]
                     else: d[i,j] = dx[i,j]
                 # Right-Top
-                if i < abs_N+1 and j> (Ny-abs_N-2):
-                    if i + j < Ny: d[i,j] = dy[i,j]
-                    else: d[i,j] = dx[i,j]
+                if not multiple:
+                    if i < abs_N+1 and j> (Ny-abs_N-2):
+                        if i + j < Ny: d[i,j] = dy[i,j]
+                        else: d[i,j] = dx[i,j]
+
+    def generate_pml_coefficients_2d(self, N=50, B=100.):
+        Nx, Ny = self.domain_shape
+
+        R = 10**(-((np.log10(N)-1)/np.log10(2))-3)
+        #d0 = -(order+1)*cp/(2*abs_N)*np.log(R) # Origin
+        R = 1e-6; order = 2; cp = 1000.# Mao shibo Master
+        d0 = (1.5*cp/N)*np.log10(R**-1)
+        d_vals = d0 * torch.linspace(0.0, 1.0, N + 1) ** order
+        d_vals = torch.flip(d_vals, [0])
+
+        d_x = torch.zeros(Ny, Nx)
+        d_y = torch.zeros(Ny, Nx)
+        
+        if N > 0:
+            d_x[0:N + 1, :] = d_vals.repeat(Nx, 1).transpose(0, 1)
+            d_x[(Ny - N - 1):Ny, :] = torch.flip(d_vals, [0]).repeat(Nx, 1).transpose(0, 1)
+            if not self.multiple:
+                d_y[:, 0:N + 1] = d_vals.repeat(Ny, 1)
+            d_y[:, (Nx - N - 1):Nx] = torch.flip(d_vals, [0]).repeat(Ny, 1)
+
+        self.register_buffer("_d", torch.sqrt(d_x ** 2 + d_y ** 2).transpose(0, 1))
+        self._corners(N, self._d, d_x.T, d_y.T, self.multiple)
+        # np.save("/home/wangsw/inversion/2d/layer/results/l2/pml.npy", self._d.cpu().detach().numpy())
 
     def _init_d(self, abs_N, order:float = 2.0, cp:float = 1500.):
 
@@ -140,10 +169,11 @@ class WaveGeometryFreeForm(WaveGeometry):
         self.padding = abs_N
         self.source_type = kwargs['geom']['source_type']
         self.receiver_type = kwargs['geom']['receiver_type']
+        self.multiple = kwargs['geom']['multiple']
         self.model_parameters = []
         self.inversion = False
         self.kwargs = kwargs
-        super().__init__(self.domain_shape, h, abs_N)
+        super().__init__(self.domain_shape, h, abs_N, multiple=kwargs['geom']['multiple'])
         self.equation = kwargs["equation"]
         self.use_implicit = kwargs["training"]['implicit']['use']
         # Initialize the model parameters if not using implicit neural network
@@ -267,7 +297,8 @@ class WaveGeometryFreeForm(WaveGeometry):
         mode_options = ['constant', 'edge', 'linear_ramp', 'maximum', 'mean', 'median', 'minimum', 'reflect', 'symmetric', 'wrap']
         padding = self.padding
         if mode in mode_options:
-            return np.pad(d, ((padding, padding), (padding,padding)), mode=mode)
+            top = 0 if self.multiple else padding
+            return np.pad(d, ((top, padding), (padding,padding)), mode=mode)
         else: # Padding the velocity with random velocites
             return self.pad_model_with_random_values(d, padding)
         
@@ -395,7 +426,11 @@ class WaveGeometryFreeForm(WaveGeometry):
                 # Calcualte the model error when the true model is known.
                 if "para" in key and self.true_models:
                     _pad = self.padding
-                    model_error = np.sum((data[_pad:-_pad, _pad:-_pad] - self.true_models[para])**2)
+                    if self.multiple:
+                        data = data[:-_pad, _pad:-_pad]
+                    else:
+                        data = data[_pad:-_pad, _pad:-_pad]
+                    model_error = np.sum((data - self.true_models[para])**2)
 
                 # Write the data to tensorboard.
                 if writer is not None:

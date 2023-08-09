@@ -100,8 +100,8 @@ class WaveRNN(torch.nn.Module):
             # if i %1==0:
             #     np.save(f"/mnt/data/wangsw/inversion/marmousi_10m/inv_rho/l2/forward/forward{i:04d}.npy", 
             #             wavefield[0].cpu().detach().numpy())
-            # if i %100==0:
-            #     np.save(f"/mnt/data/wangsw/inversion/marmousi_10m/elastic/compare_loss/resume/{i:04d}.npy", 
+            # if i %50==0:
+            #     np.save(f"/home/wangsw/inversion/2d/layer/results/l2/{i:04d}.npy", 
             #             wavefield[0].cpu().detach().numpy())
 
             # Set the data to vars

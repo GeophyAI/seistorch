@@ -18,6 +18,8 @@ from wavetorch.eqconfigure import Shape, Parameters
 from wavetorch.setup_source_probe import setup_src_coords, setup_rec_coords
 from yaml import load, dump
 from mpi4py.util import pkl5
+from torch.utils.tensorboard import SummaryWriter
+
 
 try:
     from yaml import CLoader as Loader, CDumper as Dumper
@@ -198,6 +200,9 @@ if __name__ == '__main__':
             os.makedirs(ROOTPATH, exist_ok=True)
             with open(os.path.join(ROOTPATH, "configure.yml"), "w") as f:
                 dump(cfg, f)
+    
+        if rank==1:
+            writer = SummaryWriter(os.path.join(ROOTPATH, "logs"))
 
         # Build the optimizer based on the parameters that need to be updated
         PARS_NEED_BY_EQ = Parameters.valid_model_paras()[cfg['equation']]
@@ -243,7 +248,6 @@ if __name__ == '__main__':
                 filtered_data = pickle.loads(data_str)
 
             #comm.Bcast(filtered_data, root=0)
-            print(filtered_data.shape)
             # Reset the optimizer at each scale
             if args.opt=='adam':
                 paras_for_optim = []
@@ -385,6 +389,7 @@ if __name__ == '__main__':
                     # Save vel and grad
                     model.cell.geom.save_model(ROOTPATH, 
                                                paras=["vel", "grad"], 
-                                               freq_idx=idx_freq, 
+                                               freq_idx=idx_freq,
+                                               writer=writer,
                                                epoch=epoch)
 
