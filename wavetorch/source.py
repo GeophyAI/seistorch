@@ -14,18 +14,18 @@ class WaveSource(torch.nn.Module):
 	def __repr__(self,):
 		return super().__repr__() + '\nSource location: x:{} z:{}'.format(self.y, self.x)
 
-	# def forward(self, Y, X, dt=1.0):
-	# 	Y_new = Y.clone()
-	# 	Y_new[..., self.x, self.y] += dt*X
-	# 	return Y_new
+	def forward(self, Y, X, dt=1.0):
+		Y_new = Y.clone()
+		Y_new[..., self.x, self.y] += dt*X
+		return Y_new
 	
 	# The following implementation have memory leakage problem
 	# But I donot know why when I replace the following codes with aboving
 	# no-leakage implementation, the elastic fwi goes wrong.
-	def forward(self, Y, X, dt=1.0):
-		#Y_new = Y.clone()
-		Y[..., self.x, self.y] += dt*X
-		return Y
+	# def forward(self, Y, X, dt=1.0):
+	# 	#Y_new = Y.clone()
+	# 	Y[..., self.x, self.y] += dt*X
+	# 	return Y
 
 	def plot(self, ax, color='r'):
 		marker, = ax.plot(self.x.numpy(), self.y.numpy(), 'o', markeredgecolor=color, markerfacecolor='none', markeredgewidth=1.0, markersize=4)

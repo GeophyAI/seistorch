@@ -75,7 +75,7 @@ def accuracy_onehot(y_pred, y_label):
 def normalize_power(X):
     return X / torch.sum(X, dim=1, keepdim=True)
     
-def ricker_wave(fm, dt, T, delay = 500, dtype='tensor'):
+def ricker_wave(fm, dt, T, delay = 80, dtype='tensor'):
     """
         Ricker-like wave.
     """
@@ -284,6 +284,23 @@ def roll(wavelet, data, split=0.2):
 
     return rolled_signal, rolled_data
 
+def roll2(wavelet, data, mask, split=0.2):
+    nt = data.shape[0]
+    # Calculate time-shifts
+    time_shifts = torch.arange(0, split*nt)
+    # Randomly assign polarity and time-shift
+    p = np.random.randint(1, 3)  # Random positive integer (1 or 2)
+    tau_s = np.random.choice(time_shifts)
+
+    # Roll the data along the time axis
+    rolled_signal = (-1)**p * np.roll(wavelet, int(tau_s), axis=1)
+    rolled_signal[:,0:int(tau_s)] = 0
+    rolled_data = (-1)**p * np.roll(data, int(tau_s), axis=0)
+    rolled_data[0:int(tau_s)] = 0
+    rolled_mask = np.roll(mask, int(tau_s), axis=0)
+    rolled_mask[0:int(tau_s)] = 0
+
+    return rolled_signal, rolled_data, rolled_mask
 
 class Interp1d(torch.autograd.Function):
     @staticmethod
@@ -448,5 +465,15 @@ class Interp1d(torch.autograd.Function):
                 pos += 1
         return (*result,)
 
+def intersection(arrays):
+    if not arrays:
+        return []
+
+    # 将数组列表转换为NumPy数组
+    arrays_np = np.array(arrays)
+    # 使用逻辑与运算计算交集
+    intersection_result = np.any(arrays_np, axis=0).astype(int)
+    
+    return intersection_result
 
 interp1d = Interp1d.apply
