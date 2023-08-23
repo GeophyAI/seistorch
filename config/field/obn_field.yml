@@ -36,9 +36,10 @@ training:
 geom:
 
   # The observer data
-  obsPath: /public1/home/wangsw/FWI/FIELDDATA/OBN/data/p01_Geo_1ms_first1s.npy
+  obsPath: /public1/home/wangsw/FWI/FIELDDATA/OBN/data/p01_Geo_1ms_0.5s.npy
 
-  arrival_mask: /public1/home/wangsw/FWI/FIELDDATA/OBN/data/p01_Geo_1ms_first1s_ArrivalMask.npy
+  arrival_mask: /public1/home/wangsw/FWI/FIELDDATA/OBN/data/p01_Geo_1ms_first0.5s_ArrivalMask.npy
+  #/public1/home/wangsw/FWI/FIELDDATA/OBN/data/p01_Geo_1ms_first1s_ArrivalMask.npy
   #/public1/home/wangsw/FWI/FIELDDATA/OBN/data/p01_Geo.npy
 
   # Wave speed model from disk_file for forward modeling
@@ -53,14 +54,15 @@ geom:
 
   receivers: /public1/home/wangsw/FWI/FIELDDATA/OBN/geom/receivers.pkl
 
+  seabed: /public1/home/wangsw/FWI/FIELDDATA/OBN/velocity/seabed.npy
+
   boundary_saving: true
 
   multiple: true
 
-  wavelet_delay: 80
-
-  wavelet: 
-  #/public1/home/wangsw/FWI/FIELDDATA/OBN/geom/unit_spectrum_stf.npy
+  wavelet: /public1/home/wangsw/FWI/FIELDDATA/OBN/geom/inverted_wavelet.npy
+  # /public1/home/wangsw/FWI/FIELDDATA/OBN/geom/inverted_wavelet_e030.npy
+  # /public1/home/wangsw/FWI/FIELDDATA/OBN/geom/inverted_wavelet.npy
   # ./geometry/ricker_lowcut5hz.npy
 
   source_type:
@@ -72,6 +74,7 @@ geom:
   # Inital Wave speed model from disk_file
   initPath: 
     vp: /public1/home/wangsw/FWI/FIELDDATA/OBN/velocity/linear.npy
+    #/public1/home/wangsw/FWI/FIELDDATA/OBN/velocity/fatt.npy
     vs:
     rho:
     Q:
@@ -95,10 +98,14 @@ geom:
   dt: 0.001
 
   # Time samples
-  nt: 1000
+  nt: 500
 
   # Main frequency of ricker wave
   fm: 10.0
+
+  wavelet_delay: 30
+
+  wavelet_inverse: true
 
   # Spatial grid step size
   h: 12.5

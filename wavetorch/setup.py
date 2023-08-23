@@ -109,7 +109,11 @@ def setup_wavelet(cfg):
     """
     if not cfg["geom"]["wavelet"]:
         print("Using wavelet func.")
-        x = ricker_wave(cfg['geom']['fm'], cfg['geom']['dt'], cfg['geom']['nt'])
+        x = ricker_wave(cfg['geom']['fm'], 
+                        cfg['geom']['dt'], 
+                        cfg['geom']['nt'], 
+                        cfg['geom']['wavelet_delay'], 
+                        inverse=cfg['geom']['wavelet_inverse'])
     else:
         print("Loading wavelet from file")
         x = to_tensor(np.load(cfg["geom"]["wavelet"]))

@@ -378,7 +378,8 @@ class WaveGeometryFreeForm(WaveGeometry):
                 var.grad.copy_(to_tensor(smoothed_grad).to(var.grad.device))
 
     def gradient_cut(self, mask=None, padding=50):
-        mask = torch.nn.functional.pad(mask, (padding, padding, padding, padding), mode='constant', value=1)
+        top = 0 if self.multiple else padding
+        mask = torch.nn.functional.pad(mask, (padding, padding, top, padding), mode='constant', value=0)
         for para in self.model_parameters:
             var = self.__getattr__(para)
             if var.requires_grad:

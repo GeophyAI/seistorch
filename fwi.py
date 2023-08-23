@@ -169,8 +169,8 @@ if __name__ == '__main__':
                 # Forward modeling
                 with torch.no_grad():
                     shot = task
-                    source = setup_src_coords(src_list[shot], cfg['geom']['pml']['N'])
-                    probes = setup_rec_coords(rec_list[shot], cfg['geom']['pml']['N'])
+                    source = setup_src_coords(src_list[shot], cfg['geom']['pml']['N'], cfg['geom']['multiple'])
+                    probes = setup_rec_coords(rec_list[shot], cfg['geom']['pml']['N'], cfg['geom']['multiple'])
                     model.reset_sources(source)
                     model.reset_probes(probes)
                     y = model(x)
@@ -311,8 +311,8 @@ if __name__ == '__main__':
                             break
                         sources = []
                         shot = task
-                        src = setup_src_coords(src_list[shot], cfg['geom']['pml']['N'])
-                        probes = setup_rec_coords(rec_list[shot], cfg['geom']['pml']['N'])
+                        src = setup_src_coords(src_list[shot], cfg['geom']['pml']['N'], cfg['geom']['multiple'])
+                        probes = setup_rec_coords(rec_list[shot], cfg['geom']['pml']['N'], cfg['geom']['multiple'])
                         sources.append(src)
 
                         """Calculate one shot gradient"""

@@ -28,7 +28,7 @@ from wavetorch.siren import Siren
 from wavetorch.setup import *
 from wavetorch.setup_source_probe import setup_rec_coords, setup_src_coords
 from wavetorch.utils import (DictAction, cpu_fft, dict2table,
-                             low_pass, roll, to_tensor)
+                             low_pass, roll, roll2, to_tensor)
 
 # from torchviz import make_dot
 # The flag below controls whether to allow TF32 on matmul. This flag defaults to False
@@ -133,7 +133,7 @@ if __name__ == '__main__':
     #model = torch.compile(model)
     # In coding fwi, the probes are set only once, 
     # because they are fixed with respect to moving source.
-    probes = setup_rec_coords(full_rec_list, cfg['geom']['pml']['N'])
+    probes = setup_rec_coords(full_rec_list, cfg['geom']['pml']['N'], cfg['geom']['multiple'])
     model.reset_probes(probes)
 
     # TODO: add checkpoint
@@ -181,7 +181,7 @@ if __name__ == '__main__':
     coding_rec = torch.zeros_like(to_tensor(full_band_data[0]), device=args.dev)
     coding_wav = torch.zeros((BATCHSIZE, shape.nt), device=args.dev)
     loss = np.zeros((len(cfg['geom']['multiscale']), EPOCHS), np.float32)
-
+    arrival_mask = np.load(cfg['geom']['arrival_mask'], allow_pickle=True)
     # The total number of epochs is the number of epochs times the number of scales
     for epoch in range(EPOCHS*len(cfg['geom']['multiscale'])):
 
@@ -213,13 +213,16 @@ if __name__ == '__main__':
 
         # Get the coding shot numbers and coding data
         for i, shot in enumerate(shots):
-            src = setup_src_coords(src_list[shot], cfg['geom']['pml']['N'])
+            #shot = 335
+            src = setup_src_coords(src_list[shot], cfg['geom']['pml']['N'], cfg['geom']['multiple'])
             sources.append(src)
             # For OBN data, the receivers are fixed and the receivers are the same for all shots
             # so we only need to setup the receivers once, and the data can be summed immediately
             # But for non-fixed receivers, we need to setup the receivers for each shot,
             # reconstruct a pseudo-OBN data and then sum them up
-            wave_temp, d_temp = roll(lp_wav, lp_rec[shot])
+            
+            wave_temp, d_temp = roll(lp_wav, lp_rec[shot] * arrival_mask[shot])
+            # wave_temp, d_temp = roll(lp_wav, lp_rec[shot])
             coding_wav[i] = to_tensor(wave_temp).to(args.dev)
             if fixed_receivers:
                 coding_rec += to_tensor(d_temp).to(args.dev)

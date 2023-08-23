@@ -1535,38 +1535,38 @@ class KLDivergenceLoss(torch.nn.Module):
         # Q = torch.nn.functional.softmax(y, dim=0)
         return torch.nn.KLDivLoss()(P, Q)
 
-class Perceptual(torch.nn.Module):
-    def __init__(self):
-        super().__init__()
-        vgg = vgg19(pretrained=True)
-        self.feature_extractor = torch.nn.Sequential(*list(vgg.features)[:18]).cuda()
-        self.feature_extractor.eval()
-        self.mse_loss = torch.nn.MSELoss()
+# class Perceptual(torch.nn.Module):
+#     def __init__(self):
+#         super().__init__()
+#         vgg = vgg19(pretrained=True)
+#         self.feature_extractor = torch.nn.Sequential(*list(vgg.features)[:18]).cuda()
+#         self.feature_extractor.eval()
+#         self.mse_loss = torch.nn.MSELoss()
 
-        # Define the downsampling layer
-        self.pool = torch.nn.AvgPool2d(kernel_size=(4, 4), stride=(2, 2))
+#         # Define the downsampling layer
+#         self.pool = torch.nn.AvgPool2d(kernel_size=(4, 4), stride=(2, 2))
 
-    @property
-    def name(self,):
-        return "perceptual"
+#     @property
+#     def name(self,):
+#         return "perceptual"
 
-    def to_rgb(self, x):
-        x_mono = x.mean(dim=-1, keepdim=True)  # Take the mean along the channel dimension to get a single-channel image
-        x_rgb = x_mono.repeat(1, 1, 3)  # Repeat the single-channel image along the channel dimension to get a three-channel image
-        x_rgb = x_rgb.permute(2, 0, 1).unsqueeze(0)  # Change to the format (batch_size, channels, height, width)
+#     def to_rgb(self, x):
+#         x_mono = x.mean(dim=-1, keepdim=True)  # Take the mean along the channel dimension to get a single-channel image
+#         x_rgb = x_mono.repeat(1, 1, 3)  # Repeat the single-channel image along the channel dimension to get a three-channel image
+#         x_rgb = x_rgb.permute(2, 0, 1).unsqueeze(0)  # Change to the format (batch_size, channels, height, width)
 
-        # Apply the pooling operation to downsample the data
-        x_rgb = self.pool(x_rgb)
+#         # Apply the pooling operation to downsample the data
+#         x_rgb = self.pool(x_rgb)
 
-        return x_rgb
+#         return x_rgb
 
-    def forward(self, x, y):
-        x_rgb = self.to_rgb(x)
-        y_rgb = self.to_rgb(y)
+#     def forward(self, x, y):
+#         x_rgb = self.to_rgb(x)
+#         y_rgb = self.to_rgb(y)
 
-        x_features = self.feature_extractor(x_rgb)
-        y_features = self.feature_extractor(y_rgb)
-        return self.mse_loss(x_features, y_features)
+#         x_features = self.feature_extractor(x_rgb)
+#         y_features = self.feature_extractor(y_rgb)
+#         return self.mse_loss(x_features, y_features)
 
 class TotalVariation2D(torch.nn.Module):
     def __init__(self, tv_loss_weight=1):
@@ -1625,15 +1625,24 @@ class FirstArrivalTravelTime(torch.nn.Module):
         super().__init__()
 
     def setup(self,):
-        self.nsta = 10
-        self.nlta = 100
-        self.thresh_on = 0.5
-        self.thresh_off = 1.0
+        self.nsta = 21
+        self.nlta = 101
+        self.thresh_on = 1.0
+        self.thresh_off = 10.0
         self.dt = self.cfg['geom']['dt']
 
     @property
     def name(self,):
         return "fatt"
+    
+    def intersection(self, arrays: list):
+        if not arrays:
+            return []
+
+        arrays_np = torch.stack(arrays, axis=0)
+        intersection_result = torch.any(arrays_np, axis=0)
+        
+        return intersection_result
         
     def batch_sta_lta_torch(self, traces, sta_len, lta_len, threshold_on=0.5, threshold_off=1.0):
         """Summary: Calculate the STA/LTA ratio of a signal
@@ -1645,23 +1654,34 @@ class FirstArrivalTravelTime(torch.nn.Module):
             threshold_on (float): Threshold for turning on the trigger
             threshold_off (float): Threshold for turning off the trigger
         """
-        nsamples, _, = traces.shape
-        traces = traces.view(nsamples, 1, -1)
         def apply_along_axis(function, arr=None, axis: int = 0):
             return torch.stack([
                 function(x_i) for x_i in torch.unbind(arr, dim=axis)
             ], dim=axis)
+        
         sta_kernel = torch.ones(1, 1, sta_len, device=traces.device)
         lta_kernel = torch.ones(1, 1, lta_len, device=traces.device)
 
         # Apply convolve along the first axis of the array
         # conv 1d: input shape: (batch_size, in_channels, signal_len)
         #           kernel shape: (out_channels, in_channels, kernel_size)
-        sta = apply_along_axis(lambda x: torch.nn.functional.conv1d(x.unsqueeze(0), sta_kernel, padding='same'), arr=traces, axis=0)
-        lta = apply_along_axis(lambda x: torch.nn.functional.conv1d(x.unsqueeze(0), lta_kernel, padding='same'), arr=traces, axis=0)
+        
+        # Method 1
+        # sta = apply_along_axis(lambda x: torch.nn.functional.conv1d(x.unsqueeze(0), sta_kernel, padding=padding), arr=traces, axis=0)
+        # lta = apply_along_axis(lambda x: torch.nn.functional.conv1d(x.unsqueeze(0), lta_kernel, padding=padding), arr=traces, axis=0)
+        
 
+        # Method 2
+        padding = "same"
+        sta = []
+        lta = []
+        nt, nr = traces.shape
+        for i in range(nr):
+            sta.append(torch.nn.functional.conv1d(traces[:,i].unsqueeze(0).unsqueeze(0), sta_kernel, padding=padding))
+            lta.append(torch.nn.functional.conv1d(traces[:,i].unsqueeze(0).unsqueeze(0), lta_kernel, padding=padding))
+        sta = torch.cat(sta, dim=0).permute(2,0,1)
+        lta = torch.cat(lta, dim=0).permute(2,0,1)
         ratio = sta / (lta+0.001)
-
         # Track trigger
         trigger = (ratio > threshold_on).int()
         trigger[1:] -= (ratio[:-1] < threshold_off).int()
@@ -1670,15 +1690,24 @@ class FirstArrivalTravelTime(torch.nn.Module):
         fa_time = torch.argmax(trigger, axis=0)
         
         return fa_time.squeeze().int()
-    
+
     def process_channels(self, d, *args, **kwargs):
         _, ntraces, nchannels = d.shape
         fa_times = []
         for c in range(nchannels):
             fa_times.append(self.batch_sta_lta_torch(d[:, :, c], *args, **kwargs).view(ntraces, 1))
+            # fa_times.append(batch_sta_lta(d[:, :, c].cpu().detach().numpy(), *args, **kwargs).reshape(ntraces, 1))
+        
+        # Numpy 
+        # fa_times = np.array(fa_times)
+        # fa_times = torch.from_numpy(np.concatenate(fa_times, axis=1)).to(d.device)
+        # return fa_times
+
         return torch.cat(fa_times, dim=1)
 
     def forward(self, x, y):
+        # x: Syn
+        # y: Obs
         self.setup()
         nsamples, ntraces, nchannles = x.shape
         params = {"sta_len": self.nsta,
@@ -1688,6 +1717,8 @@ class FirstArrivalTravelTime(torch.nn.Module):
         # Pick the first arrival travel time
         x_arrivals = self.process_channels(x, **params)
         y_arrivals = self.process_channels(y, **params)
+        np.save(f"{self.cfg['ROOTPATH']}/x_arrivals.npy", x_arrivals.cpu().numpy())
+        np.save(f"{self.cfg['ROOTPATH']}/y_arrivals.npy", y_arrivals.cpu().numpy())
         # Cut the traces according to the arrivals
         # Only retain the events before the first arrival + a fixed time window
         t_after = 200 # ms
@@ -1705,12 +1736,20 @@ class FirstArrivalTravelTime(torch.nn.Module):
             y_index[...,i] = torch.arange(nsamples, device=x.device)[:, None] < y_arrivals[...,i]+n_reserve
 
         # Get first arrival
-        x_cut = x_index * x
-        y_cut = y_index * y
+        # x_cut = x_index * x
+        # y_cut = y_index * y
+
+        x_cut = x
+        y_cut = y
+
+        np.save(f"{self.cfg['ROOTPATH']}/syn.npy", x_cut.cpu().detach().numpy())
+        np.save(f"{self.cfg['ROOTPATH']}/obs.npy", y_cut.cpu().detach().numpy())
+           
+
         padding = nsamples - 1
         # Calculate the trace-wise cross-correlation
         loss = 0.
-        scale = 1e2
+        scale = 1
         for t in range(ntraces):
             for c in range(nchannles):
                 _x = x_cut[:, t, c]
@@ -1722,7 +1761,7 @@ class FirstArrivalTravelTime(torch.nn.Module):
                     # in logits, the maximum value is 1, and the others are 0
                     logits = F.gumbel_softmax(cc*scale, tau=1, hard=True)
                     max_index = torch.sum(torch.arange(cc.shape[1], device=x.device) * logits)
-                    return (max_index-nsamples+1)*nsamples
+                    loss += (max_index-nsamples+1)*nsamples
                 else:
                     loss += 0.
         return loss

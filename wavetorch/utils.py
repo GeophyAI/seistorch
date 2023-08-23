@@ -75,15 +75,17 @@ def accuracy_onehot(y_pred, y_label):
 def normalize_power(X):
     return X / torch.sum(X, dim=1, keepdim=True)
     
-def ricker_wave(fm, dt, T, delay = 80, dtype='tensor'):
+def ricker_wave(fm, dt, T, delay = 80, dtype='tensor', inverse=False):
     """
         Ricker-like wave.
     """
+    print(f"Wavelet inverse:{inverse}")
     ricker = []
     delay = delay * dt 
     for i in range(T):
         c = np.pi * fm * (i * dt - delay) #  delay
-        temp = (1-2*np.power(c, 2)) * np.exp(-np.power(c, 2))
+        p = -1 if inverse else 1
+        temp = p*(1-2*np.power(c, 2)) * np.exp(-np.power(c, 2))
         ricker.append(temp)
     if dtype == 'numpy':
         return np.array(ricker).astype(np.float32)

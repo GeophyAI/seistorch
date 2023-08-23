@@ -66,13 +66,13 @@ geom:
 
   # Inital Wave speed model from disk_file
   initPath: 
-    vp: /home/les_01/wangsw/models/marmousi/elastic_modified/linear_vp_z12.5m_x12.5m_expand.npy
+    vp: /home/les_01/wangsw/models/marmousi/elastic_modified/linear_vp_z12.5m_x12.5m_expand_sea1600.npy
     vs:
     rho:
     Q:
 
   invlist:
-    vp: false
+    vp: true
     vs: false
     rho: false
     q: false
