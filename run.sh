@@ -1,9 +1,12 @@
+export PATH=/usr/local/mpich/bin:$PATH && \
+export LD_LIBRARY_PATH=/usr/local/mpich/lib:$LD_LIBRARY_PATH && \
 export LD_LIBRARY_PATH=/home/wangsw/anaconda3/lib:$LD_LIBRARY_PATH && \
-mpirun -n 2 \
-python fwi.py config/check/layer2d.yml  \
+mpirun -f mpiconfig_gpu \
+python fwi.py /public1/home/wangsw/FWI/NO_LOWFREQ/config/02_acoustic_invert_p.yml  \
 --opt adam \
---loss l2 \
+--loss vp=fa \
 --lr vp=10.0 \
 --mode inversion \
---save-path /home/wangsw/inversion/2d/layer/results/l2_nocoding \
---use-cuda
+--save-path /public1/home/wangsw/FWI/NO_LOWFREQ/fa2 \
+--use-cuda \
+--grad-cut

@@ -7,12 +7,40 @@ import struct
 from typing import Any, Iterable, List, Tuple
 
 import numpy as np
+import torch.nn.functional as F
 import torch
 from prettytable import PrettyTable
 from scipy import signal
 from joblib import Parallel, delayed
 
+def accuracy_onehot(y_pred, y_label):
+    """Compute the accuracy for a onehot
+    """
+    return (y_pred.argmax(dim=1) == y_label).float().mean().item()
 
+def check_dir(path):
+    if not os.path.exists(path):
+        print(f"{path} does not exists, trying to make dir...")
+        try:
+            os.makedirs(path, exist_ok=True)
+            return True
+        except Exception as e:
+            print(e)
+            return False
+        
+
+def cpu_fft(d, dt, N = 5, low = 5, if_plot = True, axis = -1, mode = 'lowpass'):
+    """
+        implementation of fft.
+    """
+    if low == "all":
+        return d
+    else:
+        wn = 2*low/(1/dt)
+        b, a = signal.butter(N, wn, mode)
+        d_filter = signal.filtfilt(b, a, d, axis = axis)
+        return d_filter.astype(np.float32)
+    
 def dict2table(dict_data: dict, table: PrettyTable = None):
     """Convert a dict to a table"""
     _tmp_table = PrettyTable(["Configures", "Value"]) if table is None else table
@@ -28,142 +56,6 @@ def dict2table(dict_data: dict, table: PrettyTable = None):
             _tmp_table.add_row([k, v])
     tables.append(_tmp_table)
     return tables
-
-class DictAction(argparse.Action):
-    def __call__(self, parser, namespace, values, option_string=None):
-        d = {}
-        for item in values:
-            key, value = item.split('=')
-            try:
-                value = float(value)
-            except ValueError:
-                pass
-            d[key] = value
-        setattr(namespace, self.dest, d)
-
-def to_tensor(x, dtype=None):
-    dtype = dtype if dtype is not None else torch.get_default_dtype()
-    if isinstance(x, np.ndarray):
-        return torch.from_numpy(x).type(dtype)
-    elif isinstance(x, float):
-        return torch.tensor(x).type(dtype)
-    else:
-        x = np.array(x)
-        return torch.from_numpy(x).type(dtype)
-
-
-def set_dtype(dtype=None):
-    if dtype == 'float32' or dtype is None:
-        torch.set_default_dtype(torch.float32)
-    elif dtype == 'float64':
-        torch.set_default_dtype(torch.float64)
-    else:
-        raise ValueError('Unsupported data type: %s; should be either float32 or float64' % dtype)
-
-
-def window_data(X, window_length):
-    """Window the sample, X, to a length of window_length centered at the middle of the original sample
-    """
-    return X[int(len(X) / 2 - window_length / 2):int(len(X) / 2 + window_length / 2)]
-
-def accuracy_onehot(y_pred, y_label):
-    """Compute the accuracy for a onehot
-    """
-    return (y_pred.argmax(dim=1) == y_label).float().mean().item()
-
-
-def normalize_power(X):
-    return X / torch.sum(X, dim=1, keepdim=True)
-    
-def ricker_wave(fm, dt, T, delay = 80, dtype='tensor', inverse=False):
-    """
-        Ricker-like wave.
-    """
-    print(f"Wavelet inverse:{inverse}")
-    ricker = []
-    delay = delay * dt 
-    for i in range(T):
-        c = np.pi * fm * (i * dt - delay) #  delay
-        p = -1 if inverse else 1
-        temp = p*(1-2*np.power(c, 2)) * np.exp(-np.power(c, 2))
-        ricker.append(temp)
-    if dtype == 'numpy':
-        return np.array(ricker).astype(np.float32)
-    else:
-        return torch.from_numpy(np.array(ricker).astype(np.float32))
-
-def cpu_fft(d, dt, N = 5, low = 5, if_plot = True, axis = -1, mode = 'lowpass'):
-    """
-        implementation of fft.
-    """
-    if low == "all":
-        return d
-    else:
-        wn = 2*low/(1/dt)
-        b, a = signal.butter(N, wn, mode)
-        d_filter = signal.filtfilt(b, a, d, axis = axis)
-        return d_filter.astype(np.float32)
-    
-def _low_pass_filter(d, b, a, axis):
-    return signal.filtfilt(b, a, d, axis=axis).astype(np.float32)
-
-def low_pass(d, dt, N = 5, low = 5, axis = -1, threads=1):
-    """
-        implementation of low pass filter.
-    """
-    if low == "all":
-        return d
-    else:
-        wn = 2*low/(1/dt)
-        b, a = signal.butter(N, wn, 'lowpass')
-        nshots  = d.shape[0]
-        d_filter = np.empty(nshots, dtype=np.ndarray)
-
-        d_filter = Parallel(n_jobs=threads)(
-            delayed(_low_pass_filter)(d[i], b, a, axis)
-            for i in range(nshots)
-        )
-
-        # serial version
-        #for i in range(nshots):
-        #    d_filter[i] = signal.filtfilt(b, a, d[i], axis = axis).astype(np.float32)
-        return d_filter
-
-def pad_by_value(d, pad, mode = 'double'):
-    """pad the input by <pad>
-    """
-    if mode == 'double':
-        return d + 2*pad
-    else:
-        return d + pad
-        
-def load_file_by_type(filepath, shape = None, pml_width = None):
-    """load data files, differs by its type
-    """
-    fileType = filepath.split('/')[-1].split('.')[-1]
-    if fileType == 'npy':
-        return np.load(filepath)
-    if fileType == 'dat':
-        if shape is not None:
-            Nx, Nz = shape
-            Nz = Nz - 2*pml_width
-            Nx = Nx - 2*pml_width
-        else:
-            raise ValueError('when the filetype of vel is .dat, the shape must be specified.')
-        with open(filepath, "rb") as f:
-            d = struct.unpack("f"*Nx*Nz, f.read(4*Nx*Nz))
-            d = np.array(d)
-            d = np.reshape(d, (Nx, Nz))
-        return d
-    # if fileType == 'segy':
-    #     with segyio.open(filepath, ignore_geometry=True) as f:
-    #         f.mmap()
-    #         vel = []
-    #         for trace in f.trace:
-    #             vel.append(trace.copy())
-    #     vel=np.array(vel).T
-    #     return vel
-    
 
 def diff_using_roll(input, dim=-1, forward=True, padding_value=0):
 
@@ -203,40 +95,6 @@ def diff_using_roll(input, dim=-1, forward=True, padding_value=0):
         return forward_diff(input, dim=dim)
     else:
         return backward_diff(input, dim=dim)
-    
-        
-def update_cfg(cfg, geom = 'geom', device='cpu'):
-    """update the cfg dict, mainly update the Nx and Ny paramters.
-    """
-    Nx, Ny = cfg[geom]['Nx'], cfg[geom]['Ny']
-
-    if (Nx is None) and (Ny is None) and (cfg[geom]['cPath']):
-        vel_path = cfg[geom]['cPath']
-        vel = load_file_by_type(vel_path)
-        Ny, Nx = vel.shape
-    cfg[geom]['_oriNx'] = Nx
-    cfg[geom]['_oriNz'] = Ny
-    cfg[geom].update({'Nx':Nx + 2*cfg[geom]['pml']['N']})
-
-    if cfg[geom]['multiple']:
-        nz = Ny + cfg[geom]['pml']['N']
-    else:
-        nz = Ny + 2*cfg[geom]['pml']['N']
-    cfg[geom].update({'Ny': nz})
-    cfg.update({'domain_shape': (cfg[geom]['Ny'], cfg[geom]['Nx'])})
-    cfg.update({'device': device})
-    return cfg
-
-def write_pkl(path: str, data: list):
-    # Open the file in binary mode and write the list using pickle
-    with open(path, 'wb') as f:
-        pickle.dump(data, f)
-
-def read_pkl(path: str):
-    # Open the file in binary mode and load the list using pickle
-    with open(path, 'rb') as f:
-        data = pickle.load(f)
-    return data
 
 def get_src_and_rec(cfg):
     assert os.path.exists(cfg["geom"]["sources"]), "Cannot found source file."
@@ -246,7 +104,6 @@ def get_src_and_rec(cfg):
     assert len(source_locs)==len(recev_locs), \
         "The lenght of sources and recev_locs must be equal."
     return source_locs, recev_locs
-
 
 def get_localrank(host_file, rank=0):
     with open(host_file, "r") as f:
@@ -260,16 +117,86 @@ def get_localrank(host_file, rank=0):
     local_rank = rank%hosts[current_ip_address]
     return hosts, current_ip_address, local_rank
 
-def check_dir(path):
-    if not os.path.exists(path):
-        print(f"{path} does not exists, trying to make dir...")
-        try:
-            os.makedirs(path, exist_ok=True)
-            return True
-        except Exception as e:
-            print(e)
-            return False
-        
+def intersection(arrays):
+    if not arrays:
+        return []
+
+    # 将数组列表转换为NumPy数组
+    arrays_np = np.array(arrays)
+    # 使用逻辑与运算计算交集
+    intersection_result = np.any(arrays_np, axis=0).astype(int)
+    
+    return intersection_result
+
+def _low_pass_filter(d, b, a, axis):
+    return signal.filtfilt(b, a, d, axis=axis).astype(np.float32)
+
+def low_pass(d, dt, N = 5, low = 5, axis = -1, threads=1):
+    """
+        implementation of low pass filter.
+    """
+    if low == "all":
+        return d
+    else:
+        wn = 2*low/(1/dt)
+        b, a = signal.butter(N, wn, 'lowpass')
+        nshots  = d.shape[0]
+        d_filter = np.empty(nshots, dtype=np.ndarray)
+
+        d_filter = Parallel(n_jobs=threads)(
+            delayed(_low_pass_filter)(d[i], b, a, axis)
+            for i in range(nshots)
+        )
+
+        # serial version
+        #for i in range(nshots):
+        #    d_filter[i] = signal.filtfilt(b, a, d[i], axis = axis).astype(np.float32)
+        return d_filter
+   
+def load_file_by_type(filepath, shape = None, pml_width = None):
+    """load data files, differs by its type
+    """
+    fileType = filepath.split('/')[-1].split('.')[-1]
+    if fileType == 'npy':
+        return np.load(filepath)
+    if fileType == 'dat':
+        if shape is not None:
+            Nx, Nz = shape
+            Nz = Nz - 2*pml_width
+            Nx = Nx - 2*pml_width
+        else:
+            raise ValueError('when the filetype of vel is .dat, the shape must be specified.')
+        with open(filepath, "rb") as f:
+            d = struct.unpack("f"*Nx*Nz, f.read(4*Nx*Nz))
+            d = np.array(d)
+            d = np.reshape(d, (Nx, Nz))
+        return d
+    # if fileType == 'segy':
+    #     with segyio.open(filepath, ignore_geometry=True) as f:
+    #         f.mmap()
+    #         vel = []
+    #         for trace in f.trace:
+    #             vel.append(trace.copy())
+    #     vel=np.array(vel).T
+    #     return vel
+    
+def normalize_power(X):
+    return X / torch.sum(X, dim=1, keepdim=True)
+    
+def pad_by_value(d, pad, mode = 'double'):
+    """pad the input by <pad>
+    """
+    if mode == 'double':
+        return d + 2*pad
+    else:
+        return d + pad
+    
+def read_pkl(path: str):
+    # Open the file in binary mode and load the list using pickle
+    with open(path, 'rb') as f:
+        data = pickle.load(f)
+    return data
+
 def roll(wavelet, data, split=0.2):
     nt = data.shape[0]
     # Calculate time-shifts
@@ -303,6 +230,85 @@ def roll2(wavelet, data, mask, split=0.2):
     rolled_mask[0:int(tau_s)] = 0
 
     return rolled_signal, rolled_data, rolled_mask
+
+def ricker_wave(fm, dt, T, delay = 80, dtype='tensor', inverse=False):
+    """
+        Ricker-like wave.
+    """
+    print(f"Wavelet inverse:{inverse}")
+    ricker = []
+    delay = delay * dt 
+    for i in range(T):
+        c = np.pi * fm * (i * dt - delay) #  delay
+        p = -1 if inverse else 1
+        temp = p*(1-2*np.power(c, 2)) * np.exp(-np.power(c, 2))
+        ricker.append(temp)
+    if dtype == 'numpy':
+        return np.array(ricker).astype(np.float32)
+    else:
+        return torch.from_numpy(np.array(ricker).astype(np.float32))
+
+def set_dtype(dtype=None):
+    if dtype == 'float32' or dtype is None:
+        torch.set_default_dtype(torch.float32)
+    elif dtype == 'float64':
+        torch.set_default_dtype(torch.float64)
+    else:
+        raise ValueError('Unsupported data type: %s; should be either float32 or float64' % dtype)
+
+def to_tensor(x, dtype=None):
+    dtype = dtype if dtype is not None else torch.get_default_dtype()
+    if isinstance(x, np.ndarray):
+        return torch.from_numpy(x).type(dtype)
+    elif isinstance(x, float):
+        return torch.tensor(x).type(dtype)
+    else:
+        x = np.array(x)
+        return torch.from_numpy(x).type(dtype)
+
+def update_cfg(cfg, geom = 'geom', device='cpu'):
+    """update the cfg dict, mainly update the Nx and Ny paramters.
+    """
+    Nx, Ny = cfg[geom]['Nx'], cfg[geom]['Ny']
+
+    if (Nx is None) and (Ny is None) and (cfg[geom]['cPath']):
+        vel_path = cfg[geom]['cPath']
+        vel = load_file_by_type(vel_path)
+        Ny, Nx = vel.shape
+    cfg[geom]['_oriNx'] = Nx
+    cfg[geom]['_oriNz'] = Ny
+    cfg[geom].update({'Nx':Nx + 2*cfg[geom]['pml']['N']})
+
+    if cfg[geom]['multiple']:
+        nz = Ny + cfg[geom]['pml']['N']
+    else:
+        nz = Ny + 2*cfg[geom]['pml']['N']
+    cfg[geom].update({'Ny': nz})
+    cfg.update({'domain_shape': (cfg[geom]['Ny'], cfg[geom]['Nx'])})
+    cfg.update({'device': device})
+    return cfg
+
+def window_data(X, window_length):
+    """Window the sample, X, to a length of window_length centered at the middle of the original sample
+    """
+    return X[int(len(X) / 2 - window_length / 2):int(len(X) / 2 + window_length / 2)]
+
+def write_pkl(path: str, data: list):
+    # Open the file in binary mode and write the list using pickle
+    with open(path, 'wb') as f:
+        pickle.dump(data, f)
+
+class DictAction(argparse.Action):
+    def __call__(self, parser, namespace, values, option_string=None):
+        d = {}
+        for item in values:
+            key, value = item.split('=')
+            try:
+                value = float(value)
+            except ValueError:
+                pass
+            d[key] = value
+        setattr(namespace, self.dest, d)
 
 class Interp1d(torch.autograd.Function):
     @staticmethod
@@ -466,16 +472,5 @@ class Interp1d(torch.autograd.Function):
                 result[index] = gradients[pos]
                 pos += 1
         return (*result,)
-
-def intersection(arrays):
-    if not arrays:
-        return []
-
-    # 将数组列表转换为NumPy数组
-    arrays_np = np.array(arrays)
-    # 使用逻辑与运算计算交集
-    intersection_result = np.any(arrays_np, axis=0).astype(int)
-    
-    return intersection_result
 
 interp1d = Interp1d.apply

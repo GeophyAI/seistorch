@@ -1,4 +1,5 @@
 import torch
+import torch.nn.functional as F
 import numpy as np
 
 def batch_sta_lta(traces, sta_len, lta_len, threshold_on=0.5, threshold_off=1.0):
@@ -24,7 +25,7 @@ def batch_sta_lta(traces, sta_len, lta_len, threshold_on=0.5, threshold_off=1.0)
     
     # Get first arrival time 
     fa_time = np.argmax(trigger, axis=0)
-    
+
     return fa_time
 
 def batch_sta_lta_torch(traces, sta_len, lta_len, threshold_on=0.5, threshold_off=1.0):
@@ -37,28 +38,67 @@ def batch_sta_lta_torch(traces, sta_len, lta_len, threshold_on=0.5, threshold_of
         threshold_on (float): Threshold for turning on the trigger
         threshold_off (float): Threshold for turning off the trigger
     """
-    #nsamples, _, = traces.shape
-    #traces = traces.view(nsamples, 1, -1)
     def apply_along_axis(function, arr=None, axis: int = 0):
         return torch.stack([
             function(x_i) for x_i in torch.unbind(arr, dim=axis)
         ], dim=axis)
+    
     sta_kernel = torch.ones(1, 1, sta_len, device=traces.device)
     lta_kernel = torch.ones(1, 1, lta_len, device=traces.device)
 
     # Apply convolve along the first axis of the array
     # conv 1d: input shape: (batch_size, in_channels, signal_len)
     #           kernel shape: (out_channels, in_channels, kernel_size)
-    sta = apply_along_axis(lambda x: torch.nn.functional.conv1d(x.unsqueeze(0), sta_kernel, padding='same'), arr=traces, axis=0)
-    lta = apply_along_axis(lambda x: torch.nn.functional.conv1d(x.unsqueeze(0), lta_kernel, padding='same'), arr=traces, axis=0)
+    padding = "same"
+    # Method 1
+    # sta = apply_along_axis(lambda x: torch.nn.functional.conv1d(x.unsqueeze(0), sta_kernel, padding=padding), arr=traces, axis=0)
+    # lta = apply_along_axis(lambda x: torch.nn.functional.conv1d(x.unsqueeze(0), lta_kernel, padding=padding), arr=traces, axis=0)
+    
+
+    # Method 2
+    padding = "same"
+    sta = []
+    lta = []
+    nt, nr = traces.shape
+    for i in range(nr):
+        sta.append(torch.nn.functional.conv1d(traces[:,i].unsqueeze(0).unsqueeze(0), sta_kernel, padding=padding))
+        lta.append(torch.nn.functional.conv1d(traces[:,i].unsqueeze(0).unsqueeze(0), lta_kernel, padding=padding))
+    sta = torch.cat(sta, dim=0).permute(2,0,1)
+    lta = torch.cat(lta, dim=0).permute(2,0,1)
 
     ratio = sta / (lta+0.001)
-
     # Track trigger
     trigger = (ratio > threshold_on).int()
     trigger[1:] -= (ratio[:-1] < threshold_off).int()
     
     # Get first arrival time 
     fa_time = torch.argmax(trigger, axis=0)
-    
+    fa_time[fa_time==0] = nt-1
+
     return fa_time.squeeze().int()
+
+def generate_mask(fa_time, nt, nr, N):
+    mask = torch.zeros(nt, nr, dtype=torch.float32)
+
+    start = torch.maximum(torch.zeros_like(fa_time), fa_time.int()-N//2)
+    end = torch.minimum(torch.ones_like(fa_time)*nt, fa_time.int()+N//2)
+    row_indices = torch.arange(nt).unsqueeze(1)
+
+    mask_indices = (row_indices >= start.unsqueeze(0)) & (row_indices <= end.unsqueeze(0))
+
+    mask[mask_indices] = 1
+
+    return mask
+
+def pick_first_arrivals(d, *args, **kwargs):
+    _, ntraces, nchannels = d.shape
+    fa_times = []
+    for c in range(nchannels):
+        fa_times.append(batch_sta_lta_torch(d[:, :, c], *args, **kwargs).view(ntraces, 1))
+    return torch.cat(fa_times, dim=1)
+
+def travel_time_diff(x, y, dt=0.001):
+    nt = x.shape[0]
+    padding = nt-1
+    cc = torch.abs(F.conv1d(x.unsqueeze(0), y.unsqueeze(0).unsqueeze(0), padding=padding))
+    return (torch.argmax(cc)-nt+1)*dt

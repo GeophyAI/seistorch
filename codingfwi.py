@@ -181,7 +181,7 @@ if __name__ == '__main__':
     coding_rec = torch.zeros_like(to_tensor(full_band_data[0]), device=args.dev)
     coding_wav = torch.zeros((BATCHSIZE, shape.nt), device=args.dev)
     loss = np.zeros((len(cfg['geom']['multiscale']), EPOCHS), np.float32)
-    arrival_mask = np.load(cfg['geom']['arrival_mask'], allow_pickle=True)
+    #arrival_mask = np.load(cfg['geom']['arrival_mask'], allow_pickle=True)
     # The total number of epochs is the number of epochs times the number of scales
     for epoch in range(EPOCHS*len(cfg['geom']['multiscale'])):
 
@@ -221,8 +221,8 @@ if __name__ == '__main__':
             # But for non-fixed receivers, we need to setup the receivers for each shot,
             # reconstruct a pseudo-OBN data and then sum them up
             
-            wave_temp, d_temp = roll(lp_wav, lp_rec[shot] * arrival_mask[shot])
-            # wave_temp, d_temp = roll(lp_wav, lp_rec[shot])
+            # wave_temp, d_temp = roll(lp_wav, lp_rec[shot] * arrival_mask[shot])
+            wave_temp, d_temp = roll(lp_wav, lp_rec[shot])
             coding_wav[i] = to_tensor(wave_temp).to(args.dev)
             if fixed_receivers:
                 coding_rec += to_tensor(d_temp).to(args.dev)
@@ -238,8 +238,8 @@ if __name__ == '__main__':
             model.reset_sources(sources)
             ypred = model(coding_wav)
             # loss = criterion(ypred, coding_rec, model.cell.geom.vp)
-            # np.save(f"{ROOTPATH}/syn.npy", ypred.cpu().detach().numpy())
-            # np.save(f"{ROOTPATH}/obs.npy", coding_rec.cpu().detach().numpy())
+            np.save(f"{ROOTPATH}/syn.npy", ypred.cpu().detach().numpy())
+            np.save(f"{ROOTPATH}/obs.npy", coding_rec.cpu().detach().numpy())
             if not MULTI_LOSS:
                 # One loss function for all parameters
                 loss = criterions(ypred, coding_rec)
@@ -283,7 +283,7 @@ if __name__ == '__main__':
         loss[idx_freq][local_epoch] = closure().item()
 
         if args.grad_smooth:
-            model.cell.geom.gradient_smooth(sigma=2)
+            model.cell.geom.gradient_smooth(sigma=1)
 
         if args.grad_cut and isinstance(SEABED, torch.Tensor):
             model.cell.geom.gradient_cut(SEABED, cfg['geom']['pml']['N'])

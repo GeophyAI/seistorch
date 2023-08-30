@@ -1,30 +1,40 @@
 """Perform full waveform inversion."""
 import torch
+
 torch.backends.cudnn.enabled = True
 torch.backends.cudnn.benchmark = True
-import setproctitle
-import wavetorch
+import argparse
+import os
+import pickle
+import socket
+import time
+
 import numpy as np
-import argparse, os, sys, time, tqdm, torch, socket, pickle
+import setproctitle
+import torch
+import tqdm
 from mpi4py import MPI
-from wavetorch.utils import ricker_wave, to_tensor, cpu_fft, get_src_and_rec, low_pass
-from wavetorch.utils import DictAction
-# from tensorflow.keras.models import load_model
-from wavetorch.model import build_model
-from wavetorch.loss import Loss
-from wavetorch.optimizer import NonlinearConjugateGradient as NCG
-from wavetorch.eqconfigure import Shape, Parameters
-# from skopt import Optimizer
-from wavetorch.setup_source_probe import setup_src_coords, setup_rec_coords
-from yaml import load, dump
 from mpi4py.util import pkl5
 from torch.utils.tensorboard import SummaryWriter
+from yaml import dump, load
 
+import wavetorch
+from wavetorch.eqconfigure import Parameters, Shape
+from wavetorch.loss import Loss, Traveltime
+# from tensorflow.keras.models import load_model
+from wavetorch.model import build_model
+from wavetorch.optimizer import NonlinearConjugateGradient as NCG
+from wavetorch.setup import *
+# from skopt import Optimizer
+from wavetorch.setup_source_probe import setup_rec_coords, setup_src_coords
+from wavetorch.utils import (DictAction, cpu_fft, get_src_and_rec, low_pass,
+                             ricker_wave, to_tensor)
 
 try:
-    from yaml import CLoader as Loader, CDumper as Dumper
+    from yaml import CDumper as Dumper
+    from yaml import CLoader as Loader
 except ImportError:
-    from yaml import Loader, Dumper
+    from yaml import Dumper, Loader
 
 parser = argparse.ArgumentParser()
 parser.add_argument('config', type=str, 
@@ -39,12 +49,14 @@ parser.add_argument('--opt', choices=['adam', 'lbfgs', 'ncg'], default='adam',
                     help='optimizer (adam)')
 parser.add_argument('--save-path', default='',
                     help='the root path for saving results')
-parser.add_argument('--loss', default='mse',
-                    help='loss function')
+parser.add_argument('--loss', action=DictAction, nargs="+",
+                    help='loss dictionary')
 parser.add_argument('--lr', action=DictAction, nargs="+",
                     help='learning rate')
 parser.add_argument('--mode', choices=['forward', 'inversion', 'rtm'], default='forward',
                     help='forward modeling, inversion or reverse time migration mode')
+parser.add_argument('--grad-cut', action='store_true',
+                    help='Cut the boundaries of gradient or not')
 
 if __name__ == '__main__':
     args = parser.parse_args()
@@ -90,9 +102,8 @@ if __name__ == '__main__':
     ACOUSTIC = cfg['equation'] == 'acoustic'
     EPOCHS = cfg['training']['N_epochs']
     NSHOTS = min(cfg['geom']['Nshots'], len(src_list))
-    LEARNING_RATE = cfg['training']['lr']
     FILTER_ORDER = cfg['training']['filter_ord']
-
+    
     use_mpi = size > 1
     if (use_mpi and rank!=0) or (not use_mpi):
         model.to(args.dev)
@@ -101,7 +112,7 @@ if __name__ == '__main__':
         """# Read the wavelet"""
         if not cfg["geom"]["wavelet"]:
             print("Using wavelet func.")
-            x = ricker_wave(cfg['geom']['fm'], cfg['geom']['dt'], cfg['geom']['nt'])
+            x = ricker_wave(cfg['geom']['fm'], cfg['geom']['dt'], cfg['geom']['nt'], cfg['geom']['wavelet_delay'])
         else:
             print("Loading wavelet from file")
             x = to_tensor(np.load(cfg["geom"]["wavelet"]))
@@ -195,7 +206,11 @@ if __name__ == '__main__':
 
         """Write configure file to the inversion folder"""
         ROOTPATH = args.save_path if args.save_path else cfg["geom"]["inv_savePath"]
-
+        cfg["loss"] = args.loss
+        cfg["ROOTPATH"] = ROOTPATH
+        cfg['training']['lr'] = args.lr
+        SEABED = np.load(cfg['geom']['seabed']) if 'seabed' in cfg['geom'].keys() else None
+        SEABED = torch.from_numpy(SEABED).to(args.dev) if SEABED is not None else None
         if rank==0:
             os.makedirs(ROOTPATH, exist_ok=True)
             with open(os.path.join(ROOTPATH, "configure.yml"), "w") as f:
@@ -203,19 +218,13 @@ if __name__ == '__main__':
     
         if rank==1:
             writer = SummaryWriter(os.path.join(ROOTPATH, "logs"))
-
-        # Build the optimizer based on the parameters that need to be updated
-        PARS_NEED_BY_EQ = Parameters.valid_model_paras()[cfg['equation']]
-        PARS_NEED_INVERT = [k for k, v in cfg['geom']['invlist'].items() if v]
-        LR_DECAY = cfg['training']['lr_decay']
-        SCALE_DECAY = cfg['training']['scale_decay']
  
         if args.opt == "ncg":
             optimizer = NCG(model.parameters(), lr=0.001, max_iter=10)
 
         """Define the misfit function"""
-        criterion = Loss(args.loss).loss(cfg)
-
+        # criterion = Loss(args.loss).loss(cfg)
+        criterions = setup_criteria(cfg, args.loss)
         """Only rank0 will read the full band data"""
         """Rank0 will broadcast the data after filtering"""
         if rank == 0:
@@ -249,17 +258,7 @@ if __name__ == '__main__':
 
             #comm.Bcast(filtered_data, root=0)
             # Reset the optimizer at each scale
-            if args.opt=='adam':
-                paras_for_optim = []
-                for para in PARS_NEED_BY_EQ:
-                    # Set the learning rate for each parameter
-                    _lr = 0. if para not in PARS_NEED_INVERT else args.lr[para]*SCALE_DECAY**idx_freq
-                    paras_for_optim.append({'params': model.cell.get_parameters(para), 
-                                            'lr':_lr})
-                optimizers = torch.optim.Adam(paras_for_optim, betas=(0.9, 0.999), eps=1e-22)
-
-                lr_scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizers, LR_DECAY, last_epoch=- 1, verbose=False)
-
+            optimizers, lr_scheduler = setup_optimizer(model, cfg, idx_freq)
 
             if (use_mpi and rank!=0) or (not use_mpi):
                 # Low pass filtered wavelet
@@ -324,9 +323,11 @@ if __name__ == '__main__':
                             for _src, shot_num in zip(srcs, shot_nums_cur_epoch):
                                 model.reset_sources(_src)
                                 model.reset_probes(probes)
-                                ypred = model(lp_wavelet)
-                                target = to_tensor(filtered_data[shot_num]).to(ypred.device)#.unsqueeze(0)
-                                loss = criterion(ypred, target)
+                                syn = model(lp_wavelet)
+                                obs = to_tensor(filtered_data[shot_num]).to(syn.device)#.unsqueeze(0)
+                                np.save(f"{ROOTPATH}/syn.npy", obs.cpu().detach().numpy())
+                                np.save(f"{ROOTPATH}/obs.npy", syn.cpu().detach().numpy())
+                                loss = criterions(syn, obs)
                                 """HvP Start"""
                                 # Perform a backward pass to compute the gradients
                                 # grads = torch.autograd.grad(loss, [model.cell.geom.vp], create_graph=True)
@@ -381,6 +382,8 @@ if __name__ == '__main__':
                     for idx, para in enumerate(model.cell.geom.model_parameters):
                         var = model.cell.geom.__getattr__(para)
                         var.grad.data = to_tensor(grad2d[idx]).to(args.dev)
+                    if args.grad_cut and isinstance(SEABED, torch.Tensor):
+                        model.cell.geom.gradient_cut(SEABED, cfg['geom']['pml']['N'])
                     # Update the model parameters and learning rate
                     optimizers.step()
                     lr_scheduler.step()

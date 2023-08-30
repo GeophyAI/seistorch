@@ -11,11 +11,13 @@ from scipy.fftpack import fft, fftfreq
 from scipy.optimize import linear_sum_assignment
 from torch.nn.functional import pad as tpad
 from torch.nn.functional import pairwise_distance
-# from torchvision.models import vgg19
 
+from wavetorch.signal import batch_sta_lta, travel_time_diff, pick_first_arrivals
 # import geomloss
 from wavetorch.utils import interp1d
-from wavetorch.signal import batch_sta_lta
+
+# from torchvision.models import vgg19
+
 
 
 class Loss:
@@ -33,15 +35,22 @@ class Loss:
     def loss(self, cfg):
         loss_obj = self._get_loss_object()
         loss_obj.cfg = cfg
+
+        if isinstance(loss_obj, torch.autograd.Function):
+            loss_obj = loss_obj.apply
+
         return loss_obj
 
     def _get_loss_object(self,):
         loss_classes = [c for c in globals().values() if isinstance(c, type) and issubclass(c, torch.nn.Module)]
+        loss_classes.extend([c for c in globals().values() if isinstance(c, type) and issubclass(c, torch.autograd.Function)])
+
         for loss_class in loss_classes:
             if hasattr(loss_class, "name") and getattr(loss_class(), "name") == self.loss_name:
                 return loss_class()
         raise ValueError(f"Cannot find loss named {self.loss_name}")
-    
+
+
 class L1(torch.nn.Module):
     def __init__(self, ):
         super(L1, self).__init__()
@@ -284,18 +293,19 @@ class NormalizedCrossCorrelation(torch.nn.Module):
                 _x = x[:, t, c]
                 _y = y[:, t, c]#.flip(0)
                 if torch.max(torch.abs(_x)) >0:
-                    #_xnorm = torch.linalg.norm(_x, ord=2)+1e-10
-                    #_ynorm = torch.linalg.norm(_y, ord=2)+1e-10
-                    #_xn = _x / _xnorm
-                    #_yn = _y / _ynorm
+                    _xnorm = torch.linalg.norm(_x, ord=2)+1e-10
+                    _ynorm = torch.linalg.norm(_y, ord=2)+1e-10
+                    _xn = _x / _xnorm
+                    _yn = _y / _ynorm
                     # Method 1 not work
-                    #cc = -torch.dot(_xn*dt, _yn)
+                    cc = -torch.dot(_xn*dt, _yn)
                     # Method 2 not work
                     #cc = torch.sum(F.conv1d(_xn.unsqueeze(0).unsqueeze(0), _yn.unsqueeze(0).unsqueeze(0)))
                     # Method 3
-                    _xnorm = self.autocorrelation(_x, dt)
-                    _ynorm = self.autocorrelation(_y, dt)
-                    cc = torch.dot(_x, _y)/(torch.sqrt(_xnorm*_ynorm))
+                    # _xnorm = self.autocorrelation(_x, dt)
+                    # _ynorm = self.autocorrelation(_y, dt)
+                    # cc = -torch.dot(_x, _y)/(torch.sqrt(_xnorm*_ynorm))
+
                     loss += cc
                 else:
                     loss += 0.
@@ -430,7 +440,6 @@ class NIMl1(torch.nn.Module):
         y_cum_dist = self.niml1(x)
 
         return torch.nn.L1Loss()(x_cum_dist, y_cum_dist)
-
 
 class NIMl2(torch.nn.Module):
     def __init__(self):
@@ -651,7 +660,6 @@ class NIMSQUARE(torch.nn.Module):
 
         return torch.nn.MSELoss()(x_cum_dist, y_cum_dist)
 
-
 class NIMABS(torch.nn.Module):
     def __init__(self):
         super().__init__()
@@ -679,7 +687,6 @@ class NIMABS(torch.nn.Module):
         y_cum_dist = y_cum_dist / torch.sum(y**2)
         return torch.nn.MSELoss()(x_cum_dist, y_cum_dist)
 
-
 class NIMl1ORI(torch.nn.Module):
     def __init__(self):
         super().__init__()
@@ -704,7 +711,6 @@ class NIMl1ORI(torch.nn.Module):
         x_cum_dist = torch.cumsum(x, dim=0)
         y_cum_dist = torch.cumsum(y, dim=0)
         return torch.nn.L1Loss()(x_cum_dist, y_cum_dist)
-
 
 class NIMl2ORI(torch.nn.Module):
     def __init__(self):
@@ -1110,41 +1116,44 @@ class Huber(torch.nn.Module):
         loss = F.smooth_l1_loss(x, y, reduction='mean', beta=self.delta)
         return loss
     
-class Traveltime(torch.nn.Module):
+class Traveltime(torch.autograd.Function):
 
-    def __init__(self):
-        super(Traveltime, self).__init__() 
+    def __init__(ctx):
+        super(Traveltime, ctx).__init__()
 
     @property
-    def name(self,):
+    def name(ctx,):
         return "traveltime"
-    
-    def cc(self, x, y):
-        scale = 1e2
-        dt = self.cfg['geom']['dt']
-        nt = x.shape[0]
-        padding = nt-1
-        if torch.max(torch.abs(x))>0:
-            # Calculate the cross-correlation with full padding
-            cc = torch.abs(F.conv1d(x.unsqueeze(0), y.flip(-1).unsqueeze(0).unsqueeze(0), padding=padding))
-            # using gumbel-softmax for differentiable argmax
-            # in logits, the maximum value is 1, and the others are 0
-            logits = F.gumbel_softmax(cc*scale, tau=1, hard=True)
-            max_index = torch.sum(torch.arange(cc.shape[1], device=x.device) * logits)
-            return (max_index-nt+1)*dt
-        else:
-            return 0.
-
-    def forward(self, x, y):
-        # x_traveltime = torch.argmax(torch.real(torch.fft.ifft(torch.fft.fft(x**2, dim=0), dim=0)), dim=0)
-        # y_traveltime = torch.argmax(torch.real(torch.fft.ifft(torch.fft.fft(y**2, dim=0), dim=0)), dim=0)
-        # loss= torch.nn.MSELoss()(x_traveltime.float(), y_traveltime.float())
+        
+    @staticmethod
+    def forward(ctx, x, y):
+        dt = 0.001#ctx.cfg['geom']['dt']
+        ctx.save_for_backward(x, y)
         loss = 0
         nsamples, ntraces, nchannels = x.shape
         for t in range(ntraces):
             for c in range(nchannels):
-                loss += self.cc(x[:, t, c], y[:, t, c])
+                loss += travel_time_diff(x[:, t, c], y[:, t, c], dt)
         return loss
+    
+    @staticmethod
+    def backward(ctx, grad_output):
+        syn, obs = ctx.saved_tensors
+        adj = torch.zeros_like(obs)
+        dt = 0.001#ctx.cfg['geom']['dt']
+
+        adj[1:-1] = (syn[2:]-syn[:-2])/(2.*dt)
+        nsamples, ntraces, nchannels = syn.shape
+        for t in range(ntraces):
+            for c in range(nchannels):
+                tt_diff = travel_time_diff(syn[:, t, c], obs[:, t, c], dt)
+                norm = torch.sum(adj[:,t,c] * adj[:,t,c]) * dt
+                adj[:,t,c] /= (norm+1e-16)
+                adj[:,t,c] *= tt_diff
+
+        adj = adj*grad_output
+
+        return adj, None
     
 class DTW(torch.nn.Module):
     def __init__(self, window=100):
@@ -1620,6 +1629,124 @@ class Laplace(torch.nn.Module):
         lap_y = self.laplace(y)
         return torch.log(lap_x / lap_y).mean()
 
+class FATT(torch.autograd.Function):
+
+    @property
+    def name(ctx,):
+        return "fa"
+    
+    @staticmethod
+    def forward(ctx, x, y):
+        """Calculate the first arrival traveltime difference
+
+        Args:
+            x (Tensor): Synthetic data.
+            y (Tensor): Observered data.
+        """
+        syn = x
+        obs = y
+        device = x.device
+        """Configures"""
+        nsta = 11
+        nlta = 51
+        thresh_on = 0.1
+        thresh_off = 1.0
+        params = {"sta_len": nsta,
+                    "lta_len": nlta, 
+                    "threshold_on": thresh_on, 
+                    "threshold_off": thresh_off}
+
+        nsamples, ntraces, nchannels = x.shape
+        rec_idxs = np.arange(0, ntraces)
+
+        # Calculate the first arrival time for each trace
+        picked_obs = pick_first_arrivals(obs, **params) # Tensor
+        picked_syn = pick_first_arrivals(syn, **params) # Tensor
+
+        # np.save("/public1/home/wangsw/FWI/NO_LOWFREQ/fa/obs_arr_picked.npy", picked_obs.cpu().detach().numpy())
+        # np.save("/public1/home/wangsw/FWI/NO_LOWFREQ/fa/syn_arr_picked.npy", picked_syn.cpu().detach().numpy())
+
+        fitted_obs = []
+        fitted_syn = []
+
+        # Calculate the fitted time of each channel
+        for c in range(nchannels):
+            # Fit for making the picked first arrival time smooth
+            coefficients = np.polyfit(x=rec_idxs, y=picked_obs.cpu().numpy()[..., c], deg=15) # Numpy
+            polynomial_obs = np.poly1d(coefficients) # Numpy
+
+            coefficients = np.polyfit(x=rec_idxs, y=picked_syn.cpu().numpy()[..., c], deg=15) # Numpy
+            polynomial_syn = np.poly1d(coefficients) # Numpy
+
+            fitted_obs.append(polynomial_obs(rec_idxs))
+            fitted_syn.append(polynomial_syn(rec_idxs))
+
+        fitted_obs = torch.from_numpy(np.stack(fitted_obs, axis=-1)).to(device).float() # Tensor
+        fitted_syn = torch.from_numpy(np.stack(fitted_syn, axis=-1)).to(device).float() # Tensor
+
+        fitted_obs[fitted_obs>=nsamples] =  nsamples-1
+        fitted_syn[fitted_syn>=nsamples] =  nsamples-1
+
+        # np.save("/public1/home/wangsw/FWI/NO_LOWFREQ/fa/obs_arr_fitted.npy", fitted_obs.cpu().detach().numpy())
+        # np.save("/public1/home/wangsw/FWI/NO_LOWFREQ/fa/syn_arr_fitted.npy", fitted_syn.cpu().detach().numpy())
+
+        ctx.save_for_backward(syn, obs, fitted_syn, fitted_obs)
+
+        return torch.nn.MSELoss()(fitted_syn, fitted_obs)
+    
+    @staticmethod
+    def backward(ctx, grad_output):
+        syn, obs, fitted_syn, fitted_obs = ctx.saved_tensors
+        adj = torch.zeros_like(obs)
+        dt = 0.001#ctx.cfg['geom']['dt']
+
+        window_time = 250 #ms
+        windows_nt = int(window_time/1000/dt)
+
+        nsamples, ntraces, nchannels = syn.shape
+
+        # Generate the data mask
+        mask_obs = torch.zeros_like(obs)
+        mask_syn = torch.zeros_like(syn)
+        row_indices = torch.arange(nsamples).unsqueeze(1).to(obs.device)
+        for c in range(nchannels):
+            # Generate indices of ones for the observed data
+            start = torch.maximum(torch.zeros_like(fitted_obs[..., c]), fitted_obs[..., c].int()-windows_nt//2)
+            end = torch.minimum(torch.ones_like(fitted_obs[..., c])*nsamples, fitted_obs[..., c].int()+windows_nt//2)
+            ones_indices_obs = (row_indices >= start.unsqueeze(0)) & (row_indices <= end.unsqueeze(0))
+            # Generate indices of ones for the synthetic data
+            start = torch.maximum(torch.zeros_like(fitted_syn[..., c]), fitted_syn[..., c].int()-windows_nt//2)
+            end = torch.minimum(torch.ones_like(fitted_syn[..., c])*nsamples, fitted_syn[..., c].int()+windows_nt//2)
+            ones_indices_syn = (row_indices >= start.unsqueeze(0)) & (row_indices <= end.unsqueeze(0))
+            # Set the mask
+            mask_obs[..., c][ones_indices_obs] = 1.
+            mask_syn[..., c][ones_indices_syn] = 1.
+
+        # Mask the data so that only the first arrivals are used
+        masked_obs = obs * mask_obs
+        masked_syn = syn * mask_syn
+
+        # np.save("/public1/home/wangsw/FWI/NO_LOWFREQ/fa/mask_obs.npy", mask_obs.cpu().detach().numpy())
+        # np.save("/public1/home/wangsw/FWI/NO_LOWFREQ/fa/mask_syn.npy", mask_syn.cpu().detach().numpy())
+
+        # np.save("/public1/home/wangsw/FWI/NO_LOWFREQ/fa/masked_obs.npy", masked_obs.cpu().detach().numpy())
+        # np.save("/public1/home/wangsw/FWI/NO_LOWFREQ/fa/masked_syn.npy", masked_syn.cpu().detach().numpy())
+
+        adj[1:-1] = (masked_syn[2:]-masked_syn[:-2])/(2.*dt)
+
+        # Calculate the adjoint source trace by trace
+        for t in range(ntraces):
+            for c in range(nchannels):
+                tt_diff = travel_time_diff(masked_obs[:, t, c], masked_syn[:, t, c], dt)
+                norm = torch.sum(adj[:,t,c] * adj[:,t,c]) * dt
+                adj[:,t,c] /= (norm+1e-16)
+                adj[:,t,c] *= tt_diff
+
+        adj = adj*grad_output
+
+        return adj, None
+
+
 class FirstArrivalTravelTime(torch.nn.Module):
     def __init__(self,):
         super().__init__()
@@ -1635,6 +1762,7 @@ class FirstArrivalTravelTime(torch.nn.Module):
     def name(self,):
         return "fatt"
     
+
     def intersection(self, arrays: list):
         if not arrays:
             return []
@@ -1736,32 +1864,32 @@ class FirstArrivalTravelTime(torch.nn.Module):
             y_index[...,i] = torch.arange(nsamples, device=x.device)[:, None] < y_arrivals[...,i]+n_reserve
 
         # Get first arrival
-        # x_cut = x_index * x
-        # y_cut = y_index * y
+        x_cut = x_index * x
+        y_cut = y_index * y
 
-        x_cut = x
-        y_cut = y
+        # x_cut = x
+        # y_cut = y
 
         np.save(f"{self.cfg['ROOTPATH']}/syn.npy", x_cut.cpu().detach().numpy())
         np.save(f"{self.cfg['ROOTPATH']}/obs.npy", y_cut.cpu().detach().numpy())
            
-
         padding = nsamples - 1
         # Calculate the trace-wise cross-correlation
         loss = 0.
-        scale = 1
+        scale = 1e2
         for t in range(ntraces):
             for c in range(nchannles):
                 _x = x_cut[:, t, c]
                 _y = y_cut[:, t, c]
 
                 if torch.max(torch.abs(x))>0:
-                    cc = torch.abs(F.conv1d(_x.unsqueeze(0), _y.flip(-1).unsqueeze(0).unsqueeze(0), padding=padding))
+                    #cc = torch.abs(F.conv1d(_x.unsqueeze(0), _y.unsqueeze(0).unsqueeze(0), padding=padding))
+                    cc = F.conv1d(_x.unsqueeze(0), _y.unsqueeze(0).unsqueeze(0), padding=padding)
                     # using gumbel-softmax for differentiable argmax
                     # in logits, the maximum value is 1, and the others are 0
                     logits = F.gumbel_softmax(cc*scale, tau=1, hard=True)
                     max_index = torch.sum(torch.arange(cc.shape[1], device=x.device) * logits)
-                    loss += (max_index-nsamples+1)*nsamples
+                    loss += (max_index-nsamples+1)*self.dt
                 else:
                     loss += 0.
         return loss

@@ -1,0 +1,112 @@
+# Random seed for pytorch and all shuffle functions
+seed: 20230503
+
+name: coding_fwi
+
+# Data type to use for tensors, either float32 or float64
+dtype: float32
+
+equation: acoustic
+
+training:
+
+  implicit:
+    use: false
+    pretrained:
+
+  minibatch: true
+
+  batch_size: 20
+
+  # Number of training epochs
+  N_epochs: 20
+
+  # Optimizer learning rate
+  lr: 5
+
+  # Decay the learning rate by each of multi-scale
+  scale_decay: 0.85
+
+  # decay the lr by each of epochs
+  lr_decay: 0.995
+
+  # Filter order
+  filter_ord: 3
+
+geom:
+
+  # The observer data
+  obsPath: /public1/home/wangsw/FWI/EFWI/Marmousi/marmousi_10m/data/marmousi_aec_obn_p.npy
+
+  # Wave speed model from disk_file for forward modeling
+  truePath:
+    vp: /home/les_01/wangsw/models/marmousi/10m/velocity/true_vp.npy
+    vs: /home/les_01/wangsw/models/marmousi/10m/velocity/true_vs.npy
+    rho: /home/les_01/wangsw/models/marmousi/10m/velocity/rho.npy
+    Q: 
+    #/mnt/data/wangsw/inversion/marmousi_10m/data//velocity/q_const.npy
+
+  sources: /home/les_01/wangsw/fwi2d/geometry/marmousi_obn_10m/sources.pkl
+
+  receivers: /home/les_01/wangsw/fwi2d/geometry/marmousi_obn_10m/receivers.pkl
+
+  seabed: /home/les_01/wangsw/fwi2d/geometry/marmousi_obn_10m/seabed.npy
+
+  wavelet: 
+
+  multiple: false
+
+  boundary_saving: true
+
+  wavelet_delay: 500
+
+  wavelet_inverse: false
+  #./geometry/ricker_lowcut5hz.npy
+
+  source_type:
+    - h1
+
+  receiver_type:
+    - h1
+
+  # Inital Wave speed model from disk_file
+  initPath: 
+    vp: /home/les_01/wangsw/models/marmousi/10m/velocity/linear_vp.npy
+    vs: /home/les_01/wangsw/models/marmousi/10m/velocity/linear_vs.npy
+    rho: /home/les_01/wangsw/models/marmousi/10m/velocity/rho.npy
+    Q:
+
+  invlist:
+    vp: true
+    vs: true
+    rho: false
+    q: false
+
+  # using checkpoint for saving memory
+  ckpt: true
+
+  # Save the results of FWI
+  inv_savePath: /mnt/data/wangsw/inversion/marmousi_10m/Test
+
+  multiscale:
+    - 5.0
+
+  # Time Sampling step
+  dt: 0.001
+
+  # Time samples
+  nt: 4000
+
+  # Main frequency of ricker wave
+  fm: 15.0
+
+  # Spatial grid step size
+  h: 10.0
+
+  # Total Shots
+  Nshots: 111
+
+  pml:
+    N: 50    # PML thickness in number of grid cells
+    p: 4   # PML polynomial order
+    max: 20.0 # PML max dampening factor

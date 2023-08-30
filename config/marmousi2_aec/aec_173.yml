@@ -10,6 +10,10 @@ equation: aec
 
 training:
 
+  implicit:
+    use: false
+    pretrained:
+
   minibatch: true
 
   batch_size: 20
@@ -24,7 +28,7 @@ training:
   lr_decay: 0.995
 
   # Decay the learning rate by each of multi-scale
-  scale_decay: 0.75
+  scale_decay: 0.85
 
   # Filter order
   filter_ord: 3
@@ -32,36 +36,41 @@ training:
 geom:
 
   # The observer data
-  obsPath: /public1/home/wangsw/FWI/AFWI/marmousi2/data/acoustic.npy
+  obsPath: /public1/home/wangsw/FWI/EFWI/Marmousi/Marmousi2/data/p173.npy
 
   # Wave speed model from disk_file for forward modeling
   truePath:
     vp: /home/les_01/wangsw/models/marmousi/elastic_modified/true_vp_z12.5m_x12.5m_expand.npy
-    vs: /home/les_01/wangsw/models/marmousi/elastic_modified/true_vs_z12.5m_x12.5m_expand.npy
+    vs: /home/les_01/wangsw/models/marmousi/elastic_modified/true_vs_z12.5m_x12.5m_expand_173.npy
     rho: /home/les_01/wangsw/models/marmousi/elastic_modified/true_rho_z12.5m_x12.5m_expand.npy
     Q: 
 
-  sources: ./geometry/marmousi_fixed/sources.pkl
+  sources: /home/les_01/wangsw/fwi2d/geometry/marmousi_fixed/sources.pkl
 
-  receivers: ./geometry/marmousi_fixed/receivers.pkl
+  receivers: /home/les_01/wangsw/fwi2d/geometry/marmousi_fixed/receivers.pkl
 
-  seabed: ./geometry/marmousi_fixed/sea.npy
+  seabed: /home/les_01/wangsw/fwi2d/geometry/marmousi_fixed/seabed.npy
 
   # optional, if you want to use the same random source
-  wavelet:
+  wavelet: /public1/home/wangsw/FWI/EFWI/Marmousi/Marmousi2/source/true_source.npy
+
+  multiple: false
+
+  boundary_saving: true
+
+  wavelet_delay: 80
 
   source_type:
     - vz
 
   receiver_type:
-    - vx
-    - vz
+    - p
 
   # Inital Wave speed model from disk_file
   initPath: 
-    vp: /home/les_01/wangsw/models/marmousi/elastic_modified/init_vp_z12.5m_x12.5m_expand.npy
-    vs: /home/les_01/wangsw/models/marmousi/elastic_modified/init_vs_z12.5m_x12.5m_expand.npy
-    rho: /home/les_01/wangsw/models/marmousi/elastic_modified/init_rho_z12.5m_x12.5m_expand.npy
+    vp: /home/les_01/wangsw/models/marmousi/elastic_modified/linear_vp_z12.5m_x12.5m_expand.npy
+    vs: /home/les_01/wangsw/models/marmousi/elastic_modified/linear_vs_z12.5m_x12.5m_expand.npy
+    rho: /home/les_01/wangsw/models/marmousi/elastic_modified/linear_rho_z12.5m_x12.5m_expand.npy
     Q:
 
   invlist:
@@ -91,7 +100,7 @@ geom:
   nt: 4000
 
   # Main frequency of ricker wave
-  fm: 10.0
+  fm: 15.0
 
   # Spatial grid step size
   h: 12.5

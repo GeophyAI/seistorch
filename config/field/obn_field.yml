@@ -19,7 +19,7 @@ training:
   batch_size: 20
 
   # Number of training epochs
-  N_epochs: 100
+  N_epochs: 1
 
   # Optimizer learning rate
   lr: 5
@@ -36,9 +36,10 @@ training:
 geom:
 
   # The observer data
-  obsPath: /public1/home/wangsw/FWI/FIELDDATA/OBN/data/p01_Geo_1ms_0.5s.npy
+  obsPath: /public1/home/wangsw/FWI/FIELDDATA/OBN/data/p01_Geo_1ms_0.5s_10Hz.npy
 
-  arrival_mask: /public1/home/wangsw/FWI/FIELDDATA/OBN/data/p01_Geo_1ms_first0.5s_ArrivalMask.npy
+  arrival_mask: 
+  #/public1/home/wangsw/FWI/FIELDDATA/OBN/data/p01_Geo_1ms_first0.5s_ArrivalMask.npy
   #/public1/home/wangsw/FWI/FIELDDATA/OBN/data/p01_Geo_1ms_first1s_ArrivalMask.npy
   #/public1/home/wangsw/FWI/FIELDDATA/OBN/data/p01_Geo.npy
 

@@ -5,7 +5,7 @@ from typing import Tuple
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
-from scipy.ndimage import gaussian_filter
+from scipy.ndimage import gaussian_filter, gaussian_filter1d
 from torch.nn.functional import conv2d
 
 from .eqconfigure import Parameters
@@ -374,7 +374,8 @@ class WaveGeometryFreeForm(WaveGeometry):
             if var.requires_grad:
                 smoothed_grad = var.grad.cpu().detach().numpy()
                 for i in range(10):
-                    smoothed_grad = gaussian_filter(smoothed_grad, sigma)
+                    smoothed_grad = gaussian_filter1d(smoothed_grad, sigma, axis=1)
+                    # smoothed_grad = gaussian_filter(smoothed_grad, sigma)
                 var.grad.copy_(to_tensor(smoothed_grad).to(var.grad.device))
 
     def gradient_cut(self, mask=None, padding=50):
