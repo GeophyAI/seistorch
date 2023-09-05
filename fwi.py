@@ -206,6 +206,8 @@ if __name__ == '__main__':
 
         """Write configure file to the inversion folder"""
         ROOTPATH = args.save_path if args.save_path else cfg["geom"]["inv_savePath"]
+        MINIBATCH = cfg['training']['minibatch']
+        BATCHSIZE = cfg['training']['batch_size']
         cfg["loss"] = args.loss
         cfg["ROOTPATH"] = ROOTPATH
         cfg['training']['lr'] = args.lr
@@ -269,43 +271,45 @@ if __name__ == '__main__':
             """Loop over all epoches"""
             for epoch in range(EPOCHS):
 
-                # 主节点
+                # Master rank will assign tasks to other ranks
                 if rank == 0:
-                    pbar = tqdm.tqdm(range(0, NSHOTS), leave=False)
+                    shots = np.random.choice(np.arange(NSHOTS), BATCHSIZE, replace=False) if MINIBATCH else np.arange(NSHOTS)
+                    num_tasks = shots.size
+                    pbar = tqdm.tqdm(range(0, num_tasks), leave=False)
                     pbar.set_description(f"Freq{idx_freq}Epoch{epoch}")
-                    num_tasks = NSHOTS  # 任务总数=炮数
                     task_index = 0
                     completed_tasks = 0
                     active_workers = min(size-1, num_tasks)
-                    # 向所有其他节点发送初始任务
+                    # Send initial tasks to all workers
                     for i in range(1, size):
                         if task_index < num_tasks:
-                            comm.send(task_index, dest=i, tag=1)
+                            comm.send(shots[task_index], dest=i, tag=1)
                             task_index += 1
                         else:
                             comm.send(-1, dest=i, tag=0)
 
                     while completed_tasks < num_tasks:
-                        # 接收已完成任务的节点信息
+                        # Receive results from any worker
                         completed_task, sender_rank, _grad, _loss = comm.recv(source=MPI.ANY_SOURCE, tag=1)
                         grad3d[completed_task][:] = _grad
                         loss[idx_freq][epoch][completed_task] = _loss
-                        # 任务计数器
+                        # Task index plus one
                         completed_tasks += 1
                         pbar.update(1)
-                        # 如果还有未完成任务，分配新任务给完成任务的节点
+                        # If there are still tasks to be completed, 
+                        # assign them to the worker who just completed a task
                         if task_index < num_tasks:
-                            comm.send(task_index, dest=sender_rank, tag=1)
+                            comm.send(shots[task_index], dest=sender_rank, tag=1)
                             task_index += 1
                         else:
-                            # 向已完成任务的节点发送停止信号
+                            # Send stop signal to the worker who just completed a task
                             comm.send(-1, dest=sender_rank, tag=0)
                             active_workers -= 1
                 else:
                     while True:
-                        # 接收任务
+                        # Receive task from the master node
                         task = comm.recv(source=0, tag=MPI.ANY_TAG)
-                        # 如果接收到停止信号，跳出循环
+                        # Break the loop if the master node has sent stop signal
                         if task == -1:
                             break
                         sources = []
@@ -325,9 +329,14 @@ if __name__ == '__main__':
                                 model.reset_probes(probes)
                                 syn = model(lp_wavelet)
                                 obs = to_tensor(filtered_data[shot_num]).to(syn.device)#.unsqueeze(0)
-                                np.save(f"{ROOTPATH}/syn.npy", obs.cpu().detach().numpy())
-                                np.save(f"{ROOTPATH}/obs.npy", syn.cpu().detach().numpy())
+                                #if shot==10:
+                                #name_postfix = 'init' if epoch==0 else ''
+                                name_postfix = ''
+                                np.save(f"{ROOTPATH}/obs{name_postfix}.npy", obs.cpu().detach().numpy())
+                                np.save(f"{ROOTPATH}/syn{name_postfix}.npy", syn.cpu().detach().numpy())
                                 loss = criterions(syn, obs)
+                                adj = torch.autograd.grad(loss, syn)[0]
+                                np.save(f"{ROOTPATH}/adj.npy", adj.detach().cpu().numpy())
                                 """HvP Start"""
                                 # Perform a backward pass to compute the gradients
                                 # grads = torch.autograd.grad(loss, [model.cell.geom.vp], create_graph=True)
@@ -384,6 +393,9 @@ if __name__ == '__main__':
                         var.grad.data = to_tensor(grad2d[idx]).to(args.dev)
                     if args.grad_cut and isinstance(SEABED, torch.Tensor):
                         model.cell.geom.gradient_cut(SEABED, cfg['geom']['pml']['N'])
+
+                    # Gradient clip
+                    #torch.nn.utils.clip_grad_norm_(model.cell.parameters(), 1e-2)
                     # Update the model parameters and learning rate
                     optimizers.step()
                     lr_scheduler.step()

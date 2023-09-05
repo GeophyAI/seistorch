@@ -11,6 +11,7 @@ def batch_sta_lta(traces, sta_len, lta_len, threshold_on=0.5, threshold_off=1.0)
         threshold_on (float): Threshold for turning on the trigger
         threshold_off (float): Threshold for turning off the trigger
     """
+    nt, _ = traces.shape
     sta_kernel = np.ones(sta_len)
     lta_kernel = np.ones(lta_len)
     # Apply convolve along the first axis of the array
@@ -25,6 +26,7 @@ def batch_sta_lta(traces, sta_len, lta_len, threshold_on=0.5, threshold_off=1.0)
     
     # Get first arrival time 
     fa_time = np.argmax(trigger, axis=0)
+    fa_time[fa_time==0] = nt-1
 
     return fa_time
 
@@ -97,8 +99,18 @@ def pick_first_arrivals(d, *args, **kwargs):
         fa_times.append(batch_sta_lta_torch(d[:, :, c], *args, **kwargs).view(ntraces, 1))
     return torch.cat(fa_times, dim=1)
 
+def pick_first_arrivals_numpy(d, *args, **kwargs):
+    _, ntraces, nchannels = d.shape
+    fa_times = []
+    for c in range(nchannels):
+        fa_times.append(batch_sta_lta(d[:, :, c], *args, **kwargs).reshape(-1, 1))
+    return np.array(fa_times).T
+
 def travel_time_diff(x, y, dt=0.001):
-    nt = x.shape[0]
-    padding = nt-1
-    cc = torch.abs(F.conv1d(x.unsqueeze(0), y.unsqueeze(0).unsqueeze(0), padding=padding))
-    return (torch.argmax(cc)-nt+1)*dt
+    if torch.max(torch.abs(x))>1e-5 or torch.max(torch.abs(y))>1e-5:
+        nt = x.shape[0]
+        padding = nt-1
+        cc = torch.abs(F.conv1d(x.unsqueeze(0), y.unsqueeze(0).unsqueeze(0), padding=padding))
+        return (torch.argmax(cc)-nt+1)*dt
+    else:
+        return 0

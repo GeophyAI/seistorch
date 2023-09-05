@@ -57,7 +57,14 @@ def setup_optimizer(model, cfg, idx_freq=0, implicit=False, *args, **kwargs):
                                 'lr':_lr})
 
     # Setup the optimizer
-    optimizers = torch.optim.Adam(paras_for_optim, betas=(0.9, 0.999), eps=1e-22)
+    if 'fa' in cfg['loss'].values():
+        print("Using first arrival loss")
+        for idx in range(len(paras_for_optim)):
+            paras_for_optim[idx]['lr'] = 5e2 # For SGD
+        optimizers = torch.optim.SGD(paras_for_optim, momentum=0.9)
+    else:
+        optimizers = torch.optim.Adam(paras_for_optim, betas=(0.9, 0.999), eps=1e-22)
+
     # Setup the learning rate scheduler
     lr_scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizers, epoch_decay, last_epoch=- 1, verbose=False)
 

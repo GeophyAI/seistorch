@@ -1647,9 +1647,9 @@ class FATT(torch.autograd.Function):
         obs = y
         device = x.device
         """Configures"""
-        nsta = 11
-        nlta = 51
-        thresh_on = 0.1
+        nsta = 101
+        nlta = 1001
+        thresh_on = 0.5
         thresh_off = 1.0
         params = {"sta_len": nsta,
                     "lta_len": nlta, 
@@ -1684,6 +1684,8 @@ class FATT(torch.autograd.Function):
         fitted_obs = torch.from_numpy(np.stack(fitted_obs, axis=-1)).to(device).float() # Tensor
         fitted_syn = torch.from_numpy(np.stack(fitted_syn, axis=-1)).to(device).float() # Tensor
 
+        fitted_obs[fitted_obs<0] =  0
+        fitted_syn[fitted_syn<0] =  0
         fitted_obs[fitted_obs>=nsamples] =  nsamples-1
         fitted_syn[fitted_syn>=nsamples] =  nsamples-1
 
@@ -1700,7 +1702,7 @@ class FATT(torch.autograd.Function):
         adj = torch.zeros_like(obs)
         dt = 0.001#ctx.cfg['geom']['dt']
 
-        window_time = 250 #ms
+        window_time = 800 #ms
         windows_nt = int(window_time/1000/dt)
 
         nsamples, ntraces, nchannels = syn.shape
@@ -1711,12 +1713,12 @@ class FATT(torch.autograd.Function):
         row_indices = torch.arange(nsamples).unsqueeze(1).to(obs.device)
         for c in range(nchannels):
             # Generate indices of ones for the observed data
-            start = torch.maximum(torch.zeros_like(fitted_obs[..., c]), fitted_obs[..., c].int()-windows_nt//2)
-            end = torch.minimum(torch.ones_like(fitted_obs[..., c])*nsamples, fitted_obs[..., c].int()+windows_nt//2)
+            start = torch.maximum(torch.zeros_like(fitted_obs[..., c]), fitted_obs[..., c].int()-100)
+            end = torch.minimum(torch.ones_like(fitted_obs[..., c])*nsamples, fitted_obs[..., c].int()+windows_nt-100)
             ones_indices_obs = (row_indices >= start.unsqueeze(0)) & (row_indices <= end.unsqueeze(0))
             # Generate indices of ones for the synthetic data
-            start = torch.maximum(torch.zeros_like(fitted_syn[..., c]), fitted_syn[..., c].int()-windows_nt//2)
-            end = torch.minimum(torch.ones_like(fitted_syn[..., c])*nsamples, fitted_syn[..., c].int()+windows_nt//2)
+            start = torch.maximum(torch.zeros_like(fitted_syn[..., c]), fitted_syn[..., c].int()-100)
+            end = torch.minimum(torch.ones_like(fitted_syn[..., c])*nsamples, fitted_syn[..., c].int()+windows_nt-100)
             ones_indices_syn = (row_indices >= start.unsqueeze(0)) & (row_indices <= end.unsqueeze(0))
             # Set the mask
             mask_obs[..., c][ones_indices_obs] = 1.
@@ -1726,23 +1728,25 @@ class FATT(torch.autograd.Function):
         masked_obs = obs * mask_obs
         masked_syn = syn * mask_syn
 
-        # np.save("/public1/home/wangsw/FWI/NO_LOWFREQ/fa/mask_obs.npy", mask_obs.cpu().detach().numpy())
-        # np.save("/public1/home/wangsw/FWI/NO_LOWFREQ/fa/mask_syn.npy", mask_syn.cpu().detach().numpy())
+        # np.save("/public1/home/wangsw/FWI/NO_LOWFREQ/fa2/mask_obs.npy", mask_obs.cpu().detach().numpy())
+        # np.save("/public1/home/wangsw/FWI/NO_LOWFREQ/fa2/mask_syn.npy", mask_syn.cpu().detach().numpy())
 
-        # np.save("/public1/home/wangsw/FWI/NO_LOWFREQ/fa/masked_obs.npy", masked_obs.cpu().detach().numpy())
-        # np.save("/public1/home/wangsw/FWI/NO_LOWFREQ/fa/masked_syn.npy", masked_syn.cpu().detach().numpy())
+        np.save("/public1/home/wangsw/FWI/NO_LOWFREQ/fa2/masked_obs.npy", masked_obs.cpu().detach().numpy())
+        np.save("/public1/home/wangsw/FWI/NO_LOWFREQ/fa2/masked_syn.npy", masked_syn.cpu().detach().numpy())
 
         adj[1:-1] = (masked_syn[2:]-masked_syn[:-2])/(2.*dt)
 
         # Calculate the adjoint source trace by trace
         for t in range(ntraces):
             for c in range(nchannels):
-                tt_diff = travel_time_diff(masked_obs[:, t, c], masked_syn[:, t, c], dt)
+                tt_diff = -travel_time_diff(masked_obs[:, t, c], masked_syn[:, t, c], dt)
                 norm = torch.sum(adj[:,t,c] * adj[:,t,c]) * dt
                 adj[:,t,c] /= (norm+1e-16)
                 adj[:,t,c] *= tt_diff
 
         adj = adj*grad_output
+
+        np.save("/public1/home/wangsw/FWI/NO_LOWFREQ/fa2/adj.npy", adj.cpu().detach().numpy())
 
         return adj, None
 
@@ -1752,10 +1756,10 @@ class FirstArrivalTravelTime(torch.nn.Module):
         super().__init__()
 
     def setup(self,):
-        self.nsta = 21
-        self.nlta = 101
-        self.thresh_on = 1.0
-        self.thresh_off = 10.0
+        self.nsta = 101
+        self.nlta = 1001
+        self.thresh_on = 0.5
+        self.thresh_off = 1.0
         self.dt = self.cfg['geom']['dt']
 
     @property
@@ -1771,67 +1775,27 @@ class FirstArrivalTravelTime(torch.nn.Module):
         intersection_result = torch.any(arrays_np, axis=0)
         
         return intersection_result
-        
-    def batch_sta_lta_torch(self, traces, sta_len, lta_len, threshold_on=0.5, threshold_off=1.0):
-        """Summary: Calculate the STA/LTA ratio of a signal
 
-        Args:
-            traces (np.ndarray): 2D array of traces with shape (nsamples, ntraces)
-            sta_len (int): Length of the short-term average window
-            lta_len (int): Length of the long-term average window
-            threshold_on (float): Threshold for turning on the trigger
-            threshold_off (float): Threshold for turning off the trigger
-        """
-        def apply_along_axis(function, arr=None, axis: int = 0):
-            return torch.stack([
-                function(x_i) for x_i in torch.unbind(arr, dim=axis)
-            ], dim=axis)
-        
-        sta_kernel = torch.ones(1, 1, sta_len, device=traces.device)
-        lta_kernel = torch.ones(1, 1, lta_len, device=traces.device)
+    def interpolate(self, x, nsamples):
+        device = x.device
+        ntraces, nchannels = x.shape
+        rec_idxs = np.arange(0, ntraces)
 
-        # Apply convolve along the first axis of the array
-        # conv 1d: input shape: (batch_size, in_channels, signal_len)
-        #           kernel shape: (out_channels, in_channels, kernel_size)
-        
-        # Method 1
-        # sta = apply_along_axis(lambda x: torch.nn.functional.conv1d(x.unsqueeze(0), sta_kernel, padding=padding), arr=traces, axis=0)
-        # lta = apply_along_axis(lambda x: torch.nn.functional.conv1d(x.unsqueeze(0), lta_kernel, padding=padding), arr=traces, axis=0)
-        
-
-        # Method 2
-        padding = "same"
-        sta = []
-        lta = []
-        nt, nr = traces.shape
-        for i in range(nr):
-            sta.append(torch.nn.functional.conv1d(traces[:,i].unsqueeze(0).unsqueeze(0), sta_kernel, padding=padding))
-            lta.append(torch.nn.functional.conv1d(traces[:,i].unsqueeze(0).unsqueeze(0), lta_kernel, padding=padding))
-        sta = torch.cat(sta, dim=0).permute(2,0,1)
-        lta = torch.cat(lta, dim=0).permute(2,0,1)
-        ratio = sta / (lta+0.001)
-        # Track trigger
-        trigger = (ratio > threshold_on).int()
-        trigger[1:] -= (ratio[:-1] < threshold_off).int()
-        
-        # Get first arrival time 
-        fa_time = torch.argmax(trigger, axis=0)
-        
-        return fa_time.squeeze().int()
-
-    def process_channels(self, d, *args, **kwargs):
-        _, ntraces, nchannels = d.shape
-        fa_times = []
+        fitted = []
+        # Calculate the fitted time of each channel
         for c in range(nchannels):
-            fa_times.append(self.batch_sta_lta_torch(d[:, :, c], *args, **kwargs).view(ntraces, 1))
-            # fa_times.append(batch_sta_lta(d[:, :, c].cpu().detach().numpy(), *args, **kwargs).reshape(ntraces, 1))
-        
-        # Numpy 
-        # fa_times = np.array(fa_times)
-        # fa_times = torch.from_numpy(np.concatenate(fa_times, axis=1)).to(d.device)
-        # return fa_times
+            # Fit for making the picked first arrival time smooth
+            coefficients = np.polyfit(x=rec_idxs, y=x.cpu().numpy()[..., c], deg=15) # Numpy
+            polynomial = np.poly1d(coefficients) # Numpy
 
-        return torch.cat(fa_times, dim=1)
+            fitted.append(polynomial(rec_idxs))
+
+        fitted = torch.from_numpy(np.stack(fitted, axis=-1)).to(device).float() # Tensor
+
+        fitted[fitted<0] =  0
+        fitted[fitted>=nsamples] =  nsamples-1
+
+        return fitted
 
     def forward(self, x, y):
         # x: Syn
@@ -1843,13 +1807,22 @@ class FirstArrivalTravelTime(torch.nn.Module):
                   "threshold_on": self.thresh_on, 
                   "threshold_off": self.thresh_off}
         # Pick the first arrival travel time
-        x_arrivals = self.process_channels(x, **params)
-        y_arrivals = self.process_channels(y, **params)
-        np.save(f"{self.cfg['ROOTPATH']}/x_arrivals.npy", x_arrivals.cpu().numpy())
-        np.save(f"{self.cfg['ROOTPATH']}/y_arrivals.npy", y_arrivals.cpu().numpy())
+        # x_arrivals = self.process_channels(x, **params)
+        # y_arrivals = self.process_channels(y, **params)
+
+        # Calculate the first arrival time for each trace
+        x_arrivals = pick_first_arrivals(x, **params) # Tensor
+        y_arrivals = pick_first_arrivals(y, **params) # Tensor
+
+        # Interpolate the first arrival time
+        x_arrivals = self.interpolate(x_arrivals, nsamples)
+        y_arrivals = self.interpolate(y_arrivals, nsamples)
+
+        np.save(f"{self.cfg['ROOTPATH']}/syn_arrivals.npy", x_arrivals.cpu().numpy())
+        np.save(f"{self.cfg['ROOTPATH']}/obs_arrivals.npy", y_arrivals.cpu().numpy())
         # Cut the traces according to the arrivals
         # Only retain the events before the first arrival + a fixed time window
-        t_after = 200 # ms
+        t_after = 600 # ms
         n_reserve = int(t_after/1000/self.dt)
 
         # Construct the boolean index which is used to select the data
@@ -1872,26 +1845,35 @@ class FirstArrivalTravelTime(torch.nn.Module):
 
         np.save(f"{self.cfg['ROOTPATH']}/syn.npy", x_cut.cpu().detach().numpy())
         np.save(f"{self.cfg['ROOTPATH']}/obs.npy", y_cut.cpu().detach().numpy())
-           
+        
         padding = nsamples - 1
         # Calculate the trace-wise cross-correlation
         loss = 0.
-        scale = 1e2
+        scale = 1e6
+        ttd = np.zeros(ntraces, np.float32)
+        argmax = np.zeros(ntraces, np.float32)
+        indices = torch.arange(2*nsamples-1, device=x.device)
         for t in range(ntraces):
             for c in range(nchannles):
                 _x = x_cut[:, t, c]
                 _y = y_cut[:, t, c]
 
-                if torch.max(torch.abs(x))>0:
+                if torch.max(torch.abs(_x))>1e-5 or torch.max(torch.abs(_y))>1e-5:
                     #cc = torch.abs(F.conv1d(_x.unsqueeze(0), _y.unsqueeze(0).unsqueeze(0), padding=padding))
                     cc = F.conv1d(_x.unsqueeze(0), _y.unsqueeze(0).unsqueeze(0), padding=padding)
                     # using gumbel-softmax for differentiable argmax
                     # in logits, the maximum value is 1, and the others are 0
+                    # logits = cc.softmax(dim=-1)
                     logits = F.gumbel_softmax(cc*scale, tau=1, hard=True)
-                    max_index = torch.sum(torch.arange(cc.shape[1], device=x.device) * logits)
+                    max_index = torch.sum(indices * logits)
+                    ttd[t] = (max_index.detach().cpu().numpy()-nsamples+1)*self.dt
+                    argmax[t] = (torch.argmax(cc).cpu().numpy()-nsamples+1)*self.dt
                     loss += (max_index-nsamples+1)*self.dt
                 else:
                     loss += 0.
+        np.save(f"{self.cfg['ROOTPATH']}/ttd.npy", ttd)
+        np.save(f"{self.cfg['ROOTPATH']}/ttd_argmax.npy", argmax)
+
         return loss
 
 # class SourceEncoding(torch.nn.Module):
@@ -1962,3 +1944,270 @@ class FirstArrivalTravelTime(torch.nn.Module):
 #         self.nsamples, self.nrecs, self.nchannels = x.shape
 #         self.setup(self.nrecs, self.nsamples, dobs=y)
 #         return loss
+
+import numpy as np
+import torch
+import torch.cuda
+from numba import jit
+from torch.autograd import Function
+from numba import cuda
+import math
+
+# DTW
+# ----------------------------------------------------------------------------------------------------------------------
+@cuda.jit
+def compute_softdtw_cuda(D, gamma, bandwidth, max_i, max_j, n_passes, R):
+    """
+    :param seq_len: The length of the sequence (both inputs are assumed to be of the same size)
+    :param n_passes: 2 * seq_len - 1 (The number of anti-diagonals)
+    """
+    # Each block processes one pair of examples
+    b = cuda.blockIdx.x
+    # We have as many threads as seq_len, because the most number of threads we need
+    # is equal to the number of elements on the largest anti-diagonal
+    tid = cuda.threadIdx.x
+
+    # Compute I, J, the indices from [0, seq_len)
+
+    # The row index is always the same as tid
+    I = tid
+
+    inv_gamma = 1.0 / gamma
+
+    # Go over each anti-diagonal. Only process threads that fall on the current on the anti-diagonal
+    for p in range(n_passes):
+
+        # The index is actually 'p - tid' but need to force it in-bounds
+        J = max(0, min(p - tid, max_j - 1))
+
+        # For simplicity, we define i, j which start from 1 (offset from I, J)
+        i = I + 1
+        j = J + 1
+
+        # Only compute if element[i, j] is on the current anti-diagonal, and also is within bounds
+        if I + J == p and (I < max_i and J < max_j):
+            # Don't compute if outside bandwidth
+            if not (abs(i - j) > bandwidth > 0):
+                r0 = -R[b, i - 1, j - 1] * inv_gamma
+                r1 = -R[b, i - 1, j] * inv_gamma
+                r2 = -R[b, i, j - 1] * inv_gamma
+                rmax = max(max(r0, r1), r2)
+                rsum = math.exp(r0 - rmax) + math.exp(r1 - rmax) + math.exp(r2 - rmax)
+                softmin = -gamma * (math.log(rsum) + rmax)
+                R[b, i, j] = D[b, i - 1, j - 1] + softmin
+
+        # Wait for other threads in this block
+        cuda.syncthreads()
+
+# ----------------------------------------------------------------------------------------------------------------------
+@cuda.jit
+def compute_softdtw_backward_cuda(D, R, inv_gamma, bandwidth, max_i, max_j, n_passes, E):
+    k = cuda.blockIdx.x
+    tid = cuda.threadIdx.x
+
+    # Indexing logic is the same as above, however, the anti-diagonal needs to
+    # progress backwards
+    I = tid
+
+    for p in range(n_passes):
+        # Reverse the order to make the loop go backward
+        rev_p = n_passes - p - 1
+
+        # convert tid to I, J, then i, j
+        J = max(0, min(rev_p - tid, max_j - 1))
+
+        i = I + 1
+        j = J + 1
+
+        # Only compute if element[i, j] is on the current anti-diagonal, and also is within bounds
+        if I + J == rev_p and (I < max_i and J < max_j):
+
+            if math.isinf(R[k, i, j]):
+                R[k, i, j] = -math.inf
+
+            # Don't compute if outside bandwidth
+            if not (abs(i - j) > bandwidth > 0):
+                a = math.exp((R[k, i + 1, j] - R[k, i, j] - D[k, i + 1, j]) * inv_gamma)
+                b = math.exp((R[k, i, j + 1] - R[k, i, j] - D[k, i, j + 1]) * inv_gamma)
+                c = math.exp((R[k, i + 1, j + 1] - R[k, i, j] - D[k, i + 1, j + 1]) * inv_gamma)
+                E[k, i, j] = E[k, i + 1, j] * a + E[k, i, j + 1] * b + E[k, i + 1, j + 1] * c
+
+        # Wait for other threads in this block
+        cuda.syncthreads()
+
+# ----------------------------------------------------------------------------------------------------------------------
+def jacobean_product_squared_euclidean(X, Y, Bt):
+    '''
+    jacobean_product_squared_euclidean(X, Y, Bt):
+    
+    Jacobean product of squared Euclidean distance matrix and alignment matrix.
+    See equations 2 and 2.5 of https://arxiv.org/abs/1703.01541
+    '''
+    # print(X.shape, Y.shape, Bt.shape)
+    
+    ones = torch.ones(Y.shape).to('cuda' if Bt.is_cuda else 'cpu')
+    return 2 * (ones.matmul(Bt) * X - Y.matmul(Bt))
+
+class _SoftDTWCUDA(Function):
+    """
+    CUDA implementation is inspired by the diagonal one proposed in https://ieeexplore.ieee.org/document/8400444:
+    "Developing a pattern discovery method in time series data and its GPU acceleration"
+    """
+
+    @staticmethod
+    def forward(ctx, X, Y, D, gamma, bandwidth):
+        dev = D.device
+        dtype = D.dtype
+        gamma = torch.cuda.FloatTensor([gamma])
+        bandwidth = torch.cuda.FloatTensor([bandwidth])
+
+        B = D.shape[0]
+        N = D.shape[1]
+        M = D.shape[2]
+        threads_per_block = max(N, M)
+        n_passes = 2 * threads_per_block - 1
+
+        # Prepare the output array
+        R = torch.ones((B, N + 2, M + 2), device=dev, dtype=dtype) * math.inf
+        R[:, 0, 0] = 0
+
+        # Run the CUDA kernel.
+        # Set CUDA's grid size to be equal to the batch size (every CUDA block processes one sample pair)
+        # Set the CUDA block size to be equal to the length of the longer sequence (equal to the size of the largest diagonal)
+        compute_softdtw_cuda[B, threads_per_block](cuda.as_cuda_array(D.detach()),
+                                                   gamma.item(), bandwidth.item(), N, M, n_passes,
+                                                   cuda.as_cuda_array(R))
+        ctx.save_for_backward(D, X, Y, R, gamma, bandwidth)
+        return R[:, -2, -2]
+
+    @staticmethod
+    def backward(ctx, grad_output):
+        dev = grad_output.device
+        dtype = grad_output.dtype
+        D, X, Y, R, gamma, bandwidth = ctx.saved_tensors
+
+        B = D.shape[0]
+        N = D.shape[1]
+        M = D.shape[2]
+        threads_per_block = max(N, M)
+        n_passes = 2 * threads_per_block - 1
+
+        D_ = torch.zeros((B, N + 2, M + 2), dtype=dtype, device=dev)
+        D_[:, 1:N + 1, 1:M + 1] = D
+
+        R[:, :, -1] = -math.inf
+        R[:, -1, :] = -math.inf
+        R[:, -1, -1] = R[:, -2, -2]
+
+        E = torch.zeros((B, N + 2, M + 2), dtype=dtype, device=dev)
+        E[:, -1, -1] = 1
+
+        # Grid and block sizes are set same as done above for the forward() call
+        compute_softdtw_backward_cuda[B, threads_per_block](cuda.as_cuda_array(D_),
+                                                            cuda.as_cuda_array(R),
+                                                            1.0 / gamma.item(), bandwidth.item(), N, M, n_passes,
+                                                            cuda.as_cuda_array(E))
+        E = E[:, 1:N + 1, 1:M + 1]
+        G = jacobean_product_squared_euclidean(X.transpose(1,2), Y.transpose(1,2), E.transpose(1,2)).transpose(1,2)
+
+        return grad_output.view(-1, 1, 1).expand_as(G) * G, None, None, None, None
+
+# ----------------------------------------------------------------------------------------------------------------------
+class SoftDTW(torch.nn.Module):
+    """
+    The soft DTW implementation that optionally supports CUDA
+    """
+
+    def __init__(self, use_cuda=True, gamma=0.01, normalize=False, bandwidth=None, dist_func=None):
+        """
+        Initializes a new instance using the supplied parameters
+        :param use_cuda: Flag indicating whether the CUDA implementation should be used
+        :param gamma: sDTW's gamma parameter
+        :param normalize: Flag indicating whether to perform normalization
+                          (as discussed in https://github.com/mblondel/soft-dtw/issues/10#issuecomment-383564790)
+        :param bandwidth: Sakoe-Chiba bandwidth for pruning. Passing 'None' will disable pruning.
+        :param dist_func: Optional point-wise distance function to use. If 'None', then a default Euclidean distance function will be used.
+        """
+        super(SoftDTW, self).__init__()
+
+        assert use_cuda, "Only the CUDA version is supported."
+
+        self.normalize = normalize
+        self.gamma = gamma
+        self.bandwidth = 0 if bandwidth is None else float(bandwidth)
+        self.use_cuda = use_cuda
+
+        # Set the distance function
+        if dist_func is not None:
+            self.dist_func = dist_func
+        else:
+            self.dist_func = SoftDTW._euclidean_dist_func
+
+    @property
+    def name(self,):
+        return "sdtw"
+
+    def _get_func_dtw(self, x, y):
+        """
+        Checks the inputs and selects the proper implementation to use.
+        """
+        bx, lx, dx = x.shape
+        by, ly, dy = y.shape
+        # Make sure the dimensions match
+        assert bx == by  # Equal batch sizes
+        assert dx == dy  # Equal feature dimensions
+
+        use_cuda = self.use_cuda
+
+        if use_cuda and (lx > 4096 or ly > 4096):  # We should be able to spawn enough threads in CUDA
+                print("SoftDTW: Cannot use CUDA because the sequence length > 4096 (the maximum block size supported by CUDA)")
+                use_cuda = False
+
+        # Finally, return the correct function
+        return _SoftDTWCUDA.apply
+
+    @staticmethod
+    def _euclidean_dist_func(x, y):
+        """
+        Calculates the Euclidean distance between each element in x and y per timestep
+        """
+        n = x.size(1)
+        m = y.size(1)
+        d = x.size(2)
+        x = x.unsqueeze(2).expand(-1, n, m, d)
+        y = y.unsqueeze(1).expand(-1, n, m, d)
+        return torch.pow(x - y, 2).sum(3)
+
+    def forward(self, x, y):
+        """
+        Compute the soft-DTW value between X and Y
+        :param X: One batch of examples, batch_size x seq_len x dims
+        :param Y: The other batch of examples, batch_size x seq_len x dims
+        :return: The computed results
+        """
+        nt, nr, nc = x.shape
+        loss = 0.
+        for c in range(nc):
+            for r in range((nr)):
+                X = x[::10,r,c].unsqueeze(0).unsqueeze(2)
+                Y = y[::10,r,c].unsqueeze(0).unsqueeze(2)
+
+                func_dtw = self._get_func_dtw(X, Y)
+                D_xy = self.dist_func(X, Y)
+                loss += func_dtw(X, Y, D_xy, self.gamma, self.bandwidth)
+
+        return loss
+        # # Check the inputs and get the correct implementation
+        # func_dtw = self._get_func_dtw(X, Y)
+
+        # if self.normalize:
+        #     # Stack everything up and run
+        #     x = torch.cat([X, X, Y])
+        #     y = torch.cat([Y, X, Y])
+        #     D = self.dist_func(x, y)
+        #     out = func_dtw(X, Y, D, self.gamma, self.bandwidth)
+        #     out_xy, out_xx, out_yy = torch.split(out, X.shape[0])
+        #     return out_xy - 1 / 2 * (out_xx + out_yy)
+        # else:
+        #     D_xy = self.dist_func(X, Y)
+        #     return func_dtw(X, Y, D_xy, self.gamma, self.bandwidth)
