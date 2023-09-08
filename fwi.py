@@ -18,16 +18,16 @@ from mpi4py.util import pkl5
 from torch.utils.tensorboard import SummaryWriter
 from yaml import dump, load
 
-import wavetorch
-from wavetorch.eqconfigure import Parameters, Shape
-from wavetorch.loss import Loss, Traveltime
+import seistorch
+from seistorch.eqconfigure import Parameters, Shape
+from seistorch.loss import Loss, Traveltime
 # from tensorflow.keras.models import load_model
-from wavetorch.model import build_model
-from wavetorch.optimizer import NonlinearConjugateGradient as NCG
-from wavetorch.setup import *
+from seistorch.model import build_model
+from seistorch.optimizer import NonlinearConjugateGradient as NCG
+from seistorch.setup import *
 # from skopt import Optimizer
-from wavetorch.setup_source_probe import setup_rec_coords, setup_src_coords
-from wavetorch.utils import (DictAction, cpu_fft, get_src_and_rec, low_pass,
+from seistorch.setup_source_probe import setup_rec_coords, setup_src_coords
+from seistorch.utils import (DictAction, cpu_fft, get_src_and_rec, low_pass,
                              ricker_wave, to_tensor)
 
 try:
@@ -43,8 +43,6 @@ parser.add_argument('--num_threads', type=int, default=2,
                     help='Number of threads to use')
 parser.add_argument('--use-cuda', action='store_true',
                     help='Use CUDA to perform computations')
-parser.add_argument('--name', type=str, default=time.strftime('%Y%m%d%H%M%S'),
-                    help='Name to use when saving or loading the model file. If not specified when saving a time and date stamp is used')
 parser.add_argument('--opt', choices=['adam', 'lbfgs', 'ncg'], default='adam',
                     help='optimizer (adam)')
 parser.add_argument('--save-path', default='',
@@ -76,6 +74,7 @@ if __name__ == '__main__':
             print("Configuration: %s" % args.config)
             print("Using CUDA for calculation")
             print(f"Optimizer: {args.opt}")
+
     else:
         args.dev = torch.device('cpu')
         if rank ==0:
@@ -332,11 +331,11 @@ if __name__ == '__main__':
                                 #if shot==10:
                                 #name_postfix = 'init' if epoch==0 else ''
                                 name_postfix = ''
-                                np.save(f"{ROOTPATH}/obs{name_postfix}.npy", obs.cpu().detach().numpy())
-                                np.save(f"{ROOTPATH}/syn{name_postfix}.npy", syn.cpu().detach().numpy())
+                                # np.save(f"{ROOTPATH}/obs{name_postfix}.npy", obs.cpu().detach().numpy())
+                                # np.save(f"{ROOTPATH}/syn{name_postfix}.npy", syn.cpu().detach().numpy())
                                 loss = criterions(syn, obs)
-                                adj = torch.autograd.grad(loss, syn)[0]
-                                np.save(f"{ROOTPATH}/adj.npy", adj.detach().cpu().numpy())
+                                # adj = torch.autograd.grad(loss, syn)[0]
+                                # np.save(f"{ROOTPATH}/adj.npy", adj.detach().cpu().numpy())
                                 """HvP Start"""
                                 # Perform a backward pass to compute the gradients
                                 # grads = torch.autograd.grad(loss, [model.cell.geom.vp], create_graph=True)
@@ -383,7 +382,7 @@ if __name__ == '__main__':
                     # Calculate the gradient of other ranks
                     grad2d[:] = np.sum(grad3d, axis=0)
                     np.save(f"{ROOTPATH}/loss.npy", loss)
-
+                    np.save(f"{ROOTPATH}/grad3d.npy", grad3d)
                 comm.Bcast(grad2d, root=0)
 
                 if rank!=0:

@@ -21,13 +21,13 @@ import setproctitle
 from torch.utils.tensorboard import SummaryWriter
 from yaml import dump
 
-from wavetorch.eqconfigure import Shape
+from seistorch.eqconfigure import Shape
 # from tensorflow.keras.models import load_model
-from wavetorch.model import build_model
-from wavetorch.siren import Siren
-from wavetorch.setup import *
-from wavetorch.setup_source_probe import setup_rec_coords, setup_src_coords
-from wavetorch.utils import (DictAction, cpu_fft, dict2table,
+from seistorch.model import build_model
+from seistorch.siren import Siren
+from seistorch.setup import *
+from seistorch.setup_source_probe import setup_rec_coords, setup_src_coords
+from seistorch.utils import (DictAction, cpu_fft, dict2table,
                              low_pass, roll, roll2, to_tensor)
 
 # from torchviz import make_dot
@@ -45,14 +45,10 @@ parser.add_argument('--num_threads', type=int, default=6,
                     help='Number of threads to use')
 parser.add_argument('--use-cuda', action='store_true',
                     help='Use CUDA to perform computations')
-parser.add_argument('--encoding', action='store_true',
-                    help='Use phase encoding to accelerate performance')
 parser.add_argument('--gpuid', type=int, default=0,
                     help='which gpu is used for calculation')
 parser.add_argument('--checkpoint', type=str,
                     help='checkpoint path for resuming training')
-parser.add_argument('--name', type=str, default=time.strftime('%Y%m%d%H%M%S'),
-                    help='Name to use when saving or loading the model file. If not specified when saving a time and date stamp is used')
 parser.add_argument('--opt', choices=['adam', 'lbfgs', 'ncg'], default='adam',
                     help='optimizer (adam)')
 parser.add_argument('--loss', action=DictAction, nargs="+",
@@ -60,8 +56,6 @@ parser.add_argument('--loss', action=DictAction, nargs="+",
 parser.add_argument('--save-path', default='',
                     help='the root path for saving results')
 parser.add_argument('--lr', action=DictAction, nargs="+",
-                    help='learning rate')
-parser.add_argument('--global-lr', type=int, default=-1,
                     help='learning rate')
 parser.add_argument('--batchsize', type=int, default=-1,
                     help='learning rate')
@@ -243,6 +237,8 @@ if __name__ == '__main__':
             if not MULTI_LOSS:
                 # One loss function for all parameters
                 loss = criterions(ypred, coding_rec)
+                # adj = torch.autograd.grad(loss, ypred)[0]
+                # np.save(f"{ROOTPATH}/adj.npy", adj.detach().cpu().numpy())
                 loss.backward() #retain_graph=True
                 # TODO: HESSIAN
                 #loss.backward(create_graph=True)
@@ -265,6 +261,8 @@ if __name__ == '__main__':
                         model.cell.geom.__getattr__(p).requires_grad = requires_grad
                     # Calculate the loss
                     loss = criterion(ypred, coding_rec)
+                    # adj = torch.autograd.grad(loss, ypred)[0]
+                    # np.save(f"{ROOTPATH}/adj.npy", adj.detach().cpu().numpy())
                     # if the para is the last loss, do not retain the graph
                     retain_graph = False if _i == len(criterions)-1 else True
                     loss.backward(retain_graph=retain_graph)
@@ -274,9 +272,6 @@ if __name__ == '__main__':
                 for p in PARS_NEED_INVERT:
                     model.cell.geom.__getattr__(p).requires_grad = True
 
-            # adjoint = torch.autograd.grad(loss, ypred)[0]
-            # np.save(f"{ROOTPATH}/adjoint_{cfg['loss']['vp']}.npy", 
-            #         adjoint.detach().cpu().numpy())
             return loss
 
         # Run the closure

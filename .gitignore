@@ -3,6 +3,7 @@
 *.png
 *.npy
 *.pyc
+*.pkl
 __pycache__
 test
 figures

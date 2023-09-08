@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Configuration Parameters for FWI Scripts &mdash; seistorch 0.0.1 documentation</title>
+      <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+      <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css" type="text/css" />
+      <link rel="stylesheet" href="_static/katex-math.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="_static/jquery.js?v=5d32c60e"></script>
+        <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+        <script src="_static/documentation_options.js?v=d45e8c67"></script>
+        <script src="_static/doctools.js?v=888ff710"></script>
+        <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+        <script src="_static/katex.min.js?v=deb2f140"></script>
+        <script src="_static/auto-render.min.js?v=8b9f325c"></script>
+        <script src="_static/katex_autorenderer.js?v=bebc588a"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="prev" title="Data Format" href="data_format.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="index.html" class="icon icon-home">
+            seistorch
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="head.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="quick_start.html">Quick Start</a></li>
+<li class="toctree-l1"><a class="reference internal" href="getting_started.html">Getting Started</a></li>
+<li class="toctree-l1"><a class="reference internal" href="configure.html">Configure file</a></li>
+<li class="toctree-l1"><a class="reference internal" href="data_format.html">Data Format</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Configuration Parameters for FWI Scripts</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#parameters-for-fwi-py">Parameters for <code class="docutils literal notranslate"><span class="pre">fwi.py</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#parameter-config">Parameter: [<code class="docutils literal notranslate"><span class="pre">config</span></code>]</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#parameter-num-threads">Parameter: [<code class="docutils literal notranslate"><span class="pre">num_threads</span></code>]</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#parameter-save-path">Parameter: [<code class="docutils literal notranslate"><span class="pre">save-path</span></code>]</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#parameter-loss">Parameter: [<code class="docutils literal notranslate"><span class="pre">loss</span></code>]</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#parameter-lr">Parameter: [<code class="docutils literal notranslate"><span class="pre">lr</span></code>]</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#parameter-mode">Parameter: [<code class="docutils literal notranslate"><span class="pre">mode</span></code>]</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#parameter-grad-cut">Parameter: [<code class="docutils literal notranslate"><span class="pre">grad-cut</span></code>]</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#parameters-for-codingfwi-py">Parameters for <code class="docutils literal notranslate"><span class="pre">codingfwi.py</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#id1">Parameter: [<code class="docutils literal notranslate"><span class="pre">config</span></code>]</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#id2">Parameter: [<code class="docutils literal notranslate"><span class="pre">num_threads</span></code>]</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#parameter-use-cuda">Parameter: [<code class="docutils literal notranslate"><span class="pre">use-cuda</span></code>]</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#parameter-gpuid">Parameter: [<code class="docutils literal notranslate"><span class="pre">gpuid</span></code>]</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#id3">Parameter: [<code class="docutils literal notranslate"><span class="pre">loss</span></code>]</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#id4">Parameter: [<code class="docutils literal notranslate"><span class="pre">save-path</span></code>]</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#id5">Parameter: [<code class="docutils literal notranslate"><span class="pre">lr</span></code>]</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#parameter-batchsize">Parameter: [<code class="docutils literal notranslate"><span class="pre">batchsize</span></code>]</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#parameter-grad-smooth">Parameter: [<code class="docutils literal notranslate"><span class="pre">grad-smooth</span></code>]</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#id6">Parameter: [<code class="docutils literal notranslate"><span class="pre">grad-cut</span></code>]</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">seistorch</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Configuration Parameters for FWI Scripts</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/running_commands.md.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="configuration-parameters-for-fwi-scripts">
+<h1>Configuration Parameters for FWI Scripts<a class="headerlink" href="#configuration-parameters-for-fwi-scripts" title="Link to this heading"></a></h1>
+<p>When running the Seistorch FWI scripts, such as <code class="docutils literal notranslate"><span class="pre">fwi.py</span></code> and <code class="docutils literal notranslate"><span class="pre">codingfwi.py</span></code>, you may need to configure additional parameters to tailor the simulations and inversions to your specific requirements. This section provides an overview of these essential configuration parameters and their roles in achieving successful FWI experiments.</p>
+<section id="parameters-for-fwi-py">
+<h2>Parameters for <code class="docutils literal notranslate"><span class="pre">fwi.py</span></code><a class="headerlink" href="#parameters-for-fwi-py" title="Link to this heading"></a></h2>
+<section id="parameter-config">
+<h3>Parameter: [<code class="docutils literal notranslate"><span class="pre">config</span></code>]<a class="headerlink" href="#parameter-config" title="Link to this heading"></a></h3>
+<ul class="simple">
+<li><p><strong>Description</strong>: Configuration file for geometry, training, and data preparation.</p></li>
+<li><p><strong>Example Usage</strong>: <code class="docutils literal notranslate"><span class="pre">config.yml</span></code></p></li>
+</ul>
+</section>
+<section id="parameter-num-threads">
+<h3>Parameter: [<code class="docutils literal notranslate"><span class="pre">num_threads</span></code>]<a class="headerlink" href="#parameter-num-threads" title="Link to this heading"></a></h3>
+<ul class="simple">
+<li><p><strong>Description</strong>: Sets the number of threads used for intraop parallelism on CPU (torch).</p></li>
+<li><p><strong>Example Usage</strong>: <code class="docutils literal notranslate"><span class="pre">--num_threads</span> <span class="pre">6</span></code> will use 6 threads for paralleism.</p></li>
+</ul>
+</section>
+<section id="parameter-save-path">
+<h3>Parameter: [<code class="docutils literal notranslate"><span class="pre">save-path</span></code>]<a class="headerlink" href="#parameter-save-path" title="Link to this heading"></a></h3>
+<ul class="simple">
+<li><p><strong>Description</strong>: Sepcify the path for saving the inverted results.</p></li>
+<li><p><strong>Example Usage</strong>: The arguments will overwrite the parameter <code class="docutils literal notranslate"><span class="pre">inv_savePath</span></code> in configure file. If not specified, the results will be saved in <code class="docutils literal notranslate"><span class="pre">inv_savePath</span></code>.</p></li>
+</ul>
+</section>
+<section id="parameter-loss">
+<h3>Parameter: [<code class="docutils literal notranslate"><span class="pre">loss</span></code>]<a class="headerlink" href="#parameter-loss" title="Link to this heading"></a></h3>
+<ul class="simple">
+<li><p><strong>Description</strong>: Sepcify the loss function for fitting the observed and synthetic data.</p></li>
+<li><p><strong>Example Usage</strong>: <code class="docutils literal notranslate"><span class="pre">--loss</span> <span class="pre">vp=l2</span></code> will use MSE loss for inverting vp. Only support single loss function.</p></li>
+</ul>
+</section>
+<section id="parameter-lr">
+<h3>Parameter: [<code class="docutils literal notranslate"><span class="pre">lr</span></code>]<a class="headerlink" href="#parameter-lr" title="Link to this heading"></a></h3>
+<ul class="simple">
+<li><p><strong>Description</strong>: Sepcify the learning rate for different model parameters.</p></li>
+<li><p><strong>Example Usage</strong>: <code class="docutils literal notranslate"><span class="pre">--lr</span> <span class="pre">vp=10.0</span></code> will assign the initial learning rate of vp to <code class="docutils literal notranslate"><span class="pre">10.0</span></code>. This argument also supports multiple assignments, just as follows <code class="docutils literal notranslate"><span class="pre">--lr</span> <span class="pre">vp=10.0</span> <span class="pre">vs=5.78</span> <span class="pre">rho=1.25</span></code>.</p></li>
+</ul>
+</section>
+<section id="parameter-mode">
+<h3>Parameter: [<code class="docutils literal notranslate"><span class="pre">mode</span></code>]<a class="headerlink" href="#parameter-mode" title="Link to this heading"></a></h3>
+<ul class="simple">
+<li><p><strong>Description</strong>: Sepcify the mode of the module.</p></li>
+<li><p><strong>Example Usage</strong>: Valid modes are <code class="docutils literal notranslate"><span class="pre">forward</span></code> and <code class="docutils literal notranslate"><span class="pre">inversion</span></code>.</p></li>
+</ul>
+</section>
+<section id="parameter-grad-cut">
+<h3>Parameter: [<code class="docutils literal notranslate"><span class="pre">grad-cut</span></code>]<a class="headerlink" href="#parameter-grad-cut" title="Link to this heading"></a></h3>
+<ul class="simple">
+<li><p><strong>Description</strong>: Whether use mask to modify the gradient or not.</p></li>
+<li><p><strong>Example Usage</strong>: <code class="docutils literal notranslate"><span class="pre">--grad-cut</span></code> will smooth the gradient by the parameter <code class="docutils literal notranslate"><span class="pre">seabed</span></code> in configure file.</p></li>
+</ul>
+</section>
+</section>
+<section id="parameters-for-codingfwi-py">
+<h2>Parameters for <code class="docutils literal notranslate"><span class="pre">codingfwi.py</span></code><a class="headerlink" href="#parameters-for-codingfwi-py" title="Link to this heading"></a></h2>
+<section id="id1">
+<h3>Parameter: [<code class="docutils literal notranslate"><span class="pre">config</span></code>]<a class="headerlink" href="#id1" title="Link to this heading"></a></h3>
+<ul class="simple">
+<li><p><strong>Description</strong>: Configuration file for geometry, training, and data preparation.</p></li>
+<li><p><strong>Example Usage</strong>: <code class="docutils literal notranslate"><span class="pre">config.yml</span></code></p></li>
+</ul>
+</section>
+<section id="id2">
+<h3>Parameter: [<code class="docutils literal notranslate"><span class="pre">num_threads</span></code>]<a class="headerlink" href="#id2" title="Link to this heading"></a></h3>
+<ul class="simple">
+<li><p><strong>Description</strong>: Sets the number of threads used for intraop parallelism on CPU (torch).</p></li>
+<li><p><strong>Example Usage</strong>: <code class="docutils literal notranslate"><span class="pre">--num_threads</span> <span class="pre">6</span></code> will use 6 threads for paralleism.</p></li>
+</ul>
+</section>
+<section id="parameter-use-cuda">
+<h3>Parameter: [<code class="docutils literal notranslate"><span class="pre">use-cuda</span></code>]<a class="headerlink" href="#parameter-use-cuda" title="Link to this heading"></a></h3>
+<ul class="simple">
+<li><p><strong>Description</strong>: Use CUDA for acceelrating computations</p></li>
+<li><p><strong>Example Usage</strong>: <code class="docutils literal notranslate"><span class="pre">--use-cuda</span></code> will assign the tasks on GPU.</p></li>
+</ul>
+</section>
+<section id="parameter-gpuid">
+<h3>Parameter: [<code class="docutils literal notranslate"><span class="pre">gpuid</span></code>]<a class="headerlink" href="#parameter-gpuid" title="Link to this heading"></a></h3>
+<ul class="simple">
+<li><p><strong>Description</strong>: Sepcify the GPU id for using.</p></li>
+<li><p><strong>Example Usage</strong>: <code class="docutils literal notranslate"><span class="pre">--gpuid</span> <span class="pre">0</span></code> will assign the task on GPU 0.</p></li>
+</ul>
+</section>
+<section id="id3">
+<h3>Parameter: [<code class="docutils literal notranslate"><span class="pre">loss</span></code>]<a class="headerlink" href="#id3" title="Link to this heading"></a></h3>
+<ul class="simple">
+<li><p><strong>Description</strong>: Sepcify the loss function for fitting the observed and synthetic data.</p></li>
+<li><p><strong>Example Usage</strong>: <code class="docutils literal notranslate"><span class="pre">--loss</span> <span class="pre">vp=l2</span></code> will use MSE loss for inverting vp. If you want to use different loss function for different paramters, you can specify the arguments like this <code class="docutils literal notranslate"><span class="pre">--loss</span> <span class="pre">vp=l2</span> <span class="pre">vs=l1</span></code>. Valid loss functions can be found in <code class="docutils literal notranslate"><span class="pre">seistorch/loss.py</span></code></p></li>
+</ul>
+</section>
+<section id="id4">
+<h3>Parameter: [<code class="docutils literal notranslate"><span class="pre">save-path</span></code>]<a class="headerlink" href="#id4" title="Link to this heading"></a></h3>
+<ul class="simple">
+<li><p><strong>Description</strong>: Sepcify the path for saving the inverted results.</p></li>
+<li><p><strong>Example Usage</strong>: The arguments will overwrite the parameter <code class="docutils literal notranslate"><span class="pre">inv_savePath</span></code> in configure file. If not specified, the results will be saved in <code class="docutils literal notranslate"><span class="pre">inv_savePath</span></code>.</p></li>
+</ul>
+</section>
+<section id="id5">
+<h3>Parameter: [<code class="docutils literal notranslate"><span class="pre">lr</span></code>]<a class="headerlink" href="#id5" title="Link to this heading"></a></h3>
+<ul class="simple">
+<li><p><strong>Description</strong>: Sepcify the learning rate for different model parameters.</p></li>
+<li><p><strong>Example Usage</strong>: <code class="docutils literal notranslate"><span class="pre">--lr</span> <span class="pre">vp=10.0</span></code> will assign the initial learning rate of vp to <code class="docutils literal notranslate"><span class="pre">10.0</span></code>. This argument also supports multiple assignments, just as follows <code class="docutils literal notranslate"><span class="pre">--lr</span> <span class="pre">vp=10.0</span> <span class="pre">vs=5.78</span> <span class="pre">rho=1.25</span></code>.</p></li>
+</ul>
+</section>
+<section id="parameter-batchsize">
+<h3>Parameter: [<code class="docutils literal notranslate"><span class="pre">batchsize</span></code>]<a class="headerlink" href="#parameter-batchsize" title="Link to this heading"></a></h3>
+<ul class="simple">
+<li><p><strong>Description</strong>: Sepcify the number of shots encoded in a super source.</p></li>
+<li><p><strong>Example Usage</strong>: <code class="docutils literal notranslate"><span class="pre">--batchsize</span> <span class="pre">20</span></code> will encoded 20 shots in a super source.</p></li>
+</ul>
+</section>
+<section id="parameter-grad-smooth">
+<h3>Parameter: [<code class="docutils literal notranslate"><span class="pre">grad-smooth</span></code>]<a class="headerlink" href="#parameter-grad-smooth" title="Link to this heading"></a></h3>
+<ul class="simple">
+<li><p><strong>Description</strong>: Whether smooth the gradient or not.</p></li>
+<li><p><strong>Example Usage</strong>: <code class="docutils literal notranslate"><span class="pre">--grad-smooth</span></code> will smooth the gradient before calling <code class="docutils literal notranslate"><span class="pre">optimizer.step()</span></code>.</p></li>
+</ul>
+</section>
+<section id="id6">
+<h3>Parameter: [<code class="docutils literal notranslate"><span class="pre">grad-cut</span></code>]<a class="headerlink" href="#id6" title="Link to this heading"></a></h3>
+<ul class="simple">
+<li><p><strong>Description</strong>: Whether use mask to modify the gradient or not.</p></li>
+<li><p><strong>Example Usage</strong>: <code class="docutils literal notranslate"><span class="pre">--grad-cut</span></code> will smooth the gradient by the parameter <code class="docutils literal notranslate"><span class="pre">seabed</span></code> in configure file.</p></li>
+</ul>
+</section>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="data_format.html" class="btn btn-neutral float-left" title="Data Format" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, shaowinw.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
