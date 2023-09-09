@@ -7,8 +7,6 @@
   <title>Data Format &mdash; seistorch 0.0.1 documentation</title>
       <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
-      <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css" type="text/css" />
-      <link rel="stylesheet" href="_static/katex-math.css" type="text/css" />
   <!--[if lt IE 9]>
     <script src="_static/js/html5shiv.min.js"></script>
   <![endif]-->
@@ -18,9 +16,6 @@
         <script src="_static/documentation_options.js?v=d45e8c67"></script>
         <script src="_static/doctools.js?v=888ff710"></script>
         <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
-        <script src="_static/katex.min.js?v=deb2f140"></script>
-        <script src="_static/auto-render.min.js?v=8b9f325c"></script>
-        <script src="_static/katex_autorenderer.js?v=bebc588a"></script>
     <script src="_static/js/theme.js"></script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
@@ -108,6 +103,7 @@
 
 <span class="c1"># Load the model from the .npy file</span>
 <span class="n">loaded_model</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="s1">&#39;model.npy&#39;</span><span class="p">)</span>
+
 </pre></div>
 </div>
 </section>
@@ -152,6 +148,7 @@
 
 <span class="n">write_pkl</span><span class="p">(</span><span class="s2">&quot;source.pkl&quot;</span><span class="p">,</span> <span class="n">sources</span><span class="p">)</span>
 <span class="n">write_pkl</span><span class="p">(</span><span class="s2">&quot;source.pkl&quot;</span><span class="p">,</span> <span class="n">receivers</span><span class="p">)</span>
+
 </pre></div>
 </div>
 <p>The length of the list <code class="docutils literal notranslate"><span class="pre">sources</span></code> and <code class="docutils literal notranslate"><span class="pre">receivers</span></code> muet be equal. So, if your receivers are fixed, you also need to specify them respectively. The purpose of doing this is to make it more fiexable to changing geomtry, such as OBC acquisition.</p>

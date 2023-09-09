@@ -7,8 +7,6 @@
   <title>Getting Started &mdash; seistorch 0.0.1 documentation</title>
       <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
-      <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css" type="text/css" />
-      <link rel="stylesheet" href="_static/katex-math.css" type="text/css" />
   <!--[if lt IE 9]>
     <script src="_static/js/html5shiv.min.js"></script>
   <![endif]-->
@@ -18,9 +16,6 @@
         <script src="_static/documentation_options.js?v=d45e8c67"></script>
         <script src="_static/doctools.js?v=888ff710"></script>
         <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
-        <script src="_static/katex.min.js?v=deb2f140"></script>
-        <script src="_static/auto-render.min.js?v=8b9f325c"></script>
-        <script src="_static/katex_autorenderer.js?v=bebc588a"></script>
     <script src="_static/js/theme.js"></script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
@@ -89,7 +84,7 @@
   <section id="getting-started">
 <h1>Getting Started<a class="headerlink" href="#getting-started" title="Link to this heading"></a></h1>
 <p>To start using Seistorch, follow these steps:</p>
-<ol>
+<ol class="arabic">
 <li><p><strong>Download the Source Code</strong>: Begin by downloading the Seistorch source code from its GitHub repository. You can do this by cloning the repository to your local machine:</p>
 <div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>git<span class="w"> </span>clone<span class="w"> </span>https://github.com/REPLACE_THIS_AFTER_UPLOADING.git
 </pre></div>
@@ -107,9 +102,9 @@
 <li><p><code class="docutils literal notranslate"><span class="pre">xr</span></code> and <code class="docutils literal notranslate"><span class="pre">xs</span></code> are the receiver (detector) positions and source positions, respectively.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">w(t)</span></code> represents the source wavelet or source signature.</p></li>
 </ul>
-<ol>
+<ol class="arabic">
 <li><p><strong>Prepare the configure file</strong>:
-Seistorch uses a YAML configuration file to specify the parameters required for forward modeling and Full-Waveform Inversion (FWI). The template for this configuration file can be found in the <code class="docutils literal notranslate"><span class="pre">template.yml</span></code> file provided with the source code. Please refers to section <a class="reference internal" href="configure.html"><span class="doc">Configures</span></a> for details.</p></li>
+Seistorch uses a YAML configuration file to specify the parameters required for forward modeling and Full-Waveform Inversion (FWI). The template for this configuration file can be found in the <code class="docutils literal notranslate"><span class="pre">template.yml</span></code> file provided with the source code. Please refers to section <a class="reference internal" href="configure.html"><span class="std std-doc"><strong>Configures</strong></span></a> for details.</p></li>
 <li><p><strong>Prepare the host file</strong>: To prepare a host file, specify the host IP addresses and the number of GPUs to be used for running your application. Below is an example:</p>
 <div class="highlight-shell notranslate"><div class="highlight"><pre><span></span><span class="m">127</span>.0.0.1:3
 </pre></div>
@@ -146,7 +141,7 @@ node1:2
 <p>The goal of full waveform inversion is to recover subsurface properties $\mathbf m$ by minimizing the misfit between observed $\mathbf{d}^{obs}$ and synthetic seismic data $\mathbf{d}^{syn}$, which can be written as:
 $$argmin_{\mathbf m} loss( \mathbf{d}^{obs}, \mathbf{d}^{syn})$$</p>
 <p>The process of executing FWI is similar to the forward modeling, both requiring adjustments to the configuration file based on the model and the geometry.</p>
-<ol>
+<ol class="arabic">
 <li><p><strong>Prepare the configure file</strong>:This step involves setting up the configure.yml file, which defines the parameters for both forward modeling and inversion. You can find detailed instructions on how to configure this file in the “## How to run forward modeling” section here.</p></li>
 <li><p><strong>Prepare the host file</strong>: (If you want to perform source-encoding fwi, just skip this procedure.) To specify the number of processes and the host configuration for your inversion, you should create a host file. This file will determine the distribution of processes across available GPUs or computing nodes. Refer to the instructions provided in the “## How to run forward modeling” section here for guidance on preparing the host file.</p></li>
 <li><p><strong>Running command</strong>:</p>

@@ -7,8 +7,6 @@
   <title>Advanced Customization &mdash; seistorch 0.0.1 documentation</title>
       <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
-      <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css" type="text/css" />
-      <link rel="stylesheet" href="_static/katex-math.css" type="text/css" />
   <!--[if lt IE 9]>
     <script src="_static/js/html5shiv.min.js"></script>
   <![endif]-->
@@ -18,9 +16,6 @@
         <script src="_static/documentation_options.js?v=d45e8c67"></script>
         <script src="_static/doctools.js?v=888ff710"></script>
         <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
-        <script src="_static/katex.min.js?v=deb2f140"></script>
-        <script src="_static/auto-render.min.js?v=8b9f325c"></script>
-        <script src="_static/katex_autorenderer.js?v=bebc588a"></script>
     <script src="_static/js/theme.js"></script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
@@ -98,7 +93,7 @@
 <ul class="simple">
 <li><p><strong>Objective</strong>: Clearly define the mathematical form of your custom wave equation, including the physical parameters, equations, and boundary conditions.</p></li>
 </ul>
-<ol>
+<ol class="arabic">
 <li><p><strong>Define the needed parameters and names of wavefields</strong>: Added a new line in the class <code class="docutils literal notranslate"><span class="pre">Parameters</span></code> of <code class="docutils literal notranslate"><span class="pre">seistorch/eqconfigure.py</span></code> to configure your paramters.</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># seistorch/eqconfigure.py</span>
 <span class="k">class</span> <span class="nc">Parameters</span><span class="p">:</span>
@@ -125,6 +120,7 @@
     <span class="nd">@property</span>
     <span class="k">def</span> <span class="nf">my_wave_equation</span><span class="p">(</span><span class="bp">self</span><span class="p">,):</span>
         <span class="k">return</span> <span class="p">[</span><span class="s2">&quot;wavefield1&quot;</span><span class="p">,</span> <span class="s2">&quot;wavefield2&quot;</span><span class="p">]</span>
+
 </pre></div>
 </div>
 <p>The available <code class="docutils literal notranslate"><span class="pre">source_type</span></code> and <code class="docutils literal notranslate"><span class="pre">receiver_type</span></code> options will indeed correspond to the variable names defined within your <code class="docutils literal notranslate"><span class="pre">Wavefield</span></code> class.</p>

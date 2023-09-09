@@ -7,8 +7,6 @@
   <title>Introduction &mdash; seistorch 0.0.1 documentation</title>
       <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
-      <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css" type="text/css" />
-      <link rel="stylesheet" href="_static/katex-math.css" type="text/css" />
   <!--[if lt IE 9]>
     <script src="_static/js/html5shiv.min.js"></script>
   <![endif]-->
@@ -18,9 +16,6 @@
         <script src="_static/documentation_options.js?v=d45e8c67"></script>
         <script src="_static/doctools.js?v=888ff710"></script>
         <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
-        <script src="_static/katex.min.js?v=deb2f140"></script>
-        <script src="_static/auto-render.min.js?v=8b9f325c"></script>
-        <script src="_static/katex_autorenderer.js?v=bebc588a"></script>
     <script src="_static/js/theme.js"></script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
@@ -97,7 +92,7 @@
 <ul class="simple">
 <li><p><strong>Python-Powered</strong>: Seistorch is developed entirely in Python, ensuring ease of use and compatibility with various Python environments.</p></li>
 <li><p><strong>Automatic Differentiation with PyTorch</strong>: The package leverages the automatic differentiation capabilities of PyTorch to efficiently compute gradients, a fundamental aspect of FWI.</p></li>
-<li><p><strong>Parallel Computing using multiple nodes and GPUs</strong>: Seistorch is equipped with a powerful feature that allows for parallel computing using multiple nodes and multiple GPUs. This capability can significantly accelerate your Full-Waveform Inversion (FWI) and forward modeling tasks. To utilize this feature effectively, please follow the guidelines in <a class="reference internal" href="configure.html"><span class="doc">Getting Started</span></a>.</p></li>
+<li><p><strong>Parallel Computing using multiple nodes and GPUs</strong>: Seistorch is equipped with a powerful feature that allows for parallel computing using multiple nodes and multiple GPUs. This capability can significantly accelerate your Full-Waveform Inversion (FWI) and forward modeling tasks. To utilize this feature effectively, please follow the guidelines in <a class="reference internal" href="configure.html"><span class="std std-doc"><strong>Getting Started</strong></span></a>.</p></li>
 <li><p><strong>Computational Load Balancing</strong>: Seistorch’s MPI load balancing optimizes task allocation across nodes, maximizing computational resource utilization and speeding up simulations.</p></li>
 <li><p><strong>Memory saving strategy</strong>: Seistorch offers a powerful feature that allows users to control and reduce GPU memory consumption through <em>boundary saving strategies</em>. This feature is particularly useful when working with large-scale seismic simulations.</p></li>
 <li><p><strong>Multiple FWI Variants</strong>: Seistorch supports both MPI-based Classic FWI (The gradients are accumulated from each shot) and Source Encoding FWI (the gradient is calculated by a supershot), giving users the flexibility to choose the approach that suits their needs.</p></li>
@@ -106,7 +101,7 @@
 </section>
 <section id="dependencies">
 <h2>Dependencies<a class="headerlink" href="#dependencies" title="Link to this heading"></a></h2>
-<ol class="simple">
+<ol class="arabic simple">
 <li><p><strong>Python Packages</strong>: Before you can start using Seistorch, you need to ensure that you have the following Python packages installed:</p>
 <ul class="simple">
 <li><p>numpy</p></li>
