@@ -26,16 +26,18 @@ release = '0.0.1'
 
 
 # -- General configuration ---------------------------------------------------
-# from recommonmark.parser import CommonMarkParser
-# source_parsers = {
-#     '.md': CommonMarkParser,
-# }
+from recommonmark.parser import CommonMarkParser
+source_parsers = {
+    '.md': CommonMarkParser,
+}
 source_suffix = ['.rst', '.md']
 # Add any Sphinx extension module names here, as strings. They can be
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
 mathjax_path = 'http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML'
-extensions = [
+extensions = [ 'recommonmark', 
+              'sphinx.ext.mathjax',
+              'sphinxcontrib.katex',
 ]
 
 
