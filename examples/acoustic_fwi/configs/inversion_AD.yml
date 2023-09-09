@@ -1,7 +1,7 @@
 # Random seed for pytorch and all shuffle functions
 seed: 20230503
 
-name: forward_modeling
+name: FWI_AD
 
 # Data type to use for tensors, either float32 or float64
 dtype: float32
