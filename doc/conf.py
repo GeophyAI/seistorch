@@ -35,8 +35,7 @@ source_suffix = ['.rst', '.md']
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
 mathjax_path = 'http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML'
-extensions = [ 'recommonmark', 
-              'sphinx.ext.mathjax',
+extensions = ['sphinx.ext.mathjax',
               'sphinxcontrib.katex',
 ]
 
