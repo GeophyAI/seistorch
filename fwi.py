@@ -20,7 +20,7 @@ from yaml import dump, load
 
 import seistorch
 from seistorch.eqconfigure import Parameters, Shape
-from seistorch.loss import Loss, Traveltime
+from seistorch.distributed import task_distribution_and_data_reception
 # from tensorflow.keras.models import load_model
 from seistorch.model import build_model
 from seistorch.optimizer import NonlinearConjugateGradient as NCG
@@ -65,10 +65,7 @@ if __name__ == '__main__':
 
     if args.use_cuda and torch.cuda.is_available():
         # Get the local_rank on each node
-        if socket.gethostname()!="gitlg15":
-            torch.cuda.set_device(rank%torch.cuda.device_count())
-        else:
-            torch.cuda.set_device(rank%2)
+        torch.cuda.set_device(rank%torch.cuda.device_count())
         args.dev = torch.cuda.current_device()
         if rank ==0:
             print("Configuration: %s" % args.config)
@@ -102,7 +99,8 @@ if __name__ == '__main__':
     EPOCHS = cfg['training']['N_epochs']
     NSHOTS = min(cfg['geom']['Nshots'], len(src_list))
     FILTER_ORDER = cfg['training']['filter_ord']
-    
+    cfg['geom']['Nshots'] = NSHOTS
+
     use_mpi = size > 1
     if (use_mpi and rank!=0) or (not use_mpi):
         model.to(args.dev)
@@ -130,7 +128,7 @@ if __name__ == '__main__':
             # each record have different shape
             record = np.empty(NSHOTS, dtype=np.ndarray) 
         else:
-            record = np.zeros(shape.record2d, dtype=np.float32)
+            #record = np.zeros(shape.record2d, dtype=np.float32)
             x = torch.unsqueeze(x, 0)
 
         comm.Barrier()
@@ -138,34 +136,11 @@ if __name__ == '__main__':
         if rank == 0:
             pbar = tqdm.trange(NSHOTS, position=0)
             pbar.set_description(cfg['equation'])
-            num_tasks = NSHOTS  # total number of tasks is the number of shots
-            task_index = 0
-            completed_tasks = 0
-            active_workers = min(size-1, num_tasks)
-            # send initial tasks to all workers
-            for i in range(1, size):
-                if task_index < num_tasks:
-                    comm.send(task_index, dest=i, tag=1)
-                    task_index += 1
-                else:
-                    comm.send(-1, dest=i, tag=0)
+            shots = np.arange(NSHOTS)
+            kwargs = {'record': record}
 
-            while completed_tasks < num_tasks:
-                # receive results from any worker
-                completed_task, sender_rank, record[completed_task]= comm.recv(source=MPI.ANY_SOURCE, tag=1)
-                # task_index plus one
-                completed_tasks += 1
-                pbar.update(1)
+            task_distribution_and_data_reception(shots, pbar, args.mode, **kwargs)
 
-                # if there are still tasks to be completed, 
-                # assign them to the worker who just completed a task
-                if task_index < num_tasks:
-                    comm.send(task_index, dest=sender_rank, tag=1)
-                    task_index += 1
-                else:
-                    # send stop signal to the worker who just completed a task
-                    comm.send(-1, dest=sender_rank, tag=0)
-                    active_workers -= 1
         else:
             # Other ranks are the worker nodes
             while True:
@@ -276,34 +251,13 @@ if __name__ == '__main__':
                     num_tasks = shots.size
                     pbar = tqdm.tqdm(range(0, num_tasks), leave=False)
                     pbar.set_description(f"Freq{idx_freq}Epoch{epoch}")
-                    task_index = 0
-                    completed_tasks = 0
-                    active_workers = min(size-1, num_tasks)
-                    # Send initial tasks to all workers
-                    for i in range(1, size):
-                        if task_index < num_tasks:
-                            comm.send(shots[task_index], dest=i, tag=1)
-                            task_index += 1
-                        else:
-                            comm.send(-1, dest=i, tag=0)
+                    kwargs = {'loss': loss, 
+                              'epoch': epoch, 
+                              'grad3d': grad3d,
+                              'idx_freq': idx_freq}
+                    
+                    task_distribution_and_data_reception(shots, pbar, args.mode, **kwargs)
 
-                    while completed_tasks < num_tasks:
-                        # Receive results from any worker
-                        completed_task, sender_rank, _grad, _loss = comm.recv(source=MPI.ANY_SOURCE, tag=1)
-                        grad3d[completed_task][:] = _grad
-                        loss[idx_freq][epoch][completed_task] = _loss
-                        # Task index plus one
-                        completed_tasks += 1
-                        pbar.update(1)
-                        # If there are still tasks to be completed, 
-                        # assign them to the worker who just completed a task
-                        if task_index < num_tasks:
-                            comm.send(shots[task_index], dest=sender_rank, tag=1)
-                            task_index += 1
-                        else:
-                            # Send stop signal to the worker who just completed a task
-                            comm.send(-1, dest=sender_rank, tag=0)
-                            active_workers -= 1
                 else:
                     while True:
                         # Receive task from the master node
@@ -318,52 +272,51 @@ if __name__ == '__main__':
                         sources.append(src)
 
                         """Calculate one shot gradient"""
-                        def closure(srcs):
+                        def closure():
                             optimizers.zero_grad()
-                            shot_nums_cur_epoch = [shot]
                             """Although it is a for loop """
                             """But only one shot here when traditional workflow is using"""
-                            for _src, shot_num in zip(srcs, shot_nums_cur_epoch):
-                                model.reset_sources(_src)
-                                model.reset_probes(probes)
-                                syn = model(lp_wavelet)
-                                obs = to_tensor(filtered_data[shot_num]).to(syn.device)#.unsqueeze(0)
-                                #if shot==10:
-                                #name_postfix = 'init' if epoch==0 else ''
-                                name_postfix = ''
-                                # np.save(f"{ROOTPATH}/obs{name_postfix}.npy", obs.cpu().detach().numpy())
-                                # np.save(f"{ROOTPATH}/syn{name_postfix}.npy", syn.cpu().detach().numpy())
-                                loss = criterions(syn, obs)
-                                # adj = torch.autograd.grad(loss, syn)[0]
-                                # np.save(f"{ROOTPATH}/adj.npy", adj.detach().cpu().numpy())
-                                """HvP Start"""
-                                # Perform a backward pass to compute the gradients
-                                # grads = torch.autograd.grad(loss, [model.cell.geom.vp], create_graph=True)
-                                # # Define a vector v with the same size as the model parameters
-                                # v = [torch.randn_like(param) for param in [model.cell.geom.vp]]
-                                # # Perform a forward pass with the vector v
-                                # grads_v = torch.autograd.grad(grads, [model.cell.geom.vp], grad_outputs=v)
-                                # # Perform a backward pass to compute the Hessian-vector product
-                                # HvP = torch.autograd.grad(grads_v, [model.cell.geom.vp], retain_graph=True)
-                                # np.save(os.path.join(cfg["geom"]["inv_savePath"], f"HvPE{epoch}S{shot_num}.npy"), HvP)
-                                """HvP End"""
-                                """START"""
-                                # Model regularization
-                                # l1_reg = 0
-                                # for mname in model.cell.geom.model_parameters:
-                                #     if mname == 'rho':
-                                #         continue
-                                #     l1_reg += torch.norm(model.cell.geom.__getattr__(mname), p=1)
-                                # # Assign the weight of the model regulazation to %10 of the obj.
-                                # alpha = loss.item()*1e-16
-                                # loss += alpha*l1_reg
-                                """END"""
+                            model.reset_sources(src)
+                            model.reset_probes(probes)
+                            syn = model(lp_wavelet)
+                            obs = to_tensor(filtered_data[shot]).to(syn.device)#.unsqueeze(0)
+                            #if shot==10:
+                            #name_postfix = 'init' if epoch==0 else ''
+                            name_postfix = ''
+                            # np.save(f"{ROOTPATH}/obs{name_postfix}.npy", obs.cpu().detach().numpy())
+                            # np.save(f"{ROOTPATH}/syn{name_postfix}.npy", syn.cpu().detach().numpy())
+                            loss = criterions(syn, obs)
+                            adj = torch.autograd.grad(loss, syn, create_graph=True)[0]
+                            np.save(f"{ROOTPATH}/adj.npy", adj.detach().cpu().numpy())
+                            """HvP Start"""
+                            # Perform a backward pass to compute the gradients
+                            # grads = torch.autograd.grad(loss, [model.cell.geom.vp], create_graph=True)
+                            # # Define a vector v with the same size as the model parameters
+                            # v = [torch.randn_like(param) for param in [model.cell.geom.vp]]
+                            # # Perform a forward pass with the vector v
+                            # grads_v = torch.autograd.grad(grads, [model.cell.geom.vp], grad_outputs=v)
+                            # # Perform a backward pass to compute the Hessian-vector product
+                            # HvP = torch.autograd.grad(grads_v, [model.cell.geom.vp], retain_graph=True)
+                            # np.save(os.path.join(cfg["geom"]["inv_savePath"], f"HvPE{epoch}S{shot_num}.npy"), HvP)
+                            """HvP End"""
+                            """START"""
+                            # Model regularization
+                            # l1_reg = 0
+                            # for mname in model.cell.geom.model_parameters:
+                            #     if mname == 'rho':
+                            #         continue
+                            #     l1_reg += torch.norm(model.cell.geom.__getattr__(mname), p=1)
+                            # # Assign the weight of the model regulazation to %10 of the obj.
+                            # alpha = loss.item()*1e-16
+                            # loss += alpha*l1_reg
+                            """END"""
 
-                                loss.backward()
+                            loss.backward()
+
                             return loss.item()
 
                         # Run the closure
-                        loss = closure(sources)
+                        loss = closure()
 
                         GRAD = list()
                         for mname in model.cell.geom.model_parameters:
@@ -383,11 +336,13 @@ if __name__ == '__main__':
                     grad2d[:] = np.sum(grad3d, axis=0)
                     np.save(f"{ROOTPATH}/loss.npy", loss)
                     np.save(f"{ROOTPATH}/grad3d.npy", grad3d)
+
+                # broadcast the gradient to other ranks
                 comm.Bcast(grad2d, root=0)
 
                 if rank!=0:
                     # Assign gradient of other ranks
-                    for idx, para in enumerate(model.cell.geom.model_parameters):
+                    for idx, para in enumerate(model.cell.geom.pars_need_invert):
                         var = model.cell.geom.__getattr__(para)
                         var.grad.data = to_tensor(grad2d[idx]).to(args.dev)
                     if args.grad_cut and isinstance(SEABED, torch.Tensor):
