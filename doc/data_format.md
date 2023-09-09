@@ -13,7 +13,7 @@ Here's an example of how to save and load a 2D seismic model using `.npy` format
 import numpy as np
 import matplotlib.pyplot as plt
 
-# Create a 2D model array
+# Create a 2D model
 model = np.random.rand(nz, nx)  # Replace with your actual model data
 plt.imshow(model)
 plt.show()
@@ -96,3 +96,37 @@ geom:
 **Note**: To handle cases where different shots may have a different number of receivers, we use `np.empty(Nshots, np.ndarray)` to create arrays for storing the shot gather data obtained during forward modeling. Therefore, when using `np.load` to load shot gather data, you should set `allow_pickle` to `True` to ensure proper loading.
 
 ## Inverted results
+The inverted results will be saved at the `save-path` which you specified in the commands. The file structure under the "save-path" folder is as follows:
+
+```shell
+save-path/
+├─ .
+├─ configure.yml
+├── logs/
+│ ├── .
+│ └── tensorboard_log_files
+├─ para{vp/vs/rho}F{02d}E{02d}.npy
+├─ grad{vp/vs/rho}F{02d}E{02d}.npy
+└─ loss.npy
+```
+
+- Configure file
+
+    The "configure.yml" file stores all the parameters used for this inversion, and it can be used to reproduce the experiment. 
+
+- Logging files
+
+    The "logs" folder contains log files that can be displayed using TensorBoard. You can open and view them using the following command: `tensorboard --logdir save-path/logs`.
+
+    The log files record various information, including loss data, model error information, CPU and GPU utilization rates, and more. These logs provide valuable insights and metrics related to the inversion process.
+
+
+- Model related files
+
+    The models and gradients obtained from the inversion are saved as files with names starting with `para` and `grad`, respecively. For example, the gradient and model files for the first frequency band and the 10th iteration of the S-wave velocity model would be named `paravsF00E09.npy` and `gradvsF00E09.npy`, respectively.
+
+    **Note**: The saved "para" and "grad" files are both in numpy format and can be directly loaded using `np.load`. However, it's important to note that their shapes are not the same as those in the `truePath` or `initPath` files.For example, assuming the models in `truePath`" and `initPath` have a shape of `(nz, nx)` and there's a PML (Perfectly Matched Layer) thickness of `N`, when `multiple: true` is set, the inversion files have a shape of `(nz+N, nx+2N)`. This means that N layers are added as padding to the bottom, left, and right boundaries of the original model. When `multiple: false` is set, the inversion files have a shape of `(nz+2N, nx+2N)`.
+
+- Loss file
+
+    The `loss.npy` file records scalar loss values used in the inversion. It provides a summary of the optimization progress and how well the inversion process is minimizing the objective function.

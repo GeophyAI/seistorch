@@ -16,3 +16,4 @@ Welcome to Seistorch's documentation!
    configure.md
    data_format.md
    running_commands.md
+   advanced.md

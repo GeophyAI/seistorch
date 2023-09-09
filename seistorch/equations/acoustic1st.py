@@ -82,8 +82,8 @@ def _time_step_backward(*args):
     vz_copy[update_region_slice] = y_vz[(slice(None), slice(N,-N), slice(N,-N))]
     
     # Restore the boundary
-    vx_copy = restore_boundaries(vx_copy, vx_bd, NPML, N)
-    vz_copy = restore_boundaries(vz_copy, vz_bd, NPML, N)
+    vx_copy = restore_boundaries(vx_copy, vx_bd)
+    vz_copy = restore_boundaries(vz_copy, vz_bd)
     
     for s_type in src_type:
         source_var = eval(s_type+"_copy")
