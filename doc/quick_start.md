@@ -5,7 +5,7 @@ Welcome to Seistorch! This quick start guide will walk you through the basics of
 
 2. **Classic FWI**: Perform Full-Waveform Inversion.
 
-3. **Source encoding FWI**: Learn how to perform source-encoding based FWI.
+3. **Source inversion**: How to perform source inversion.
 
 ## Perform forward modeling
 
@@ -86,3 +86,28 @@ The code of this section locates at `examples/acoustic_fwi`. This exmaples shows
     ```
 
     The BSAD method significantly reduces memory usage and sacrifices some computational efficiency.
+
+## Perform source inversion
+The code of this section locates at `examples/source_inversion`. This exmaples shows a workflow of performing source inversion based on pure automatic differentiation (PAD).
+
+We first generate a two layer velocity model and a background velocity. A BSpline wavelet is used as the source for modeling the observed data. Running the following commands will generate the corresponding velocity models, geometry and wavelet for forward modeling.
+
+```shell
+python generate_model_geometry.py
+```
+
+Run the script `sh forward.sh` will generate the observed data.
+
+```shell
+sh forward.sh
+```
+
+The objective function in source inversion is the same as in Full Waveform Inversion (FWI), which aims to match observed data with synthetic data. However, the difference lies in FWI, where we set the model parameters as the optimization targets, while in source inversion, the source wavelet serves as the parameter to be optimized.
+
+The script `source_inversion.py` provides a workflow of source inversion. A ricker wavelet is used as the initial source for optmization.
+
+```shell
+python source_inversion.py
+```
+
+The intermediate steps of the inversion process will be saved in the `results` folder.

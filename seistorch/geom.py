@@ -229,7 +229,9 @@ class WaveGeometryFreeForm(WaveGeometry):
             # add the model to a list for later use
             self.model_parameters.append(mname)
             # load the ground truth model for calculating the model error
-            self.true_models[mname]=np.load(self.kwargs['geom']['truePath'][mname])
+            true_model_path = self.kwargs['geom']['truePath'][mname]
+            if true_model_path is not None and os.path.exists(true_model_path):
+                self.true_models[mname]=np.load(true_model_path)
             # load the initial model for the inversion
             if not self.use_implicit:
                 invert = False if self.mode=='forward' else invlist[mname]
