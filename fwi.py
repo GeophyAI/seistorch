@@ -26,15 +26,9 @@ from seistorch.model import build_model
 from seistorch.optimizer import NonlinearConjugateGradient as NCG
 from seistorch.setup import *
 # from skopt import Optimizer
-from seistorch.setup_source_probe import setup_rec_coords, setup_src_coords
 from seistorch.utils import (DictAction, cpu_fft, get_src_and_rec, low_pass,
                              ricker_wave, to_tensor)
 
-try:
-    from yaml import CDumper as Dumper
-    from yaml import CLoader as Loader
-except ImportError:
-    from yaml import Dumper, Loader
 
 parser = argparse.ArgumentParser()
 parser.add_argument('config', type=str, 

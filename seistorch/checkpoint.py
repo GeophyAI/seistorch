@@ -1,13 +1,16 @@
 # This file is modified from torch.utils.checkpoint.checkpoint
 # for making it available for BPTT in seismic inversion.
-import torch
+import inspect
+import itertools
 import warnings
 import weakref
-import itertools
-import numpy as np
 from typing import Any, Iterable, List, Tuple
-from seistorch.equations.utils import save_boundaries
-import gc
+
+import torch
+
+from seistorch.equations3d.utils import save_boundaries as sb3d
+from seistorch.equations2d.utils import save_boundaries as sb2d
+
 __all__ = [
     "checkpoint", "checkpoint_sequential", "CheckpointFunction",
     "check_backward_validity", "detach_variable", "get_device_states",
@@ -120,6 +123,9 @@ class CheckpointFunction(torch.autograd.Function):
         ctx.back_function = back_function        
         ctx.save_condition = save_condition
         ctx.source_function = source_function
+
+        save_boundaries = sb2d if '2d' in inspect.getmodule(run_function).__name__ else sb3d
+
         # CheckpointFunction._sources.append(source_function[-1])
 
         with torch.no_grad():
@@ -128,7 +134,7 @@ class CheckpointFunction(torch.autograd.Function):
         ctx.models = args[:para_counts]
         ctx.geoms = args[::-1][0:3][::-1]
 
-        boundarys = [save_boundaries(output, 49, 1) for output in outputs]
+        boundarys = [save_boundaries(output) for output in outputs]
         # CheckpointFunction._bound.append(boundarys)
         ctx.save_for_backward(*itertools.chain(*boundarys))
         # Save the wavefields of the last time step

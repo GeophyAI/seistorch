@@ -4,6 +4,7 @@ import torch
 from .eqconfigure import Wavefield
 from .source import WaveSource
 from .cell import WaveCell
+from .utils import merge_dicts_with_same_keys
 
 class WaveRNN(torch.nn.Module):
     def __init__(self, cell, sources=None, probes=[]):
@@ -13,18 +14,6 @@ class WaveRNN(torch.nn.Module):
         self.cell = cell
         #  Check the availability of the type of sources and probes.
         self.check()
-
-    def reset_sources(self, sources):
-        if type(sources) is list:
-            self.sources = torch.nn.ModuleList(sources)
-        else:
-            self.sources = torch.nn.ModuleList([sources])
-
-    def reset_probes(self, probes):
-        if type(probes) is list:
-            self.probes = torch.nn.ModuleList(probes)
-        else:
-            self.probes = torch.nn.ModuleList([probes])
 
     def check(self,):
         
@@ -40,6 +29,30 @@ class WaveRNN(torch.nn.Module):
             assert recev_type in wavefield_names, \
                 f"Valid receiver type are {wavefield_names}, but got '{recev_type}'. Please check your configure file."
 
+    def merge_sources_with_same_keys(self,):
+        """Merge all source coords into a super shot.
+        """
+        super_source = dict()
+        for source in self.sources:
+            coords = source.coords()
+            for key in coords.keys():
+                if key not in super_source.keys():
+                    super_source[key] = []
+                super_source[key].append(coords[key])
+        return super_source
+
+
+    def reset_sources(self, sources):
+        if type(sources) is list:
+            self.sources = torch.nn.ModuleList(sources)
+        else:
+            self.sources = torch.nn.ModuleList([sources])
+
+    def reset_probes(self, probes):
+        if type(probes) is list:
+            self.probes = torch.nn.ModuleList(probes)
+        else:
+            self.probes = torch.nn.ModuleList([probes])
 
     """Original implementation"""
     def forward(self, x, omega=10.0):
@@ -81,8 +94,8 @@ class WaveRNN(torch.nn.Module):
         model_paras = [getattr(self, name) for name in self.cell.geom.model_parameters]
         # Loop through time
         x = x.to(device)
-        super_source = WaveSource([s.x for s in self.sources], 
-                                  [s.y for s in self.sources]).to(device)
+
+        super_source = WaveSource(**self.merge_sources_with_same_keys()).to(device)
         time_offset = 2 if self.cell.geom.equation == "acoustic" else 0
 
         for i, xi in enumerate(x.chunk(x.size(1), dim=1)):
@@ -119,7 +132,8 @@ class WaveRNN(torch.nn.Module):
                     #p_all_sub.append(probe(self.__getattribute__(receiver)))
                     p_all_sub.append(probe(getattr(self, receiver)))
         # Combine outputs into a single tensor
-        y = torch.concat([torch.stack(y, dim=1).permute(1, 2, 0) for y in p_all], dim = 2)
+        permute_axis = (1, 2, 0) if torch.stack(p_all[0], dim=1).dim() == 3 else (1, 2, 3, 0)
+        y = torch.concat([torch.stack(y, dim=1).permute(*permute_axis) for y in p_all], dim = 2)
         has_nan = torch.isnan(y).any()
         assert not has_nan, "Warning!!Data has nan!!"
         return y

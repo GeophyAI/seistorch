@@ -6,7 +6,8 @@ import torch
 from seistorch.eqconfigure import Parameters
 from seistorch.loss import Loss
 from seistorch.utils import read_pkl, ricker_wave, to_tensor
-
+from seistorch.source import WaveSource
+from seistorch.probe import WaveIntensityProbe
 
 def setup_criteria(cfg: dict, loss: dict, *args, **kwargs):
     """Setup the loss functions for the model
@@ -104,6 +105,63 @@ def setup_src_rec(cfg: dict):
         full_rec_list = rec_list[0]
 
     return src_list, rec_list, full_rec_list, fixed_receivers
+
+def setup_src_coords(coords, Npml, multiple=False):
+    """Setup source coordinates.
+
+    Args:
+        coords (list): A list of coordinates.
+        Npml (int): The number of PML layers.
+        multiple (bool, optional): Whether use top PML or not. Defaults to False.
+
+    Returns:
+        WaveSource: A torch.nn.Module source object.
+    """
+    # Coordinate are specified
+    keys = ['x', 'y', 'z']
+    kwargs = dict()
+    for key, value in zip(keys, coords):
+        kwargs[key] = value+Npml
+    
+    # 2D case with multiple
+    if 'z' not in kwargs.keys() and multiple:
+        kwargs['y'] -= Npml
+    # 3D case with multiple
+    if 'z' in kwargs.keys() and multiple:
+        raise NotImplementedError("Multiples in 3D case is not implemented yet.")
+        # kwargs['z'] -= Npml
+
+    return WaveSource(**kwargs)
+
+def setup_rec_coords(coords, Npml, multiple=False):
+    """Setup receiver coordinates.
+
+    Args:
+        coords (list): A list of coordinates.
+        Npml (int): The number of PML layers.
+        multiple (bool, optional): Whether use top PML or not. Defaults to False.
+
+    Returns:
+        WaveProbe: A torch.nn.Module receiver object.
+    """
+
+    # Coordinate are specified
+    keys = ['x', 'y', 'z']
+    kwargs = dict()
+
+    # Without multiple
+    for key, value in zip(keys, coords):
+        kwargs[key] = [v+Npml for v in value]
+
+    # 2D case with multiple
+    if 'z' not in kwargs.keys() and multiple:
+        kwargs['y'] = [v-Npml for v in kwargs['y']]
+    # 3D case with multiple
+    if 'z' in kwargs.keys() and multiple:
+        raise NotImplementedError("Multiples in 3D case is not implemented yet.")
+        #kwargs['z'] = [v-Npml for v in kwargs['z']]
+
+    return [WaveIntensityProbe(**kwargs)]
 
 def setup_wavelet(cfg):
     """Setup the wavelet for the simulation.

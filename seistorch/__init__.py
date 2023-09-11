@@ -1,4 +1,4 @@
-from . import geom, source, probe, utils, setup_source_probe, model, loss, optimizer
+from . import geom, source, probe, utils, model, loss, optimizer, setup, distributed
 from .cell import WaveCell
 from .geom import WaveGeometryFreeForm
 from .probe import WaveProbe, WaveIntensityProbe

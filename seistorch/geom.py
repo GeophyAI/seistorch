@@ -14,12 +14,14 @@ from .siren import Siren
 
 
 class WaveGeometry(torch.nn.Module):
-    def __init__(self, domain_shape: Tuple, h: float, abs_N: int = 20, equation: str = "acoustic", multiple: bool = False):
+    def __init__(self, domain_shape: Tuple, h: float, abs_N: int = 20, equation: str = "acoustic", ndim: int = 2, multiple: bool = False):
         super().__init__()
 
         self.domain_shape = domain_shape
 
         self.multiple = multiple
+
+        self.ndim = ndim
 
         self.register_buffer("h", to_tensor(h))
 
@@ -28,8 +30,10 @@ class WaveGeometry(torch.nn.Module):
         # INIT boundary coefficients
         # self._init_b(abs_N)
         # self._init_cpml(abs_N)
-        self.generate_pml_coefficients_2d(abs_N)
-    
+        generate_pml_coefficients = getattr(self, f"generate_pml_coefficients_{ndim}d")
+        generate_pml_coefficients(abs_N)
+        #self.generate_pml_coefficients_2d(abs_N)
+
     def state_reconstruction_args(self):
         return {"h": self.h.item(),
                 "abs_N": self.abs_N.item()}
@@ -107,6 +111,30 @@ class WaveGeometry(torch.nn.Module):
         self._corners(N, self._d, d_x.T, d_y.T, self.multiple)
         # np.save("/home/wangsw/inversion/2d/layer/results/l2/pml.npy", self._d.cpu().detach().numpy())
 
+    def generate_pml_coefficients_3d(self, N=50, B=100.):
+        nz, ny, nx = self.domain_shape
+        # Cosine coefficients for pml
+        idx = (torch.ones(N + 1) * (N+1)  - torch.linspace(0.0, (N+1), N + 1))/(2*(N+1))
+        b_vals = torch.cos(torch.pi*idx)
+        b_vals = torch.ones_like(b_vals) * B * (torch.ones_like(b_vals) - b_vals)
+
+        b_x = torch.zeros((nz, ny, nx))
+        b_y = torch.zeros((nz, ny, nx))
+        b_z = torch.zeros((nz, ny, nx))
+
+        b_x[:,0:N+1,:] = b_vals.repeat(nx, 1).transpose(0, 1)
+        b_x[:,(ny - N - 1):ny,:] = torch.flip(b_vals, [0]).repeat(nx, 1).transpose(0, 1)
+
+        b_y[:,:,0:N + 1] = b_vals.repeat(ny, 1)
+        b_y[:,:,(nx - N - 1):nx] = torch.flip(b_vals, [0]).repeat(ny, 1)
+
+        b_z[0:N + 1, :, :] = b_vals.view(-1, 1, 1).repeat(1, ny, nx)
+        b_z[(nz - N - 1):nz + 1, :, :] = torch.flip(b_vals, [0]).view(-1, 1, 1).repeat(1, ny, nx)
+
+        #pml_coefficients = torch.sqrt(b_x ** 2 + b_y ** 2 + b_z ** 2)
+
+        self.register_buffer("_d", torch.sqrt(b_x ** 2 + b_y ** 2 + b_z ** 2))
+
     def _init_d(self, abs_N, order:float = 2.0, cp:float = 1500.):
 
         Nx, Ny = self.domain_shape
@@ -161,7 +189,6 @@ class WaveGeometryFreeForm(WaveGeometry):
 
         self.mode = mode
         self.autodiff = True
-
         h = kwargs['geom']['h']
         abs_N = kwargs['geom']['pml']['N']
         self.padding = kwargs['geom']['pml']['N']
@@ -175,7 +202,8 @@ class WaveGeometryFreeForm(WaveGeometry):
         self.model_parameters = []
         self.inversion = False
         self.kwargs = kwargs
-        super().__init__(self.domain_shape, h, abs_N, multiple=kwargs['geom']['multiple'])
+        self.ndim = 2 if kwargs['geom']['Nz'] == 0 else 3
+        super().__init__(self.domain_shape, h, abs_N, ndim=self.ndim, multiple=kwargs['geom']['multiple'])
         self.equation = kwargs["equation"]
         self.use_implicit = kwargs["training"]['implicit']['use']
         # Initialize the model parameters if not using implicit neural network
@@ -303,7 +331,11 @@ class WaveGeometryFreeForm(WaveGeometry):
         padding = self.padding
         if mode in mode_options:
             top = 0 if self.multiple else padding
-            return np.pad(d, ((top, padding), (padding,padding)), mode=mode)
+            if self.ndim==2:
+                return np.pad(d, ((top, padding), (padding,padding)), mode=mode)
+            elif self.ndim==3:
+                _padding_ = ((padding, padding), )*self.ndim
+                return np.pad(d, _padding_, mode=mode)
         else: # Padding the velocity with random velocites
             return self.pad_model_with_random_values(d, padding)
         

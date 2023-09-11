@@ -5,8 +5,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from seistorch.equations.acoustic import _time_step
 from seistorch.model import build_model
-from seistorch.setup import setup_src_rec
-from seistorch.setup_source_probe import setup_rec_coords, setup_src_coords
+from seistorch.setup import setup_src_rec, setup_rec_coords, setup_src_coords
 from seistorch.utils import ricker_wave
 
 from yaml import load

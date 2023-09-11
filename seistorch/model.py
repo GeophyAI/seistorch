@@ -1,5 +1,6 @@
 
 import importlib
+import traceback
 
 import numpy as np
 import torch
@@ -32,12 +33,16 @@ def build_model(config_path, device = "cuda", mode="forward"):
         for path in VEL_PATH.values():
             if path is None:
                 continue
-            ny, nx = np.load(path).shape
+            d = np.load(path)
+            if d.ndim == 2: ny, nx = np.load(path).shape; nz = 0
+            if d.ndim == 3: nz, nx, ny = np.load(path).shape    
             if ny is not None and nx is not None:
                 cfg['geom'].update({'Nx': nx})
                 cfg['geom'].update({'Ny': ny})
+                cfg['geom'].update({'Nz': nz})
                 break
     except Exception as e:
+        traceback.print_exc()
         print(e)
 
     set_dtype(cfg['dtype'])
@@ -55,7 +60,7 @@ def build_model(config_path, device = "cuda", mode="forward"):
     geom.inversion = mode == "inversion"
 
     # Import cells
-    module_name = f"seistorch.equations.{cfg['equation']}"
+    module_name = f"seistorch.equations{geom.ndim}d.{cfg['equation']}"
     try:
         module = importlib.import_module(module_name)
     except ImportError:

@@ -269,22 +269,29 @@ def to_tensor(x, dtype=None):
 def update_cfg(cfg, geom = 'geom', device='cpu'):
     """update the cfg dict, mainly update the Nx and Ny paramters.
     """
-    Nx, Ny = cfg[geom]['Nx'], cfg[geom]['Ny']
+    Nx, Ny, Nz = cfg[geom]['Nx'], cfg[geom]['Ny'], cfg[geom]['Nz']
 
-    if (Nx is None) and (Ny is None) and (cfg[geom]['cPath']):
-        vel_path = cfg[geom]['cPath']
-        vel = load_file_by_type(vel_path)
-        Ny, Nx = vel.shape
     cfg[geom]['_oriNx'] = Nx
     cfg[geom]['_oriNz'] = Ny
+    cfg[geom]['_oriNz'] = Nz
+
     cfg[geom].update({'Nx':Nx + 2*cfg[geom]['pml']['N']})
 
-    if cfg[geom]['multiple']:
-        nz = Ny + cfg[geom]['pml']['N']
-    else:
-        nz = Ny + 2*cfg[geom]['pml']['N']
-    cfg[geom].update({'Ny': nz})
-    cfg.update({'domain_shape': (cfg[geom]['Ny'], cfg[geom]['Nx'])})
+    
+    if Nz==0: # 2d = (Nz==0)
+        if cfg[geom]['multiple']:
+            nz = Ny + cfg[geom]['pml']['N']
+        else:
+            nz = Ny + 2*cfg[geom]['pml']['N']
+        cfg[geom].update({'Ny': nz})
+        cfg.update({'domain_shape': (cfg[geom]['Ny'], cfg[geom]['Nx'])})
+    if Nz>0:
+
+        cfg[geom].update({'Nx':Nx + 2*cfg[geom]['pml']['N']})
+        cfg[geom].update({'Ny':Ny + 2*cfg[geom]['pml']['N']})
+        cfg[geom].update({'Nz':Nz + 2*cfg[geom]['pml']['N']})
+        cfg.update({'domain_shape': (cfg['geom']['Nz'], cfg['geom']['Nx'], cfg['geom']['Ny'])})
+
     cfg.update({'device': device})
     return cfg
 
@@ -472,5 +479,24 @@ class Interp1d(torch.autograd.Function):
                 result[index] = gradients[pos]
                 pos += 1
         return (*result,)
+
+def merge_dicts_with_same_keys(dict_list):
+    """Merge the dict with same keys.
+
+    Args:
+        dict_list (list): A list of dict.
+
+    Returns:
+        dict: The merged dict.
+    """
+    merged_dict = {}
+    for d in dict_list:
+        for k, v in d.items():
+            if k not in merged_dict:
+                merged_dict[k] = []
+            merged_dict[k].append(v)
+    return merged_dict
+
+
 
 interp1d = Interp1d.apply

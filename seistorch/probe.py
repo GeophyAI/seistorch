@@ -4,28 +4,33 @@ from .utils import to_tensor
 
 
 class WaveProbe(torch.nn.Module):
-	def __init__(self, x, y):
+	def __init__(self, **kwargs):
 		super().__init__()
+		self._ndim = len(kwargs)
+		self.coord_labels = list(kwargs.keys())
+		# Register index buffer
+		for key, value in kwargs.items():
+			self.register_buffer(key, to_tensor(value, dtype=torch.int64))
 
-		# Need to be int64
-		self.register_buffer('x', to_tensor(x, dtype=torch.int64))
-		self.register_buffer('y', to_tensor(y, dtype=torch.int64))
+		self.forward = self.get_forward_func()
 
-	def __repr__(self,):
-		return super().__repr__() + '\nProbe location: x:{} z:{}'.format(self.y, self.x)
+	@property
+	def ndim(self,):
+		return self._ndim
+	
+	def get_forward_func(self, ):
+		return getattr(self, f"forward{self.ndim}d")
 
-	def forward(self, x):
-		return x[:, self.x, self.y]
-
-	def plot(self, ax, color='k'):
-		marker, = ax.plot(self.x.numpy(), self.y.numpy(), 'o', markeredgecolor=color, markerfacecolor='none', markeredgewidth=1.0, markersize=4)
-		return marker
-
+	def forward2d(self, x):
+		return x[:, self.y, self.x]
+	
+	def forward3d(self, x):
+		return x[:, self.x, self.z, self.y]
 
 class WaveIntensityProbe(WaveProbe):
-	def __init__(self, x, y):
+	def __init__(self, **kwargs):
 		#print('WaveIntensityProbe', x, y)
-		super().__init__(x, y)
+		super().__init__(**kwargs)
 
 	def forward(self, x):
 		return super().forward(x)#.pow(2)

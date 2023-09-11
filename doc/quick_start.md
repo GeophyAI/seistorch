@@ -1,15 +1,17 @@
 # Quick Start
 Welcome to Seistorch! This quick start guide will walk you through the basics of using Seistorch for seismic simulations and Full-Waveform Inversion (FWI). We'll cover the following topics:
 
-1. **Running Forward Modeling**: Simulate seismic wave propagation.
+1. **Running 2D Forward Modeling**: Simulate seismic wave propagation in 2D space.
 
-2. **Classic FWI**: Perform Full-Waveform Inversion.
+2. **Running 3D Forward Modeling**: Simulate seismic wave propagation in 3D space.
 
-3. **Source inversion**: How to perform source inversion.
+3. **Classic FWI**: Perform Full-Waveform Inversion.
 
-## Perform forward modeling
+4. **Source inversion**: How to perform source inversion.
 
-The code of this section locates at `examples/forward_modeling`. This example shows how to run forward modeling with your own model and geometry.
+## Perform 2d forward modeling
+
+The code of this section locates at `examples/forward_modeling2d`. This example shows how to run forward modeling with your own model and geometry.
 
 -   First we need to change the directory into it.
 
@@ -39,9 +41,27 @@ The code of this section locates at `examples/forward_modeling`. This example sh
 
     The plotted results will be save in **shot_gather.png**.
 
+## Perform 3d forward modeling
+
+The code of this section locates at `examples/forward_modeling3d`. This example shows how to run forward modeling with your own model and geometry.
+
+The script `generate_model_geometry.py` generates a 3D velocity model with two layers. A ricker source at the center of the model suface is used for modeling. Moreover, we have created a three-dimensional observational system, and a schematic diagram of this observational system will be generated after running this script.
+
+```shell
+python generate_model_geometry.py
+```
+
+The modeled data has 1 shot with 2000 time samples, 128 traces and a single component (displacement in scalar wave equation). The first 64 and last 64 traces are recorded along different line directions. Run the script will show the recorded data.
+
+```shell
+python show_shotgather.py
+```
+
+If you wanna generate your own 3D geometry and 3D velocity model, please refer to the section [data format](data_format.md).
+
 ## Perform acoustic full waveform inversion
 
-The code of this section locates at `examples/acoustic_fwi`. This exmaples shows a workflow of performing full waveform inversion based on pure automatic differentiation (PAD) and boundary saving-based automatic differentiation (BSAD). The BSAD method is used to reduce the GPU memory usage by reconstructing the wavefield with boundary saving strategy during loss backpropagation.
+The code of this section locates at `examples/acoustic_fwi2d`. This exmaples shows a workflow of performing full waveform inversion based on pure automatic differentiation (PAD) and boundary saving-based automatic differentiation (BSAD). The BSAD method is used to reduce the GPU memory usage by reconstructing the wavefield with boundary saving strategy during loss backpropagation.
 
 - **Generate model and geometry**
 

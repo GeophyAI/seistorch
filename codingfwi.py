@@ -26,7 +26,6 @@ from seistorch.eqconfigure import Shape
 from seistorch.model import build_model
 from seistorch.siren import Siren
 from seistorch.setup import *
-from seistorch.setup_source_probe import setup_rec_coords, setup_src_coords
 from seistorch.utils import (DictAction, cpu_fft, dict2table,
                              low_pass, roll, roll2, to_tensor)
 
