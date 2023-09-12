@@ -1,6 +1,4 @@
 .vscode
-*.sh
-*.png
 *.npy
 *.pyc
 *.pkl
