@@ -29,6 +29,8 @@ The code of this section locates at `examples/forward_modeling2d`. This example 
 
     Two new folders **geometry** and **velocity_model** will be created. The figure **model_geometry.png** illustrates the generated layer model and the locations of source-receiver pairs.
 
+    ![Geometry](figures/forward_modeling2d/model_geometry.png)
+
 -   Running the shell script `forward.sh`, a file called `shot_gather.npy` will be created.
 
     ```shell
@@ -41,23 +43,41 @@ The code of this section locates at `examples/forward_modeling2d`. This example 
     python show_shotgather.py
     ```
 
-    The plotted results will be save in **shot_gather.png**.
+    The plotted results will be save in **shot_gather.png** (shown as follows).
+    
+    ![ShotGather](figures/forward_modeling2d/shot_gather.png)
 
 ## 3d forward modeling
 
 The code of this section locates at `examples/forward_modeling3d`. This example shows how to run forward modeling with your own model and geometry.
 
-The script `generate_model_geometry.py` generates a 3D velocity model with two layers. A ricker source at the center of the model suface is used for modeling. Moreover, we have created a three-dimensional observational system, and a schematic diagram of this observational system will be generated after running this script.
+- **Generate geometry and velocity model**
 
-```shell
-python generate_model_geometry.py
-```
+    The script `generate_model_geometry.py` generates a 3D velocity model with two layers. A ricker source at the center of the model suface is used for modeling. Moreover, we have created a three-dimensional observational system, and a schematic diagram of this observational system will be generated after running this script.
 
-The modeled data has 1 shot with 2000 time samples, 128 traces and a single component (displacement in scalar wave equation). The first 64 and last 64 traces are recorded along different line directions. Run the script will show the recorded data.
+    ```shell
+    python generate_model_geometry.py
+    ```
 
-```shell
-python show_shotgather.py
-```
+    ![Geometry](figures/forward_modeling3d/model_geometry.png)
+
+- **Run forward modeling**
+
+    Perform simulation by running script `forward.sh`.
+
+    ```shell
+    sh forward.sh
+    ```
+
+- **Show results**
+
+    The modeled data has 1 shot with 2000 time samples, 128 traces and a single component (displacement in scalar wave equation). The first 64 and last 64 traces are recorded along different line directions. Run the script will show the recorded data.
+
+    ```shell
+    python show_shotgather.py
+    ```
+    ![Geometry](figures/forward_modeling3d/shot_gather.png)
+
 
 If you wanna generate your own 3D geometry and 3D velocity model, please refer to the section [data format](data_format.md).
 
@@ -72,6 +92,8 @@ The code of this section locates at `examples/acoustic_fwi2d`. This exmaples sho
     ```
 
     The srcipt `generate_model_geometry.py` will generate a 2 layer ground truth model and a smoothed version of it. The corresponding source-receiver pairs will be generated as well. A figure named **model_geometry.png** illustrate the true and initial model.
+
+    ![Geomtry](figures/acoustic_fwi2d/model_geometry.png)
 
 - **Generate observed data**
 
@@ -109,42 +131,53 @@ The code of this section locates at `examples/acoustic_fwi2d`. This exmaples sho
 
     The BSAD method significantly reduces memory usage and sacrifices some computational efficiency.
 
+    ![ADvsBS](figures/acoustic_fwi2d/compare_AD_BS.png)
+
 ## 2D Source Encoding FWI
 
 This chapter primarily focuses on how to perform Seistorch's Source Encoding Full Waveform Inversion (FWI) using the same parameter file as Classic FWI. The difference lies in the utilization of `codingfwi.py` to perform the FWI process with source encoding.
 
-The velocity model we use here is modified from marmousi1. We pad the marmousi1 model at left and right with 50 grids (1km) for better illuminating. You need to download the velocity model from our huggingface repo [seismic inversion](https://huggingface.co/datasets/shaowinw/seismic_inversion/tree/main/marmousi_customer/marmousi_20m) or [model scope repo](https://modelscope.cn/datasets/shaowinw/seismic_inversion/files). Perhaps you just need to run the script `download_vel.sh`.The ground truth model `true_vp.npy` and initial model `linear_vp.npy` are needed to run this example.
+- **Download the velocity model**
 
-The downloaded two model files should be saved in `./velocity_model`. 
+    The velocity model we used here is modified from marmousi1. We pad the marmousi1 model at left and right with 50 grids (1km) for better illuminating. You need to download the velocity model from our huggingface repo [seismic inversion](https://huggingface.co/datasets/shaowinw/seismic_inversion/tree/main/marmousi_customer/marmousi_20m) or [model scope repo](https://modelscope.cn/datasets/shaowinw/seismic_inversion/files). Perhaps you just need to run the script `download_vel.sh`.The ground truth model `true_vp.npy` and initial model `linear_vp.npy` are needed to run this example.
 
-Once you have done the aboving steps, run the script the `generate_model_geometry.py`. Just like the other examples, it will generate `sources.pkl` and `receivers.pkl` which describes the acquisition of modeling.
+    The downloaded two model files should be saved in `./velocity_model`. 
 
-```shell
-python generate_model_geometry.py
-```
+- **Generate the acquisition**
+    Once you have done the aboving steps, run the script the `generate_model_geometry.py`. Just like the other examples, it will generate `sources.pkl` and `receivers.pkl` which describes the acquisition of modeling.
 
-![Model](figures/source_encoding_fwi/model_geometry.png "Model")
+    ```shell
+    python generate_model_geometry.py
+    ```
 
-Run the script `forward.sh` to generate the observed data.
+    ![Model](figures/source_encoding_fwi/model_geometry.png "Model")
 
-```shell
-sh forward.sh
-```
-![ShotGather](figures/source_encoding_fwi/shot_gather.png "Model")
+- **Running forward modeling**
 
-The same configure file `forward.yml` is used for both forward modeling and inversion. The arguments of source encoding can be found in `source_encoding_fwi.sh`. The meaning of the arguments of `codingfwi.py` can be found in [running commands](running_commands.md).
+    Run the script `forward.sh` to generate the observed data.
 
-```shell
-sh source_encoding_fwi.sh
-```
+    ```shell
+    sh forward.sh
+    ```
+    ![ShotGather](figures/source_encoding_fwi/shot_gather.png "Model")
 
-The script `show_results.py` can be used to show the inverted results when the `source_encoding_fwi.sh` has been executed done.
+- **Running inversion**
 
-```shell
-python show_results.py
-```
+    The same configure file `forward.yml` is used for both forward modeling and inversion. The arguments of source encoding can be found in `source_encoding_fwi.sh`. The meaning of the arguments of `codingfwi.py` can be found in [running commands](running_commands.md).
 
-![Inverted](figures/source_encoding_fwi/Inverted.jpg "Results")
+    ```shell
+    sh source_encoding_fwi.sh
+    ```
+
+- **Show inverted results**
+
+    The script `show_results.py` can be used to show the inverted results when the `source_encoding_fwi.sh` has been executed done.
+
+    ```shell
+    python show_results.py
+    ```
+
+    ![Inverted](figures/source_encoding_fwi/Inverted.jpg "Results")
 
 ## Source inversion
 The code of this section locates at `examples/source_inversion`. This exmaples shows a workflow of performing source inversion based on pure automatic differentiation (PAD).

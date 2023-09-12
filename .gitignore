@@ -6,5 +6,4 @@
 *.pkl
 __pycache__
 test
-figures
 plot.py
