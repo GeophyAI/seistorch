@@ -287,10 +287,10 @@ if __name__ == '__main__':
         lr_scheduler.step()
 
         # Saving checkpoint
-        torch.save({'epoch': local_epoch, 
-                    'model_state_dict': model.state_dict(), 
-                    'optimizer_state_dict': optimizers.state_dict()}, 
-                    f"{ROOTPATH}/ckpt_{local_epoch}.pt")
+        # torch.save({'epoch': local_epoch, 
+        #             'model_state_dict': model.state_dict(), 
+        #             'optimizer_state_dict': optimizers.state_dict()}, 
+        #             f"{ROOTPATH}/ckpt_{local_epoch}.pt")
 
         pbar.update(1)
         # Save vel and grad

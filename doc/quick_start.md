@@ -5,11 +5,13 @@ Welcome to Seistorch! This quick start guide will walk you through the basics of
 
 2. **Running 3D Forward Modeling**: Simulate seismic wave propagation in 3D space.
 
-3. **Classic FWI**: Perform Full-Waveform Inversion.
+3. **Classic acoustic FWI**: Perform Full-Waveform Inversion.
 
-4. **Source inversion**: How to perform source inversion.
+4. **Source encoding acoustic FWI**: Perform source-encoding (phase and polarity encoding) based full waveform inversion.
 
-## Perform 2d forward modeling
+5. **Source inversion**: How to perform source inversion.
+
+## 2d forward modeling
 
 The code of this section locates at `examples/forward_modeling2d`. This example shows how to run forward modeling with your own model and geometry.
 
@@ -41,7 +43,7 @@ The code of this section locates at `examples/forward_modeling2d`. This example 
 
     The plotted results will be save in **shot_gather.png**.
 
-## Perform 3d forward modeling
+## 3d forward modeling
 
 The code of this section locates at `examples/forward_modeling3d`. This example shows how to run forward modeling with your own model and geometry.
 
@@ -59,7 +61,7 @@ python show_shotgather.py
 
 If you wanna generate your own 3D geometry and 3D velocity model, please refer to the section [data format](data_format.md).
 
-## Perform acoustic full waveform inversion
+## 2D Acoustic full waveform inversion
 
 The code of this section locates at `examples/acoustic_fwi2d`. This exmaples shows a workflow of performing full waveform inversion based on pure automatic differentiation (PAD) and boundary saving-based automatic differentiation (BSAD). The BSAD method is used to reduce the GPU memory usage by reconstructing the wavefield with boundary saving strategy during loss backpropagation.
 
@@ -107,7 +109,44 @@ The code of this section locates at `examples/acoustic_fwi2d`. This exmaples sho
 
     The BSAD method significantly reduces memory usage and sacrifices some computational efficiency.
 
-## Perform source inversion
+## 2D Source Encoding FWI
+
+This chapter primarily focuses on how to perform Seistorch's Source Encoding Full Waveform Inversion (FWI) using the same parameter file as Classic FWI. The difference lies in the utilization of `codingfwi.py` to perform the FWI process with source encoding.
+
+The velocity model we use here is modified from marmousi1. We pad the marmousi1 model at left and right with 50 grids (1km) for better illuminating. You need to download the velocity model from our huggingface repo [seismic inversion](https://huggingface.co/datasets/shaowinw/seismic_inversion/tree/main/marmousi_customer/marmousi_20m) or [model scope repo](https://modelscope.cn/datasets/shaowinw/seismic_inversion/files). Perhaps you just need to run the script `download_vel.sh`.The ground truth model `true_vp.npy` and initial model `linear_vp.npy` are needed to run this example.
+
+The downloaded two model files should be saved in `./velocity_model`. 
+
+Once you have done the aboving steps, run the script the `generate_model_geometry.py`. Just like the other examples, it will generate `sources.pkl` and `receivers.pkl` which describes the acquisition of modeling.
+
+```shell
+python generate_model_geometry.py
+```
+
+![Model](figures/source_encoding_fwi/model_geometry.png "Model")
+
+Run the script `forward.sh` to generate the observed data.
+
+```shell
+sh forward.sh
+```
+![ShotGather](figures/source_encoding_fwi/shot_gather.png "Model")
+
+The same configure file `forward.yml` is used for both forward modeling and inversion. The arguments of source encoding can be found in `source_encoding_fwi.sh`. The meaning of the arguments of `codingfwi.py` can be found in [running commands](running_commands.md).
+
+```shell
+sh source_encoding_fwi.sh
+```
+
+The script `show_results.py` can be used to show the inverted results when the `source_encoding_fwi.sh` has been executed done.
+
+```shell
+python show_results.py
+```
+
+![Inverted](figures/source_encoding_fwi/Inverted.jpg "Results")
+
+## Source inversion
 The code of this section locates at `examples/source_inversion`. This exmaples shows a workflow of performing source inversion based on pure automatic differentiation (PAD).
 
 We first generate a two layer velocity model and a background velocity. A BSpline wavelet is used as the source for modeling the observed data. Running the following commands will generate the corresponding velocity models, geometry and wavelet for forward modeling.
