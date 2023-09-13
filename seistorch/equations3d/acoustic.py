@@ -65,11 +65,11 @@ padding = kernel.shape[-1]//2
 
 def _laplacian3d(y, h):
     """Laplacian operator"""
-    operator = h ** (-2) * kernel.to(h.device)
+    operator = h ** (-2) * kernel#.to(h.device)
     #y = y.unsqueeze(1)
     return conv3d(y, operator, padding=padding)#.squeeze(1)
 
-@torch.compile
+# @torch.compile
 def _time_step(*args):
     """
     Time step function for acoustic wave equation
@@ -85,7 +85,7 @@ def _time_step(*args):
                 )
     return y, h1
 
-@torch.compile
+# @torch.compile
 def _time_step_backward(*args):
 
     vp = args[0]

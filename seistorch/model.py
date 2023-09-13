@@ -69,6 +69,11 @@ def build_model(config_path, device = "cuda", mode="forward"):
     # Import the forward and backward functions with the specified equation
     forward_func = getattr(module, "_time_step", None)
     backward_func = getattr(module, "_time_step_backward", None)
+    main_torch_version = int(torch.__version__.split('.')[0])
+    COMPILE = True if main_torch_version > 1 else False
+    if COMPILE:
+        forward_func = torch.compile(forward_func)
+        backward_func = torch.compile(backward_func)
     forward_func.ACOUSTIC2nd = True if cfg['equation'] == "acoustic" else False
     # Build Cell
     cell = WaveCell(geom, forward_func, backward_func)
