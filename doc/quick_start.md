@@ -129,7 +129,7 @@ The code of this section locates at `examples/acoustic_fwi2d`. This exmaples sho
     python AD_vs_BS.py
     ```
 
-    The BSAD method significantly reduces memory usage and sacrifices some computational efficiency.
+    The BSAD method significantly reduces memory usage and sacrifices some computational efficiency. The gradients of the AD and BS methods are shown in the following figures.
 
     ![ADvsBS](figures/acoustic_fwi2d/compare_AD_BS.png)
 
@@ -182,11 +182,15 @@ This chapter primarily focuses on how to perform Seistorch's Source Encoding Ful
 ## Source inversion
 The code of this section locates at `examples/source_inversion`. This exmaples shows a workflow of performing source inversion based on pure automatic differentiation (PAD).
 
-We first generate a two layer velocity model and a background velocity. A BSpline wavelet is used as the source for modeling the observed data. Running the following commands will generate the corresponding velocity models, geometry and wavelet for forward modeling.
+We first generate a two layer velocity model and a background velocity. A BSpline wavelet (Cao and Han, 2011) is used as the source for modeling the observed data. Running the following commands will generate the corresponding velocity models, geometry and wavelet for forward modeling.
 
 ```shell
 python generate_model_geometry.py
 ```
+
+The generated ground truth model and background model can be seen in the following figure. The wide band Bspline shown in the third column is used as the wavelet for modeling observed data.
+
+![Geometry](figures/source_inversion/model_geometry.png)
 
 Run the script `sh forward.sh` will generate the observed data.
 
@@ -198,8 +202,14 @@ The objective function in source inversion is the same as in Full Waveform Inver
 
 The script `source_inversion.py` provides a workflow of source inversion. A ricker wavelet is used as the initial source for optmization.
 
+![Geometry](figures/source_inversion/true_initial_wavelet.png)
+
 ```shell
 python source_inversion.py
 ```
 
 The intermediate steps of the inversion process will be saved in the `results` folder.
+
+The following figure shows the final inverted result. We can observe that while the maximum and minimum amplitudes may not be consistent, the phase of the waveform has been relatively well recovered.
+
+![Geometry](figures/source_inversion/Final_result.png)

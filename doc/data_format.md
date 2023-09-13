@@ -4,10 +4,10 @@ In this chapter, we will introduce the format of the models used in Seistorch as
 
 ## Model parameters
 
-We recommend using the `.npy` file format to store your model files in Seistorch. This format is particularly efficient and convenient, especially for 2D/3D models, where the model shape should be `nz * nx`. Here are the advantages of using `.npy` files:
+We recommend using the `.npy` file format to store your model files in Seistorch. This format is particularly efficient and convenient, especially for 2D/3D models, where the model shape should be `nz*nx` (2D) or `nx*nz*ny` (3D).
 
 
-Here's an example of how to save and load a 2D seismic model using `.npy` format:
+Here's an example of how to save and load a 2D/3D seismic model using `.npy` format:
 
 ```python
 import numpy as np
@@ -15,6 +15,11 @@ import matplotlib.pyplot as plt
 
 # Create a 2D model
 model = np.random.rand(nz, nx)  # Replace with your actual model data
+plt.imshow(model)
+plt.show()
+
+# Create a 3D model
+model = np.random.rand(nx, nz, ny)  # Replace with your actual model data
 plt.imshow(model)
 plt.show()
 
@@ -51,6 +56,14 @@ The `sources` and `receivers` data are stored in `.pkl` (Python Pickle) files. T
 
     In Seistorch, the coordinates of sources and receivers are typically stored as python `list`, and in most cases, one source may correspond to multiple receivers. This data structure can be represented as a list of lists, where each outer list item represents a source, and the inner list contains the coordinates of receivers associated with that source.
 
+    ### 2D case
+
+    The length of the sources list equal to the number of shots. Each element in the list is also a list with a length of 2, where the two elements in each inner list represent the x-coordinate (in grid) and z-coordinate (in grid) of a seismic source. 
+
+    The length of the receivers list equal to the number of shots as well.
+
+    **Note**: It's preferable for the coordinate values to be integers. If they are not integers, they will be truncated or rounded to the nearest whole number.
+
     ```python
     # Define source-receiver coordinates as a list of lists
 
@@ -62,19 +75,64 @@ The `sources` and `receivers` data are stored in `.pkl` (Python Pickle) files. T
     ]
 
     receivers = [
-        # receiver of source 1:
+        # receivers of source 1:
         [[rec_x1, rec_x2, rec_x3], [rec_z1, rec_z2, rec_z3]],
-        # receiver of source 2:
+        # receivers of source 2:
         [[rec_x1, rec_x2], [rec_z1, rec_z2]]
     ]
 
 
-    write_pkl("source.pkl", sources)
-    write_pkl("source.pkl", receivers)
+    write_pkl("sources.pkl", sources)
+    write_pkl("receivers.pkl", receivers)
 
     ```
 
-    The length of the list `sources` and `receivers` muet be equal. So, if your receivers are fixed, you also need to specify them respectively. The purpose of doing this is to make it more fiexable to changing geomtry, such as OBC acquisition.
+    ### 3D case
+
+    The primary distinction between 3D and 2D coordinate systems is the presence of an additional y-coordinate in the 3D system.
+
+    **Method 1**
+
+    ```python
+    # Define source-receiver coordinates as a list of lists
+
+    sources = [
+        # Source 1
+        [src_x1, src_y1, src_z1],
+        # Source 2
+        [src_x2, src_y2, src_z2]
+    ]
+
+    receivers = [
+        # receivers of source 1:
+        [[rec_x1, rec_x2, rec_x3], [rec_y1, rec_y2, rec_y3], [rec_z1, rec_z2, rec_z3]],
+        # receivers of source 2:
+        [[rec_x1, rec_x2], [rec_y1, rec_y2], [rec_z1, rec_z2]]
+    ]
+
+    write_pkl("sources.pkl", sources)
+    write_pkl("receivers.pkl", receivers)
+
+    ```
+
+    **Method2**
+
+    In 3D cases, you can also specify the coordinates with a `np.ndarray`.
+
+    ```python
+    """Generate receiver list"""
+    import numpy as np
+
+    receivers = []
+    xx = np.arange(0, 200, 2)
+    yy = np.arange(0, 125, 5)
+    grid = np.meshgrid(xx, yy)
+
+    depth = np.zeros_like(grid[0])
+    receivers.append([grid[0], grid[1], depth])
+    ```
+
+The length of the list `sources` and `receivers` muet be equal. So, if your receivers are fixed, you also need to specify them respectively. The purpose of doing this is to make it more fiexable to changing geomtry, such as towed acquisition.
 
 ## Shot gather
 

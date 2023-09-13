@@ -57,7 +57,7 @@ assert len(sources) == len(receivers), \
         "The number of sources and receivers must be the same."
 
 # True wavelet 
-config_path = r"./forward.yml"
+config_path = r"./configs/forward.yml"
 # Load the configure file
 with open(config_path, 'r') as ymlfile:
     cfg = load(ymlfile, Loader=Loader)
