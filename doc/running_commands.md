@@ -12,6 +12,10 @@ When running the Seistorch FWI scripts, such as `fwi.py` and `codingfwi.py`, you
 - **Description**: Sets the number of threads used for intraop parallelism on CPU (torch).
 - **Example Usage**: `--num_threads 6` will use 6 threads for paralleism.
 
+### Parameter: [`num-batches`]
+- **Description**: How many batches the data will be seperated. Seistorch will perform modeling `ceil(num-shots/num-batches)` times.
+- **Example Usage**: `--num-batches 1`: All the data will be bundled in a single batch.
+
 ### Parameter: [`save-path`]
 - **Description**: Sepcify the path for saving the inverted results.
 - **Example Usage**: The arguments will overwrite the parameter `inv_savePath` in configure file. If not specified, the results will be saved in `inv_savePath`.

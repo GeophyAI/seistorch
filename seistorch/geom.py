@@ -466,10 +466,10 @@ class WaveGeometryFreeForm(WaveGeometry):
                 if "para" in key and self.true_models:
                     _pad = self.padding
                     if self.multiple:
-                        data = data[:-_pad, _pad:-_pad]
+                        data_copy = data[:-_pad, _pad:-_pad]
                     else:
-                        data = data[_pad:-_pad, _pad:-_pad]
-                    model_error = np.sum((data - self.true_models[para])**2)
+                        data_copy = data[_pad:-_pad, _pad:-_pad]
+                    model_error = np.sum((data_copy - self.true_models[para])**2)
 
                 # Write the data to tensorboard.
                 if writer is not None:

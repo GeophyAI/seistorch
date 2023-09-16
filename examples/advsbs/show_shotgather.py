@@ -7,8 +7,8 @@ np.random.seed(20230915)
 """
 Configures
 """
-config_path = "./forward.yml"
-obsPath = "./observed.npy"
+config_path = "./configs/forward.yml"
+obsPath = "./shot_gather.npy"
 
 # Load the configure file
 with open(config_path, 'r') as ymlfile:

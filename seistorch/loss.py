@@ -61,6 +61,8 @@ class L2(torch.nn.Module):
         return torch.nn.MSELoss()(x, y)
 
 class CosineSimilarity(torch.nn.Module):
+    """The cosine similarity (Normalized cross correlation) loss function.
+    """
 
     def __init__(self):
         super(CosineSimilarity, self).__init__()
@@ -92,4 +94,117 @@ class CosineSimilarity(torch.nn.Module):
         # Compute the mean difference between similarity and 1
         loss = torch.mean(1-similarity)
 
+        return loss
+    
+class Envelope(torch.nn.Module):
+    """
+    A custom PyTorch module that computes the envelope-based mean squared error loss between
+    two input tensors (e.g., predicted and observed seismograms).
+    """
+
+    def __init__(self):
+        """
+        Initialize the parent class.
+        """
+        super(Envelope, self).__init__()
+
+    @property
+    def name(self,):
+        return "envelope"
+
+    # @torch.no_grad()
+    def analytic(self, data):
+        """
+        Compute the Hilbert transform of the input data tensor.
+
+        Args:
+            data (torch.Tensor): The input data tensor.
+
+        Returns:
+            torch.Tensor: The Hilbert transform of the input data tensor.
+        """
+
+        nt, _, _ = data.shape
+        # nfft = 2 ** (nt - 1).bit_length()
+        nfft = nt # the scipy implementation uses this
+
+        # Compute the FFT
+        data_fft = torch.fft.fft(data, n=nfft, dim=0)
+
+        # Create the filter
+        # h = torch.zeros(nfft, device=data.device).unsqueeze(1).unsqueeze(2)
+        h = np.zeros(nfft, dtype=np.float32)
+
+        if nfft % 2 == 0:
+            h[0] = h[nfft // 2] = 1
+            h[1:nfft // 2] = 2
+        else:
+            h[0] = 1
+            h[1:(nfft + 1) // 2] = 2
+
+        h = np.expand_dims(h, 1)
+        h = np.expand_dims(h, 2)
+        h = torch.from_numpy(h).to(data.device)
+        # h = h.requires_grad_(True)
+        # Apply the filter and compute the inverse FFT
+        hilbert_data = torch.fft.ifft(data_fft * h, dim=0)
+
+        # Truncate the result to the original length
+        #hilbert_data = hilbert_data#[:nt]
+
+        return hilbert_data
+    
+    def envelope(self, seismograms):
+        """
+        Compute the envelope of the input seismograms tensor.
+
+        Args:
+            seismograms (torch.Tensor): The input seismograms tensor.
+
+        Returns:
+            torch.Tensor: The envelope of the input seismograms tensor.
+        """
+        # Compute the Hilbert transform along the time axis
+        hilbert_transform = self.analytic(seismograms)
+        
+        # Compute the envelope
+        envelope = torch.abs(hilbert_transform)
+
+        # envelope = torch.sqrt(hilbert_transform.real**2 + hilbert_transform.imag**2)
+
+        return envelope
+
+    def envelope_loss(self, pred_seismograms, obs_seismograms):
+        """
+        Compute the envelope-based mean squared error loss between pred_seismograms and obs_seismograms.
+
+        Args:
+            pred_seismograms (torch.Tensor): The predicted seismograms tensor.
+            obs_seismograms (torch.Tensor): The observed seismograms tensor.
+
+        Returns:
+            torch.Tensor: The computed envelope-based mean squared error loss.
+        """
+        
+        pred_envelope = self.envelope(pred_seismograms)
+        obs_envelope = self.envelope(obs_seismograms)
+
+        # pred_envelope = pred_envelope/(torch.norm(pred_envelope, p=2, dim=0)+1e-16)
+        # obs_envelope = obs_envelope/(torch.norm(obs_envelope, p=2, dim=0)+1e-16)
+
+        # loss = F.mse_loss(pred_envelope, obs_envelope, reduction="mean")
+        return torch.nn.MSELoss()(pred_envelope, obs_envelope)
+
+    def forward(self, x, y):
+        """
+        Compute the envelope-based mean squared error loss for the given input tensors x and y.
+
+        Args:
+            x (torch.Tensor): The first input tensor.
+            y (torch.Tensor): The second input tensor.
+
+        Returns:
+            torch.Tensor: The computed envelope-based mean squared error loss.
+        """
+        loss = self.envelope_loss(x, y)
         return loss

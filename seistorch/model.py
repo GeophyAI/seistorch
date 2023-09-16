@@ -17,7 +17,7 @@ try:
 except ImportError:
     from yaml import Dumper, Loader
 
-def build_model(config_path, device = "cuda", mode="forward"):
+def build_model(config_path, device = "cuda", mode="forward", source_encoding=False):
 
     assert mode in ["forward", "inversion"], f"No such mode {mode}!"
 
@@ -70,7 +70,8 @@ def build_model(config_path, device = "cuda", mode="forward"):
     forward_func = getattr(module, "_time_step", None)
     backward_func = getattr(module, "_time_step_backward", None)
     main_torch_version = int(torch.__version__.split('.')[0])
-    COMPILE = True if main_torch_version > 1 else False
+    #COMPILE = True if main_torch_version > 1 else False
+    COMPILE = False
     if COMPILE:
         forward_func = torch.compile(forward_func)
         backward_func = torch.compile(backward_func)
@@ -78,7 +79,7 @@ def build_model(config_path, device = "cuda", mode="forward"):
     # Build Cell
     cell = WaveCell(geom, forward_func, backward_func)
     # Build RNN
-    model = WaveRNN(cell)
+    model = WaveRNN(cell, source_encoding)
 
     #return cfg, model
     return cfg, model

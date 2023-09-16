@@ -14,9 +14,19 @@ class WaveSource(torch.nn.Module):
 
 		self.forward = self.get_forward_func()
 
+		self._source_encoding=False
+
 	@property
 	def ndim(self,):
 		return self._ndim
+	
+	@property
+	def source_encoding(self,):
+		return self._source_encoding
+	
+	@source_encoding.setter
+	def source_encoding(self, value):
+		self._source_encoding = value
 
 	def coords(self,):
 		"""Return the coordinates of the source.
@@ -41,11 +51,25 @@ class WaveSource(torch.nn.Module):
 		return getattr(self, f"forward{self.ndim}d")
 
 	def forward2d(self, Y, X, dt=1.0):
-		#Y_new = Y.clone()
-		Y[..., self.y, self.x] += dt*X
-		return Y
+		# No memory leakage problem
+		Y_new = Y.clone()
+		if not self.source_encoding:
+			for idx in range(self.x.size(0)):
+				Y_new[idx:idx+1, self.y[idx]:self.y[idx]+1, self.x[idx]] += dt*X
+
+		if self.source_encoding:
+			Y_new[..., self.y, self.x] += dt*X
+
+		return Y_new
+
+		# Memory leakage problem
+		# Y[..., self.y, self.x] += dt*X
+		# return Y
 	
 	def forward3d(self, Y, X, dt=1.0):
-		#Y_new = Y.clone()
-		Y[..., self.x, self.z, self.y] += dt*X
-		return Y
+		Y_new = Y.clone()
+		Y_new[..., self.x, self.z, self.y] += dt*X
+		return Y_new
+		# Memory leakage problem
+		# Y[..., self.x, self.z, self.y] += dt*X
+		# return Y

@@ -35,6 +35,8 @@ parser.add_argument('config', type=str,
                     help='Configuration file for geometry, training, and data preparation')
 parser.add_argument('--num_threads', type=int, default=2,
                     help='Number of threads to use')
+parser.add_argument('--num-batches', type=int, default=1,
+                    help='Number of batches to use')
 parser.add_argument('--use-cuda', action='store_true',
                     help='Use CUDA to perform computations')
 parser.add_argument('--opt', choices=['adam', 'lbfgs', 'ncg'], default='adam',
@@ -49,6 +51,8 @@ parser.add_argument('--mode', choices=['forward', 'inversion', 'rtm'], default='
                     help='forward modeling, inversion or reverse time migration mode')
 parser.add_argument('--grad-cut', action='store_true',
                     help='Cut the boundaries of gradient or not')
+parser.add_argument('--source-encoding', action='store_true', default=False,
+                    help='PLEASE DO NOT CHANGE THE DEFAULT VALUE.')
 
 if __name__ == '__main__':
     args = parser.parse_args()
@@ -75,7 +79,7 @@ if __name__ == '__main__':
     'Sets the number of threads used for intraop parallelism on CPU.'
     torch.set_num_threads(args.num_threads)
     # Build model
-    cfg, model = build_model(args.config, device=args.dev, mode=args.mode)
+    cfg, model = build_model(args.config, device=args.dev, mode=args.mode, source_encoding=args.source_encoding)
     #model = torch.compile(model)
 
     # Set the name of the process
@@ -128,34 +132,39 @@ if __name__ == '__main__':
         comm.Barrier()
         # Rank 0 is the master node for assigning tasks
         if rank == 0:
-            pbar = tqdm.trange(NSHOTS, position=0)
+            num_batches = min(NSHOTS, args.num_batches)
+            pbar = tqdm.trange(num_batches, position=0)
             pbar.set_description(cfg['equation'])
             shots = np.arange(NSHOTS)
             kwargs = {'record': record}
 
-            task_distribution_and_data_reception(shots, pbar, args.mode, **kwargs)
+            task_distribution_and_data_reception(shots, pbar, args.mode, num_batches, **kwargs)
 
         else:
             # Other ranks are the worker nodes
             while True:
                 # receive task from the master node
-                task = comm.recv(source=0, tag=MPI.ANY_TAG)
+                tasks = comm.recv(source=0, tag=MPI.ANY_TAG)
 
                 # break the loop if the master node has sent stop signal
-                if task == -1:
+                if tasks == -1:
                     break
 
                 # Forward modeling
                 with torch.no_grad():
-                    shot = task
-                    source = setup_src_coords(src_list[shot], cfg['geom']['pml']['N'], cfg['geom']['multiple'])
-                    probes = setup_rec_coords(rec_list[shot], cfg['geom']['pml']['N'], cfg['geom']['multiple'])
-                    model.reset_sources(source)
-                    model.reset_probes(probes)
+                    shots = tasks
+                    sources, receivers = [], []
+                    for shot in shots:
+                        src = setup_src_coords(src_list[shot], cfg['geom']['pml']['N'], cfg['geom']['multiple'])
+                        rec = setup_rec_coords(rec_list[shot], cfg['geom']['pml']['N'], cfg['geom']['multiple'])
+                        sources.append(src)
+                        receivers.extend(rec)
+                    model.reset_sources(sources)
+                    model.reset_probes(receivers)
                     y = model(x)
                     record = y.cpu().detach().numpy()
 
-                comm.send((task, rank, record), dest=0, tag=1)
+                comm.send((tasks, rank, record), dest=0, tag=1)
 
         comm.Barrier()
 
@@ -188,9 +197,6 @@ if __name__ == '__main__':
     
         if rank==1:
             writer = SummaryWriter(os.path.join(ROOTPATH, "logs"))
- 
-        if args.opt == "ncg":
-            optimizer = NCG(model.parameters(), lr=0.001, max_iter=10)
 
         """Define the misfit function"""
         # criterion = Loss(args.loss).loss(cfg)
@@ -226,7 +232,6 @@ if __name__ == '__main__':
                 data_str = comm.bcast(None, root=0)
                 filtered_data = pickle.loads(data_str)
 
-            #comm.Bcast(filtered_data, root=0)
             # Reset the optimizer at each scale
             optimizers, lr_scheduler = setup_optimizer(model, cfg, idx_freq)
 
@@ -238,50 +243,60 @@ if __name__ == '__main__':
 
             """Loop over all epoches"""
             for epoch in range(EPOCHS):
-
                 # Master rank will assign tasks to other ranks
                 if rank == 0:
+                    BATCHSIZE = min(NSHOTS, args.num_batches) if BATCHSIZE is None else BATCHSIZE
+                    num_batches = min(NSHOTS, args.num_batches, BATCHSIZE)
+                    pbar = tqdm.trange(num_batches, position=0)
                     shots = np.random.choice(np.arange(NSHOTS), BATCHSIZE, replace=False) if MINIBATCH else np.arange(NSHOTS)
                     num_tasks = shots.size
-                    pbar = tqdm.tqdm(range(0, num_tasks), leave=False)
+                    
+                    # batched:
+                    # shots = np.arange(NSHOTS)[epoch%BATCHSIZE:][::BATCHSIZE]
+                    # shots = np.array([i*10 for i in range(8)])
+                    #pbar = tqdm.tqdm(range(0, num_tasks), leave=False)
                     pbar.set_description(f"Freq{idx_freq}Epoch{epoch}")
                     kwargs = {'loss': loss, 
                               'epoch': epoch, 
                               'grad3d': grad3d,
                               'idx_freq': idx_freq}
                     
-                    task_distribution_and_data_reception(shots, pbar, args.mode, **kwargs)
+                    task_distribution_and_data_reception(shots, pbar, args.mode, num_batches, **kwargs)
 
                 else:
                     while True:
                         # Receive task from the master node
-                        task = comm.recv(source=0, tag=MPI.ANY_TAG)
+                        tasks = comm.recv(source=0, tag=MPI.ANY_TAG)
                         # Break the loop if the master node has sent stop signal
-                        if task == -1:
+                        if tasks == -1:
                             break
                         sources = []
-                        shot = task
-                        src = setup_src_coords(src_list[shot], cfg['geom']['pml']['N'], cfg['geom']['multiple'])
-                        probes = setup_rec_coords(rec_list[shot], cfg['geom']['pml']['N'], cfg['geom']['multiple'])
-                        sources.append(src)
+                        shots = tasks
+                        sources, receivers = [], []
+
+                        for shot in shots:
+                            src = setup_src_coords(src_list[shot], cfg['geom']['pml']['N'], cfg['geom']['multiple'])
+                            rec = setup_rec_coords(rec_list[shot], cfg['geom']['pml']['N'], cfg['geom']['multiple'])
+                            sources.append(src)
+                            receivers.extend(rec)
 
                         """Calculate one shot gradient"""
                         def closure():
                             optimizers.zero_grad()
                             """Although it is a for loop """
                             """But only one shot here when traditional workflow is using"""
-                            model.reset_sources(src)
-                            model.reset_probes(probes)
+                            model.reset_sources(sources)
+                            model.reset_probes(receivers)
                             syn = model(lp_wavelet)
-                            obs = to_tensor(filtered_data[shot]).to(syn.device)#.unsqueeze(0)
+                            obs = to_tensor(np.stack(filtered_data[shots], axis=0)).to(syn.device)#.unsqueeze(0)
                             #if shot==10:
                             #name_postfix = 'init' if epoch==0 else ''
                             name_postfix = ''
                             # np.save(f"{ROOTPATH}/obs{name_postfix}.npy", obs.cpu().detach().numpy())
                             # np.save(f"{ROOTPATH}/syn{name_postfix}.npy", syn.cpu().detach().numpy())
                             loss = criterions(syn, obs)
-                            adj = torch.autograd.grad(loss, syn, create_graph=True)[0]
-                            np.save(f"{ROOTPATH}/adj.npy", adj.detach().cpu().numpy())
+                            #adj = torch.autograd.grad(loss, syn, create_graph=True)[0]
+                            #np.save(f"{ROOTPATH}/adj.npy", adj.detach().cpu().numpy())
                             """HvP Start"""
                             # Perform a backward pass to compute the gradients
                             # grads = torch.autograd.grad(loss, [model.cell.geom.vp], create_graph=True)
@@ -319,7 +334,7 @@ if __name__ == '__main__':
                         # Get the gram_schmidt_orthogonalization
 
                         # GRAD[1], GRAD[0] = gram_schmidt_orthogonalization(GRAD[1], GRAD[0])
-                        comm.send((task, rank, GRAD, loss), dest=0, tag=1)
+                        comm.send((tasks, rank, GRAD, loss), dest=0, tag=1)
 
                 comm.Barrier()
 
@@ -330,7 +345,9 @@ if __name__ == '__main__':
                     grad2d[:] = np.sum(grad3d, axis=0)
                     np.save(f"{ROOTPATH}/loss.npy", loss)
                     np.save(f"{ROOTPATH}/grad3d.npy", grad3d)
-
+                    np.save(f"{ROOTPATH}/grad2d.npy", grad2d)
+                    # Clean the grad3d
+                    grad3d[:] = 0.
                 # broadcast the gradient to other ranks
                 comm.Bcast(grad2d, root=0)
 

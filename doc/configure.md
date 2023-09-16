@@ -96,7 +96,7 @@ training:
 
   Works in both classic fwi and source-encoding fwi. 
   
-  In **classic fwi**, the `minibatch` parameter specifies how many individual shots (equal to `batch_size`) are used to compute the gradient for one epoch.
+  In **classic fwi**, the `minibatch` parameter specifies how many individual (or batched) shots (equal to `batch_size`) are used to compute the gradient for one epoch. The shots are selected randomly.
 
   $$gradient=\Sigma^{batchsize}_{i} \partial loss(w(t, \mathbf {x}^i_s), \mathbf m)/\partial \mathbf m$$
 

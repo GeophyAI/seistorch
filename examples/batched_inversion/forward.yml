@@ -16,7 +16,7 @@ training:
 
   minibatch: true
 
-  batch_size: 20
+  batch_size: 10
 
   # Number of training epochs
   N_epochs: 50
@@ -86,7 +86,6 @@ geom:
   inv_savePath:
 
   multiscale:
-    - 1.0
     - 3.0
     - 5.0
     - all

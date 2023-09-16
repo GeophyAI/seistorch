@@ -50,13 +50,13 @@ def save_boundaries(tensor: torch.Tensor, NPML: int=49, N: int=1):
     Returns:
         Tuple: top, bottom, left and right boundary.
     """
-    tensor = tensor.squeeze(0)
-    top = tensor[NPML:NPML+N, :].clone()
+    tensor = tensor#.squeeze(0)
+    top = tensor[:, NPML:NPML+N, :].clone()
     #bottom = tensor[-(NPML+N):-NPML, :].clone()
-    bottom = tensor[-N: , :].clone() if NPML == 0 else tensor[-(NPML+N):-NPML, :].clone()
-    left = tensor[:,NPML:NPML+N].clone()
+    bottom = tensor[:, -N: , :].clone() if NPML == 0 else tensor[:, -(NPML+N):-NPML, :].clone()
+    left = tensor[...,NPML:NPML+N].clone()
     #right = tensor[:, -(NPML+N):-NPML].clone()
-    right = tensor[:, -N: ].clone() if NPML == 0 else tensor[:, -(NPML+N):-NPML].clone()
+    right = tensor[..., -N: ].clone() if NPML == 0 else tensor[..., -(NPML+N):-NPML].clone()
 
     return top, bottom, left, right
 
@@ -64,11 +64,12 @@ def restore_boundaries(tensor, memory, NPML=49, N=1):
 
     top, bottom, left, right = memory
     #ntensor = tensor.clone()
-    tensor[..., NPML:NPML+N, :] = top#.requires_grad_()
+    tensor[:, NPML:NPML+N, :] = top#.requires_grad_()
     if NPML!=0:
-        tensor[..., -(NPML+N):-NPML, :] = bottom#.requires_grad_()
+        tensor[:, -(NPML+N):-NPML, :] = bottom#.requires_grad_()
     else:
-        tensor[..., -N: , :] = bottom
+        tensor[:, -N: , :] = bottom
+
     tensor[..., NPML:NPML+N] = left#.requires_grad_()
     if NPML!=0:
         tensor[..., -(NPML+N):-NPML] = right#.requires_grad_()

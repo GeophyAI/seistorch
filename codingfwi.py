@@ -24,7 +24,6 @@ from yaml import dump
 from seistorch.eqconfigure import Shape
 # from tensorflow.keras.models import load_model
 from seistorch.model import build_model
-from seistorch.siren import Siren
 from seistorch.setup import *
 from seistorch.utils import (DictAction, cpu_fft, dict2table,
                              low_pass, roll, roll2, to_tensor)
@@ -64,6 +63,8 @@ parser.add_argument('--grad-cut', action='store_true',
                     help='Cut the boundaries of gradient or not')
 parser.add_argument('--mode', choices=['inversion'], default='inversion',
                     help='forward modeling, inversion or reverse time migration mode')
+parser.add_argument('--source-encoding', action='store_true', default=True,
+                    help='PLEASE DO NOT CHANGE THE DEFAULT VALUE.')
 
 if __name__ == '__main__':
 
@@ -84,7 +85,7 @@ if __name__ == '__main__':
     'Sets the number of threads used for intraop parallelism on CPU.'
     torch.set_num_threads(args.num_threads)
     # Build model
-    cfg, model = build_model(args.config, device=args.dev, mode=args.mode)
+    cfg, model = build_model(args.config, device=args.dev, mode=args.mode, source_encoding=args.source_encoding)
     #exit()
     # Set random seed
     torch.manual_seed(cfg["seed"])
@@ -170,8 +171,8 @@ if __name__ == '__main__':
     full_band_data = np.load(cfg['geom']['obsPath'], allow_pickle=True)
     NSHOTS = min(NSHOTS, full_band_data.shape[0])
     #lp_rec = np.zeros(shape.record3d, dtype=np.float32)
-    #coding_rec = torch.zeros(shape.record2d, device=args.dev)
-    coding_rec = torch.zeros_like(to_tensor(full_band_data[0]), device=args.dev)
+    #coding_obs = torch.zeros(shape.record2d, device=args.dev)
+    coding_obs = torch.zeros_like(to_tensor(full_band_data[0]), device=args.dev)
     coding_wav = torch.zeros((BATCHSIZE, shape.nt), device=args.dev)
     loss = np.zeros((len(cfg['geom']['multiscale']), EPOCHS), np.float32)
     #arrival_mask = np.load(cfg['geom']['arrival_mask'], allow_pickle=True)
@@ -198,7 +199,7 @@ if __name__ == '__main__':
             pbar = tqdm.trange(EPOCHS)
 
         # Clear the coding tensor
-        coding_rec.zero_()
+        coding_obs.zero_()
         coding_wav.zero_()
         pbar.set_description(f"F{idx_freq}E{local_epoch}")
         shots = np.random.choice(np.arange(NSHOTS), BATCHSIZE, replace=False) if MINIBATCH else np.arange(NSHOTS)
@@ -218,10 +219,10 @@ if __name__ == '__main__':
             wave_temp, d_temp = roll(lp_wav, lp_rec[shot])
             coding_wav[i] = to_tensor(wave_temp).to(args.dev)
             if fixed_receivers:
-                coding_rec += to_tensor(d_temp).to(args.dev)
+                coding_obs += to_tensor(d_temp).to(args.dev)
             else:
                 index = [int(x) for x in rec_list[shot][0]]
-                coding_rec[..., index,:] += to_tensor(d_temp).to(args.dev)
+                coding_obs[..., index,:] += to_tensor(d_temp).to(args.dev)
 
 
         """Calculate encoding gradient"""
@@ -229,14 +230,14 @@ if __name__ == '__main__':
             optimizers.zero_grad()
             # Reset sources of super shot gathers
             model.reset_sources(sources)
-            ypred = model(coding_wav)
-            # loss = criterion(ypred, coding_rec, model.cell.geom.vp)
-            np.save(f"{ROOTPATH}/syn.npy", ypred.cpu().detach().numpy())
-            np.save(f"{ROOTPATH}/obs.npy", coding_rec.cpu().detach().numpy())
+            coding_syn = model(coding_wav)
+            # loss = criterion(coding_syn, coding_obs, model.cell.geom.vp)
+            np.save(f"{ROOTPATH}/syn.npy", coding_syn.cpu().detach().numpy())
+            np.save(f"{ROOTPATH}/obs.npy", coding_obs.cpu().detach().numpy())
             if not MULTI_LOSS:
                 # One loss function for all parameters
-                loss = criterions(ypred, coding_rec)
-                # adj = torch.autograd.grad(loss, ypred)[0]
+                loss = criterions(coding_syn, coding_obs.unsqueeze(0))
+                # adj = torch.autograd.grad(loss, coding_syn)[0]
                 # np.save(f"{ROOTPATH}/adj.npy", adj.detach().cpu().numpy())
                 loss.backward() #retain_graph=True
                 # TODO: HESSIAN
@@ -259,8 +260,8 @@ if __name__ == '__main__':
                         requires_grad = False if p != para else True
                         model.cell.geom.__getattr__(p).requires_grad = requires_grad
                     # Calculate the loss
-                    loss = criterion(ypred, coding_rec)
-                    # adj = torch.autograd.grad(loss, ypred)[0]
+                    loss = criterion(coding_syn, coding_obs)
+                    # adj = torch.autograd.grad(loss, coding_syn)[0]
                     # np.save(f"{ROOTPATH}/adj.npy", adj.detach().cpu().numpy())
                     # if the para is the last loss, do not retain the graph
                     retain_graph = False if _i == len(criterions)-1 else True

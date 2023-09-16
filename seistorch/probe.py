@@ -13,16 +13,33 @@ class WaveProbe(torch.nn.Module):
 			self.register_buffer(key, to_tensor(value, dtype=torch.int64))
 
 		self.forward = self.get_forward_func()
+		self.batchsize = self.x.size(0)
 
 	@property
 	def ndim(self,):
 		return self._ndim
 	
+	def coords(self,):
+		"""Return the coordinates of the source.
+
+		Returns:
+			dict: A list of coordinates.
+			Example: {'x': [x1, x2, ..., xn], 
+					  'y': [y1, y2, ..., yn], 
+					  'z': [z1, z2, ..., zn]]}
+		"""
+		return dict(zip(self.coord_labels, [getattr(self, key) for key in self.coord_labels]))
+	
 	def get_forward_func(self, ):
 		return getattr(self, f"forward{self.ndim}d")
 
 	def forward2d(self, x):
-		return x[:, self.y, self.x]
+
+		if self.x.ndim==1:
+			return x[:, self.y, self.x]
+		
+		if self.x.ndim==2:
+			return torch.stack([x[i:i+1, self.y[i], self.x[i]] for i in range(self.batchsize)])
 	
 	def forward3d(self, x):
 		return x[:, self.x, self.z, self.y]

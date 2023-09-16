@@ -1,5 +1,9 @@
 # Quick Start
-Welcome to Seistorch! This quick start guide will walk you through the basics of using Seistorch for seismic simulations and Full-Waveform Inversion (FWI). We'll cover the following topics:
+Welcome to Seistorch! This quick start guide will walk you through the basics of using Seistorch for seismic simulations and Full-Waveform Inversion (FWI). 
+
+**Note**: The FWI results demonstrated in our example are approximate and indicate incomplete inversion. To achieve better inversion results, you may need to adjust various parameters, such as the learning rate, decay rates, source wavelet frequencies, and potentially other hyperparameters. Fine-tuning these parameters can significantly impact the quality and convergence of the inversion process, allowing you to obtain more accurate subsurface models. It often requires experimentation and tuning to find the optimal set of parameters for your specific seismic data and geological conditions.
+
+We'll cover the following topics:
 
 1. **Running 2D Forward Modeling**: Simulate seismic wave propagation in 2D space.
 
@@ -81,9 +85,9 @@ The code of this section locates at `examples/forward_modeling3d`. This example 
 
 If you wanna generate your own 3D geometry and 3D velocity model, please refer to the section [data format](data_format.md).
 
-## 2D Acoustic full waveform inversion
+## Boundary saving-based automatic differentiation
 
-The code of this section locates at `examples/acoustic_fwi2d`. This exmaples shows a workflow of performing full waveform inversion based on pure automatic differentiation (PAD) and boundary saving-based automatic differentiation (BSAD). The BSAD method is used to reduce the GPU memory usage by reconstructing the wavefield with boundary saving strategy during loss backpropagation.
+The code of this section locates at `examples/ADvsBS`. This exmaples shows a workflow of performing full waveform inversion based on pure automatic differentiation (PAD) and boundary saving-based automatic differentiation (BSAD). The BSAD method is used to reduce the GPU memory usage by reconstructing the wavefield with boundary saving strategy during loss backpropagation.
 
 - **Generate model and geometry**
 
@@ -93,7 +97,7 @@ The code of this section locates at `examples/acoustic_fwi2d`. This exmaples sho
 
     The srcipt `generate_model_geometry.py` will generate a 2 layer ground truth model and a smoothed version of it. The corresponding source-receiver pairs will be generated as well. A figure named **model_geometry.png** illustrate the true and initial model.
 
-    ![Geomtry](figures/acoustic_fwi2d/model_geometry.png)
+    ![Geomtry](figures/ADvsBS/model_geometry.png)
 
 - **Generate observed data**
 
@@ -131,7 +135,7 @@ The code of this section locates at `examples/acoustic_fwi2d`. This exmaples sho
 
     The BSAD method significantly reduces memory usage and sacrifices some computational efficiency. The gradients of the AD and BS methods are shown in the following figures.
 
-    ![ADvsBS](figures/acoustic_fwi2d/compare_AD_BS.png)
+    ![ADvsBS](figures/ADvsBS/compare_AD_BS.png)
 
 ## 2D Source Encoding FWI
 
@@ -178,6 +182,47 @@ This chapter primarily focuses on how to perform Seistorch's Source Encoding Ful
     ```
 
     ![Inverted](figures/source_encoding_fwi/Inverted.jpg "Results")
+
+## 2D Batched classic FWI
+
+In classic FWI, the computation of seismic data for each shot is typically done in a serial or MPI-parallel manner, meaning each shot is computed individually. However, deep learning frameworks provide us with batch computation capabilities through APIs like `conv2d` and `conv3d`. This allows us to simultaneously compute multiple shots, improving computational efficiency.
+
+Seistorch also provides batched computation (BC) functionality. The BC is only valid in classic fwi, because source-encoding-based fwi encoded several sources into a super-source.
+
+When running `fwi.py` and `codingfwi.py` you can specify the number of batches into which all the shots will be distributed by setting the `num-batches` parameter. This allows you to control how the shots are grouped for processing. More details can be seen in [Running commands](running_commands.md).
+
+The source code of this section locates at `examples/batched_inversion`. Please follow the following steps.
+
+- **Generate geometry (OBN settings)**
+
+    The acquisition of this examples is same as the **2D Source Encoding FWI**. A number of 93 sources and 461 receivers are used.
+
+    ```shell
+    python generate_model_geometry.py
+    ```
+
+    ![Model](figures/batched_inversion/model_geometry.png "Model")
+
+- **Modeling observed data in a batched manner**
+
+    In the `forward.sh`, we set `--num-batches 10`, it means that ten shot form a batch are computed simultaneously within a single process/on a single GPU. Since we need to calculate `93` shots and only use 1 GPU (the host file is set as: `127.0.0.1:2`), except for the last batch, which has a batch size of `3`, the batch size for all other batches is `10`.
+
+- **Perform classic fwi**
+
+    In classic fwi, you need to set the `minibatch` in `configure.yml` to `true`, and set a proper `batch_size` which is `10` in our case.
+
+    In the `inversion.sh` script, we specify `num-batches` as `1`, which bundles ten shots into a single batch for gradient computation. This process is equivalent to separately computing the gradients for 10 shots and then summing them together.
+
+    ```shell
+    sh inversion.sh
+    ```
+
+- **Show the inverted results**
+
+    The inverted resutls will be saved at `examples/batched_inversion/results/fwi_batched`. The following figure shows the final inverted result.
+
+    ![Model](figures/batched_inversion/Inverted.png "Model")
+
 
 ## Source inversion
 The code of this section locates at `examples/source_inversion`. This exmaples shows a workflow of performing source inversion based on pure automatic differentiation (PAD).

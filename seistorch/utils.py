@@ -143,7 +143,7 @@ def low_pass(d, dt, N = 5, low = 5, axis = -1, threads=1):
         nshots  = d.shape[0]
         d_filter = np.empty(nshots, dtype=np.ndarray)
 
-        d_filter = Parallel(n_jobs=threads)(
+        d_filter[:] = Parallel(n_jobs=threads)(
             delayed(_low_pass_filter)(d[i], b, a, axis)
             for i in range(nshots)
         )
