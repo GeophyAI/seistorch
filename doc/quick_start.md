@@ -5,15 +5,18 @@ Welcome to Seistorch! This quick start guide will walk you through the basics of
 
 We'll cover the following topics:
 
-1. **Running 2D Forward Modeling**: Simulate seismic wave propagation in 2D space.
+1. [**Running 2D Forward Modeling**](#2d-forward-modeling): Simulate seismic wave propagation in 2D space. Using a generated two layer 2D model as an example.
 
-2. **Running 3D Forward Modeling**: Simulate seismic wave propagation in 3D space.
+2. [**Running 3D Forward Modeling**](#3d-forward-modeling): Simulate seismic wave propagation in 3D space. Using a generated two layer 3D model as an example.
 
-3. **Classic acoustic FWI**: Perform Full-Waveform Inversion.
+3. [**Boundary saving-based FWI**](#boundary-saving-based-automatic-differentiation): Perform Full-Waveform Inversion with boundary saving-based automatic differentiation. Using a generated two layer 2D model as an example.
 
-4. **Source encoding acoustic FWI**: Perform source-encoding (phase and polarity encoding) based full waveform inversion.
+4. [**Batched classic FWI**](#2d-batched-classic-fwi): How to bundle the shots into a batch to a batch for accelerating the computation of fwi. Using marmousi model as an example.
 
-5. **Source inversion**: How to perform source inversion.
+5. [**Source encoding acoustic FWI**](#2d-source-encoding-fwi): Perform source-encoding (phase and polarity encoding) based full waveform inversion. Using marmousi model as an example.
+
+6. [**Source inversion**](#source-inversion): How to perform source inversion.
+
 
 ## 2d forward modeling
 
@@ -189,7 +192,7 @@ In classic FWI, the computation of seismic data for each shot is typically done 
 
 Seistorch also provides batched computation (BC) functionality. The BC is only valid in classic fwi, because source-encoding-based fwi encoded several sources into a super-source.
 
-When running `fwi.py` and `codingfwi.py` you can specify the number of batches into which all the shots will be distributed by setting the `num-batches` parameter. This allows you to control how the shots are grouped for processing. More details can be seen in [Running commands](running_commands.md).
+When running `fwi.py` you can specify the number of batches into which all the shots will be distributed by setting the `num-batches` parameter. This allows you to control how the shots are grouped for processing. More details can be seen in [Running commands](running_commands.md).
 
 The source code of this section locates at `examples/batched_inversion`. Please follow the following steps.
 
@@ -258,3 +261,35 @@ The intermediate steps of the inversion process will be saved in the `results` f
 The following figure shows the final inverted result. We can observe that while the maximum and minimum amplitudes may not be consistent, the phase of the waveform has been relatively well recovered.
 
 ![Geometry](figures/source_inversion/Final_result.png)
+
+## How to calculate the adjoint source in torch?
+
+The adjoint source is essentially the derivative of the objective function with respect to the synthetic seismic records. Therefore, to calculate the adjoint source, you only need to construct different loss functions and use `torch.autograd.grad` to build the computation graph for differentiation, i.e. `adj=torch.autograd.grad(loss(syn, obs), syn)`. 
+
+If we use the l2 loss function (waveform amplitude loss), the adjoint is the element difference of the synthetic and observed data, i.e. `adj=2*(syn-obs)/syn.numel()`. More details can be seen from the source code `examples/cal_adjoint_source`.
+
+While this process is implicit within automatic differentiation frameworks, you can use this approach to verify whether the adjoint sources are behaving as expected when you need to check their behavior. It provides a way to inspect and validate the correctness of the adjoint sources during the inversion process.
+
+- **Model setup**
+
+    1. Generate the acquisition geometry and velocity models.
+    ```shell
+    python generate_model_geometry.py
+    ```
+
+    2. Perform forward modeling to generate the observed data.
+    ```shell
+    sh forward.sh
+    ```
+    ![Model](figures/cal_adjoint_source/model_geometry.png "Model")
+
+- **Using sesitroch to perform forward modeling**
+
+    The script `cal_adjoint.py` shows a workflow of calculating the adjoint source by seistorch. In this script, we demonstrate the consistency between using PyTorch APIs and manually calculating the adjoint sources. The results indicate that they are consistent. 
+    You can obtain the results by running the following script, and the results match the figure shown below.
+
+    ```sh
+    python cal_adjoint.py
+    ```
+
+    ![Model](figures/cal_adjoint_source/adjoint_source.png "Model")

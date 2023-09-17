@@ -260,11 +260,19 @@ def to_tensor(x, dtype=None):
     dtype = dtype if dtype is not None else torch.get_default_dtype()
     if isinstance(x, np.ndarray):
         return torch.from_numpy(x).type(dtype)
-    elif isinstance(x, float):
+    elif isinstance(x, float) or isinstance(x, int):
         return torch.tensor(x).type(dtype)
-    else:
-        x = np.array(x)
+    elif isinstance(x, list):
+        new_list = []
+        for item in x:
+            if hasattr(item, 'device'):
+                new_list.append(item.cpu().numpy())
+            else:
+                new_list.append(item)
+        x = np.array(new_list)
         return torch.from_numpy(x).type(dtype)
+    else:
+        return torch.from_numpy(x.cpu().numpy()).type(dtype)
 
 def update_cfg(cfg, geom = 'geom', device='cpu'):
     """update the cfg dict, mainly update the Nx and Ny paramters.

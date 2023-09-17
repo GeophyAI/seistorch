@@ -106,6 +106,24 @@ def pick_first_arrivals_numpy(d, *args, **kwargs):
         fa_times.append(batch_sta_lta(d[:, :, c], *args, **kwargs).reshape(-1, 1))
     return np.array(fa_times).T
 
+def ricker_wave(fm, dt, nt, delay = 80, dtype='tensor', inverse=False):
+    """
+        Ricker-like wave.
+    """
+    print(f"Wavelet inverse:{inverse}")
+    ricker = []
+    delay = delay * dt 
+    t = np.arange(0, nt*dt, dt)
+
+    c = np.pi * fm * (t - delay) #  delay
+    p = -1 if inverse else 1
+    ricker = p*(1-2*np.power(c, 2)) * np.exp(-np.power(c, 2))
+
+    if dtype == 'numpy':
+        return np.array(ricker).astype(np.float32)
+    else:
+        return torch.from_numpy(np.array(ricker).astype(np.float32))
+
 def travel_time_diff(x, y, dt=0.001):
     if torch.max(torch.abs(x))>1e-5 or torch.max(torch.abs(y))>1e-5:
         nt = x.shape[0]
@@ -123,4 +141,3 @@ def normalize_trace_max(d):
     """
     w = torch.max(torch.abs(d), dim=0, keepdim=True)[0]
     return d / w
-    

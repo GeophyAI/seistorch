@@ -206,5 +206,7 @@ class Envelope(torch.nn.Module):
         Returns:
             torch.Tensor: The computed envelope-based mean squared error loss.
         """
-        loss = self.envelope_loss(x, y)
+        loss = 0
+        for i in range(x.shape[0]):
+            loss += self.envelope_loss(x[i], y[i])
         return loss
