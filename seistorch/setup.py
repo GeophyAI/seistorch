@@ -9,6 +9,18 @@ from seistorch.utils import read_pkl, ricker_wave, to_tensor
 from seistorch.source import WaveSource
 from seistorch.probe import WaveIntensityProbe
 
+def setup_acquisition(shots, src_list, rec_list, cfg, *args, **kwargs):
+
+    sources, receivers = [], []
+
+    for shot in shots:
+        src = setup_src_coords(src_list[shot], cfg['geom']['pml']['N'], cfg['geom']['multiple'])
+        rec = setup_rec_coords(rec_list[shot], cfg['geom']['pml']['N'], cfg['geom']['multiple'])
+        sources.append(src)
+        receivers.extend(rec)
+
+    return sources, receivers
+
 def setup_criteria(cfg: dict, loss: dict, *args, **kwargs):
     """Setup the loss functions for the model
 
@@ -71,6 +83,36 @@ def setup_optimizer(model, cfg, idx_freq=0, implicit=False, *args, **kwargs):
 
     return optimizers, lr_scheduler
 
+def setup_rec_coords(coords, Npml, multiple=False):
+    """Setup receiver coordinates.
+
+    Args:
+        coords (list): A list of coordinates.
+        Npml (int): The number of PML layers.
+        multiple (bool, optional): Whether use top PML or not. Defaults to False.
+
+    Returns:
+        WaveProbe: A torch.nn.Module receiver object.
+    """
+
+    # Coordinate are specified
+    keys = ['x', 'y', 'z']
+    kwargs = dict()
+
+    # Without multiple
+    for key, value in zip(keys, coords):
+        kwargs[key] = [v+Npml for v in value]
+
+    # 2D case with multiple
+    if 'z' not in kwargs.keys() and multiple:
+        kwargs['y'] = [v-Npml for v in kwargs['y']]
+    # 3D case with multiple
+    if 'z' in kwargs.keys() and multiple:
+        raise NotImplementedError("Multiples in 3D case is not implemented yet.")
+        #kwargs['z'] = [v-Npml for v in kwargs['z']]
+
+    return [WaveIntensityProbe(**kwargs)]
+
 def setup_src_rec(cfg: dict):
     """Read the source and receiver locations from the configuration file.
 
@@ -132,36 +174,6 @@ def setup_src_coords(coords, Npml, multiple=False):
         # kwargs['z'] -= Npml
 
     return WaveSource(**kwargs)
-
-def setup_rec_coords(coords, Npml, multiple=False):
-    """Setup receiver coordinates.
-
-    Args:
-        coords (list): A list of coordinates.
-        Npml (int): The number of PML layers.
-        multiple (bool, optional): Whether use top PML or not. Defaults to False.
-
-    Returns:
-        WaveProbe: A torch.nn.Module receiver object.
-    """
-
-    # Coordinate are specified
-    keys = ['x', 'y', 'z']
-    kwargs = dict()
-
-    # Without multiple
-    for key, value in zip(keys, coords):
-        kwargs[key] = [v+Npml for v in value]
-
-    # 2D case with multiple
-    if 'z' not in kwargs.keys() and multiple:
-        kwargs['y'] = [v-Npml for v in kwargs['y']]
-    # 3D case with multiple
-    if 'z' in kwargs.keys() and multiple:
-        raise NotImplementedError("Multiples in 3D case is not implemented yet.")
-        #kwargs['z'] = [v-Npml for v in kwargs['z']]
-
-    return [WaveIntensityProbe(**kwargs)]
 
 def setup_wavelet(cfg):
     """Setup the wavelet for the simulation.

@@ -39,7 +39,7 @@ from torch.cuda.amp import GradScaler, autocast
 parser = argparse.ArgumentParser()
 parser.add_argument('config', type=str, 
                     help='Configuration file for geometry, training, and data preparation')
-parser.add_argument('--num_threads', type=int, default=6,
+parser.add_argument('--num_threads', type=int, default=2,
                     help='Number of threads to use')
 parser.add_argument('--use-cuda', action='store_true',
                     help='Use CUDA to perform computations')

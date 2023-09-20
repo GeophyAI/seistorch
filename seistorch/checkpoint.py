@@ -173,7 +173,8 @@ class CheckpointFunction(torch.autograd.Function):
         inputs = [inp.detach().requires_grad_(value) for inp, value in zip(inputs, ctx.requires_grad_list)]
 
         # Inputs for backwards
-        boundaries = packup_boundaries(ctx.saved_tensors, 4)
+        num_boundaries = 4 if '2d' in inspect.getmodule(ctx.run_function).__name__ else 6
+        boundaries = packup_boundaries(ctx.saved_tensors, num_boundaries)
         inputs = inputs + [boundaries] + [ctx.source_function]
 
         # We first need to reconstruct the wavefield using backward function, 

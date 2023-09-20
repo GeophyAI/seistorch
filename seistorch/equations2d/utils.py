@@ -1,5 +1,5 @@
 import torch
-@torch.compile
+
 def diff_using_roll(input, dim=-1, forward=True, padding_value=0):
 
     def forward_diff(x, dim=-1, padding_value=0):

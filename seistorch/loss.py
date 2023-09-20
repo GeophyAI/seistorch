@@ -82,20 +82,18 @@ class CosineSimilarity(torch.nn.Module):
         Returns:
             A tensor representing the similarity loss.
         """
-        # Reshape x and y to (time_samples, num_traces * num_channels)
-        x_reshaped = x.view(x.shape[0], -1)
-        y_reshaped = y.view(y.shape[0], -1)
-        # x_reshaped = x
-        # y_reshaped = y
-        # print(x_reshaped.shape, y_reshaped.shape)
-        # Compute cosine similarity along the ? dimension
-        similarity = F.cosine_similarity(x_reshaped, y_reshaped, dim=0, eps=1e-10)
-        #print(similarity)
-        # Compute the mean difference between similarity and 1
-        loss = torch.mean(1-similarity)
+        loss = 0.
+        for i in range(x.shape[0]):
+            # Reshape x and y to (time_samples, num_traces * num_channels)
+            x_reshaped = x.view(x.shape[0], -1)
+            y_reshaped = y.view(y.shape[0], -1)
+            # Compute cosine similarity along the ? dimension
+            similarity = F.cosine_similarity(x_reshaped, y_reshaped, dim=0, eps=1e-10)
+            # Compute the mean difference between similarity and 1
+            loss += torch.mean(1-similarity)
 
         return loss
-    
+
 class Envelope(torch.nn.Module):
     """
     A custom PyTorch module that computes the envelope-based mean squared error loss between
@@ -209,4 +207,5 @@ class Envelope(torch.nn.Module):
         loss = 0
         for i in range(x.shape[0]):
             loss += self.envelope_loss(x[i], y[i])
+        loss = self.envelope_loss(x, y)
         return loss

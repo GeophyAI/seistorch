@@ -1,6 +1,6 @@
 #import skimage
 import torch
-
+import inspect
 from .utils import to_tensor
 
 class WaveSource(torch.nn.Module):
@@ -13,7 +13,6 @@ class WaveSource(torch.nn.Module):
 			self.register_buffer(key, to_tensor(value, dtype=torch.int64))
 
 		self.forward = self.get_forward_func()
-
 		self._source_encoding=False
 
 	@property
@@ -38,14 +37,6 @@ class WaveSource(torch.nn.Module):
 					  'z': [z1, z2, ..., zn]]}
 		"""
 		return dict(zip(self.coord_labels, [getattr(self, key) for key in self.coord_labels]))
-	# def forward(self, Y, X, dt=1.0):
-	# 	Y_new = Y.clone()
-	# 	Y_new[..., self.x, self.y] += dt*X
-	# 	return Y_new
-	
-	# The following implementation have memory leakage problem
-	# But I donot know why when I replace the following codes with aboving
-	# no-leakage implementation, the elastic fwi goes wrong.
 
 	def get_forward_func(self, ):
 		return getattr(self, f"forward{self.ndim}d")
@@ -53,6 +44,7 @@ class WaveSource(torch.nn.Module):
 	def forward2d(self, Y, X, dt=1.0):
 		# No memory leakage problem
 		Y_new = Y.clone()
+
 		if not self.source_encoding:
 			for idx in range(self.x.size(0)):
 				Y_new[idx:idx+1, self.y[idx]:self.y[idx]+1, self.x[idx]] += dt*X
@@ -62,9 +54,21 @@ class WaveSource(torch.nn.Module):
 
 		return Y_new
 
-		# Memory leakage problem
-		# Y[..., self.y, self.x] += dt*X
-		# return Y
+
+	# def forward2d(self, Y, X, dt=1.0):
+	# 	# No memory leakage problem
+		
+	# 	X_expanded = torch.zeros_like(Y, device=Y.device).detach()
+
+	# 	if not self.source_encoding:
+	# 		for idx in range(self.x.size(0)):
+	# 			X_expanded[idx:idx+1, self.y[idx]:self.y[idx]+1, self.x[idx]] = dt*X
+
+	# 	if self.source_encoding:
+	# 		X_expanded[..., self.y, self.x] += dt*X
+
+	# 	return Y + X_expanded
+
 	
 	def forward3d(self, Y, X, dt=1.0):
 		Y_new = Y.clone()

@@ -93,7 +93,7 @@ class Shape():
     @property
     def __grad3d__(self,):
         cfg = self.cfg
-        return (self.nshots, cfg['geom']['Ny'], cfg['geom']['Nx'])
+        return (self.nshots, self.length_invert, cfg['geom']['Ny'], cfg['geom']['Nx'])
     
     @property
     def __record2d__(self,):

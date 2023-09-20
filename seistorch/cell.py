@@ -1,6 +1,9 @@
+import inspect
 import torch
 from .utils import to_tensor
+from .checkpoint_new import checkpoint as ckpt_acoustic
 from .checkpoint import checkpoint as ckpt
+
 class WaveCell(torch.nn.Module):
     """The recurrent neural network cell implementing the scalar wave equation"""
 
@@ -13,6 +16,8 @@ class WaveCell(torch.nn.Module):
         self.register_buffer("dt", to_tensor(self.geom.dt))
         self.forward_func = forward_func
         self.backward_func = backward_func
+        self.ckpt = ckpt_acoustic if 'acoustic' in inspect.getmodule(forward_func).__name__ else ckpt
+
 
     def parameters(self, recursive=True):
         for param in self.geom.parameters():
@@ -44,7 +49,7 @@ class WaveCell(torch.nn.Module):
         geoms = self.dt, self.geom.h, self.geom.d
 
         if using_boundary_saving and inversion:
-            hidden = ckpt(self.forward_func, self.backward_func, source_term, save_condition, len(model_vars), *model_vars, *wavefields, *geoms)
+            hidden = self.ckpt(self.forward_func, self.backward_func, source_term, save_condition, len(model_vars), *model_vars, *wavefields, *geoms)
         if forward or (inversion and not using_boundary_saving):
             hidden = self.forward_func(*model_vars, *wavefields, *geoms)
 

@@ -13,10 +13,15 @@ We'll cover the following topics:
 
 4. [**Batched classic FWI**](#2d-batched-classic-fwi): How to bundle the shots into a batch to a batch for accelerating the computation of fwi. Using marmousi model as an example.
 
-5. [**Source encoding acoustic FWI**](#2d-source-encoding-fwi): Perform source-encoding (phase and polarity encoding) based full waveform inversion. Using marmousi model as an example.
+5. [**Source encoding acoustic FWI**](#2d-source-encoding-acoustic-fwi): Perform source-encoding (phase and polarity encoding) based full waveform inversion. Using marmousi model as an example.
 
-6. [**Source inversion**](#source-inversion): How to perform source inversion.
+6. [**Source encoding elastic FWI**](#2d-source-encoding-elastic-fwi): Perform source-encoding (phase and polarity encoding) based full waveform inversion. Using marmousi model as an example.
 
+7. [**Source inversion**](#source-inversion): How to perform source inversion.
+
+8. [**Calculation of adjoint source**](#how-to-calculate-the-adjoint-source-in-torch): How to calculate the adjoint loss with different loss functions in seistorch.
+
+9. [**Inversion of Towed streamer data**](#towed-streamer-data-generation-and-inversion): Generate towed streamer data and the full waveform invserion of this type data.
 
 ## 2d forward modeling
 
@@ -90,7 +95,7 @@ If you wanna generate your own 3D geometry and 3D velocity model, please refer t
 
 ## Boundary saving-based automatic differentiation
 
-The code of this section locates at `examples/ADvsBS`. This exmaples shows a workflow of performing full waveform inversion based on pure automatic differentiation (PAD) and boundary saving-based automatic differentiation (BSAD). The BSAD method is used to reduce the GPU memory usage by reconstructing the wavefield with boundary saving strategy during loss backpropagation.
+The code of this section locates at `examples/advsbs_acoustic`. This exmaples shows a workflow of performing full waveform inversion based on pure automatic differentiation (PAD) and boundary saving-based automatic differentiation (BSAD). The BSAD method is used to reduce the GPU memory usage by reconstructing the wavefield with boundary saving strategy during loss backpropagation.
 
 - **Generate model and geometry**
 
@@ -100,7 +105,7 @@ The code of this section locates at `examples/ADvsBS`. This exmaples shows a wor
 
     The srcipt `generate_model_geometry.py` will generate a 2 layer ground truth model and a smoothed version of it. The corresponding source-receiver pairs will be generated as well. A figure named **model_geometry.png** illustrate the true and initial model.
 
-    ![Geomtry](figures/ADvsBS/model_geometry.png)
+    ![Geomtry](figures/advsbs_acoustic/model_geometry.png)
 
 - **Generate observed data**
 
@@ -138,9 +143,9 @@ The code of this section locates at `examples/ADvsBS`. This exmaples shows a wor
 
     The BSAD method significantly reduces memory usage and sacrifices some computational efficiency. The gradients of the AD and BS methods are shown in the following figures.
 
-    ![ADvsBS](figures/ADvsBS/compare_AD_BS.png)
+    ![advsbs_acoustic](figures/advsbs_acoustic/compare_AD_BS.png)
 
-## 2D Source Encoding FWI
+## 2D Source Encoding Acoustic FWI
 
 This chapter primarily focuses on how to perform Seistorch's Source Encoding Full Waveform Inversion (FWI) using the same parameter file as Classic FWI. The difference lies in the utilization of `codingfwi.py` to perform the FWI process with source encoding.
 
@@ -157,7 +162,7 @@ This chapter primarily focuses on how to perform Seistorch's Source Encoding Ful
     python generate_model_geometry.py
     ```
 
-    ![Model](figures/source_encoding_fwi/model_geometry.png "Model")
+    ![Model](figures/source_encoding_acoustic/model_geometry.png "Model")
 
 - **Running forward modeling**
 
@@ -166,7 +171,7 @@ This chapter primarily focuses on how to perform Seistorch's Source Encoding Ful
     ```shell
     sh forward.sh
     ```
-    ![ShotGather](figures/source_encoding_fwi/shot_gather.png "Model")
+    ![ShotGather](figures/source_encoding_acoustic/shot_gather.png "Model")
 
 - **Running inversion**
 
@@ -184,7 +189,55 @@ This chapter primarily focuses on how to perform Seistorch's Source Encoding Ful
     python show_results.py
     ```
 
-    ![Inverted](figures/source_encoding_fwi/Inverted.jpg "Results")
+    ![Inverted](figures/source_encoding_acoustic/Inverted.jpg "Results")
+
+## 2D Source Encoding Elastic FWI
+
+In elastic wave-equation based fwi, three model parameters are need for calculating lame parameters, i.e. ***vp***, ***vs*** and ***rho***. In this example, the ***rho*** is set to constant 2000. And the ratio between ***vp*** and ***vs*** is also a constant 1.73 except for the regions of sea with a depth of 500m. We only invert ***vp*** and ***vs*** in this example.
+
+Files of true models all begin with `true_`, while initial models are prefixed with `linear_`. They are all placed in `examples/marmousi_model`.
+
+- **Generate the acquisition**
+
+    As with other examples, we need to first generate observed data. So we need a acquisition system. The script `generate_mode_geometry.py` can help you to do this. 
+
+    We loaded the source at wavefield `vz` , which can be found in `forward.yml`. If you want to load the source to several wavefields, please refer to the section [data format](configure.md#restricted-choice-parameter).
+
+    We record the velocity components `vx` and `vz` and use them for inversion.
+
+    The generated acquisition system is shown in the following figure.
+    ![Model and Geometry](figures/source_encoding_elastic/model_geometry.png)
+
+- **Running forward modeling**
+
+    Type the following commands in your conda environment, the observed data will be generated.
+    ```shell
+    sh forward.sh
+    ```
+    
+    The generated data has a shape (nshots, nsamples, ntraces, ncomponents)(refer to [data format](data_format.md#shot-gather)). The following figure shows some randomly selected shots from `vz`.
+
+    ![Model and Geometry](figures/source_encoding_elastic/shot_gather.png)
+
+
+- **Running inversion**
+
+    The same configure file `forward.yml` is used for both forward modeling and inversion. The arguments of this example can be found in `source_encoding_fwi.sh`. You can assign different loss functions (if they have been implemented in seistorch/loss.py) and learning rates to different parameters.
+
+    ```shell
+    sh source_encoding_fwi.sh
+    ```
+
+- **Show inverted results**
+
+    The script `show_results.py` can be used to show the inverted results when the `source_encoding_fwi.sh` has been executed done.
+
+    ```shell
+    python show_results.py
+    ```
+
+    ![Inverted](figures/source_encoding_elastic/Inverted.png "Results")
+
 
 ## 2D Batched classic FWI
 
@@ -196,7 +249,7 @@ When running `fwi.py` you can specify the number of batches into which all the s
 
 The source code of this section locates at `examples/batched_inversion`. Please follow the following steps.
 
-- **Generate geometry (OBN settings)**
+- **Generate geometry**
 
     The acquisition of this examples is same as the **2D Source Encoding FWI**. A number of 93 sources and 461 receivers are used.
 
@@ -293,3 +346,58 @@ While this process is implicit within automatic differentiation frameworks, you 
     ```
 
     ![Model](figures/cal_adjoint_source/adjoint_source.png "Model")
+
+## Towed streamer data generation and inversion
+
+In this chapter, we provide an example to illustrate the generation and inversion of towed streamer data. The source codes are in `examples/towed_acquisition`.
+
+In the seistorch, the sources and receivers are stored in a nested python list object (please refer to [data format section](#data_format.md)). It's flexiable for users to set a different number of receivers for different shots. 
+
+**Note**: It's only necessary to ensure that the number of source points is the same as the number of receiver arrays; there's no requirement for each receiver array to have the same quantity of receivers.
+
+- **Model and acquisition setting**
+
+    The script `generate_model_geometry.py` provides a workflow to generate a towed acquisition. We need to make sure that all the coordinates of sources and receivers are both within the model grids.
+
+    The generated acquisiton system looks like this:
+
+    ![Model](figures/towed_acquisition/geometry.gif "Model")
+
+    In this example, we set the length of the cable to 2.56km with 128 receivers at an inverval of 20m. The interval between the source and the first receiver is 100m.
+
+    Type the following command in the example folder can generate the acquisition system:
+
+    ```shell
+    python generate_model_geometry.py
+    ```
+
+- **Generate observed data**
+
+    ```shell
+    sh forward.sh
+    ```
+
+    The generated data looks like this:
+    ![shot_gather](figures/towed_acquisition/shot_gather.png)
+
+    The placement of zero-offset traces on either the far left or far right depends on the arrangement of the horizontal coordinates in `receivers.pkl`.
+
+- **Inversion**
+
+    Run the script `inversion.sh`. A single node with 2 processors are used to perform full waveform inversion. A random mini-batch strategy with batchsize equals to 10 is used to accelerate the FWI. Ten shots are bundled together (set `--num-batches 1`) to further accelerate the inversion. 
+    
+    **Note**: The source-encoding fwi cannot be directly used for this type of data.
+
+    ```shell
+    # Run inversion
+    sh inversion.sh
+    ```
+
+    The inverted results will be saved at `examples/towed_acquistion/results/towed`. A python script named `show_results.py` can show the final inverted velocity model.
+
+    ```sh
+    python show_results.py
+    ```
+
+    The final inverted result is shown as follows:
+    ![Inverted](figures/towed_acquisition/Inverted.png)

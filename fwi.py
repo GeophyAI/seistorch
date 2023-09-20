@@ -3,6 +3,10 @@ import torch
 
 torch.backends.cudnn.enabled = True
 torch.backends.cudnn.benchmark = True
+torch.backends.cuda.matmul.allow_tf32 = True
+torch.backends.cudnn.allow_tf32 = True
+torch.backends.cudnn.deterministic = True
+
 import argparse
 import os
 import pickle
@@ -153,12 +157,8 @@ if __name__ == '__main__':
                 # Forward modeling
                 with torch.no_grad():
                     shots = tasks
-                    sources, receivers = [], []
-                    for shot in shots:
-                        src = setup_src_coords(src_list[shot], cfg['geom']['pml']['N'], cfg['geom']['multiple'])
-                        rec = setup_rec_coords(rec_list[shot], cfg['geom']['pml']['N'], cfg['geom']['multiple'])
-                        sources.append(src)
-                        receivers.extend(rec)
+
+                    sources, receivers = setup_acquisition(shots, src_list, rec_list, cfg)
                     model.reset_sources(sources)
                     model.reset_probes(receivers)
                     y = model(x)
@@ -272,13 +272,7 @@ if __name__ == '__main__':
                             break
                         sources = []
                         shots = tasks
-                        sources, receivers = [], []
-
-                        for shot in shots:
-                            src = setup_src_coords(src_list[shot], cfg['geom']['pml']['N'], cfg['geom']['multiple'])
-                            rec = setup_rec_coords(rec_list[shot], cfg['geom']['pml']['N'], cfg['geom']['multiple'])
-                            sources.append(src)
-                            receivers.extend(rec)
+                        sources, receivers = setup_acquisition(shots, src_list, rec_list, cfg)
 
                         """Calculate one shot gradient"""
                         def closure():
@@ -328,7 +322,7 @@ if __name__ == '__main__':
                         loss = closure()
 
                         GRAD = list()
-                        for mname in model.cell.geom.model_parameters:
+                        for mname in model.cell.geom.pars_need_invert:
                             GRAD.append(model.cell.geom.__getattr__(mname).grad.cpu().detach().numpy())
                         GRAD = np.array(GRAD)
                         # Get the gram_schmidt_orthogonalization

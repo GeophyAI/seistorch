@@ -66,7 +66,7 @@ def _laplacian(y, h):
     #                          [0.0, 0.0, 1.333, 0.0, 0.0],
     #                          [0.0, 0.0, -0.083, 0.0, 0.0]]]]).to(y.device)
 
-    operator = h ** (-2) * kernel.to(y.device)
+    operator = h ** (-2) * kernel#.to(y.device)
     y = y.unsqueeze(1)
     return conv2d(y, operator, padding=padding).squeeze(1)
 
@@ -101,11 +101,10 @@ def _time_step_backward(*args):
                 (2 / dt**2 * h1 - torch.mul((dt**-2 - b * dt**-1), h2)
                 + torch.mul(vp.pow(2), _laplacian(h1, h)))
                 )
-
-    y = restore_boundaries(y, h_bd)
-
-    #y = src_func(y, src_values, 1)
-    # y = y.clone()
+    
+    with torch.no_grad():
+        y = restore_boundaries(y, h_bd)
+    
     y = src_func(y, src_values, 1)
 
     return y, h1

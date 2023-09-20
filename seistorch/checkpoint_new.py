@@ -1,13 +1,17 @@
 # This file is modified from torch.utils.checkpoint.checkpoint
 # for making it available for BPTT in seismic inversion.
 import torch
+import inspect
+
 import warnings
 import weakref
 import itertools
 import numpy as np
 from typing import Any, Iterable, List, Tuple
-from seistorch.equations.utils import save_boundaries, restore_boundaries
-import gc
+
+from seistorch.equations3d.utils import save_boundaries as sb3d
+from seistorch.equations2d.utils import save_boundaries as sb2d
+
 __all__ = [
     "checkpoint", "checkpoint_sequential", "CheckpointFunction",
     "check_backward_validity", "detach_variable", "get_device_states",
@@ -121,6 +125,7 @@ class CheckpointFunction(torch.autograd.Function):
         ctx.save_condition = save_condition
         ctx.source_function = source_function
         # CheckpointFunction._sources.append(source_function[-1])
+        save_boundaries = sb2d if '2d' in inspect.getmodule(run_function).__name__ else sb3d
 
         with torch.no_grad():
             outputs = run_function(*args)
@@ -128,7 +133,7 @@ class CheckpointFunction(torch.autograd.Function):
         ctx.models = args[:para_counts]
         ctx.geoms = args[::-1][0:3][::-1]
 
-        boundarys = [save_boundaries(output, 49, 1) for output in outputs]
+        boundarys = [save_boundaries(output) for output in outputs]
         # CheckpointFunction._bound.append(boundarys)
         ctx.save_for_backward(*itertools.chain(*boundarys))
         # Save the wavefields of the last time step
@@ -167,45 +172,15 @@ class CheckpointFunction(torch.autograd.Function):
         inputs = [inp.detach().requires_grad_(value) for inp, value in zip(inputs, ctx.requires_grad_list)]
 
         # Inputs for backwards
-        boundaries = packup_boundaries(ctx.saved_tensors, 4)
+        num_boundaries = 4 if '2d' in inspect.getmodule(ctx.run_function).__name__ else 6
+        boundaries = packup_boundaries(ctx.saved_tensors, num_boundaries)
         inputs = inputs + [boundaries] + [ctx.source_function]
-
-        # We first need to reconstruct the wavefield using backward function, 
-        # and then calculate the gradient using forward function.
 
         with torch.enable_grad():
             outputs = ctx.back_function(*inputs)
 
-        # with torch.no_grad():
-        #     outputs = ctx.back_function(*inputs)
-
-        # if ACOUSTIC2nd:
-        #     with torch.no_grad():
-        #         outputs = ctx.back_function(*inputs)
-        # else:
-        #     with torch.enable_grad():
-        #         outputs = ctx.back_function(*inputs)
-
         if isinstance(outputs, torch.Tensor):
             outputs = (outputs,)
-
-        # if CheckpointFunction.counts%1==0:
-        #     np.save(f"/mnt/data/wangsw/inversion/marmousi_10m/inv_rho/l2/backward/backward{CheckpointFunction.counts:04d}.npy", 
-        #             outputs[0].cpu().detach().numpy())
-
-        # 20230828
-        # # Run the forward second time for more accurate gradient calculation.
-        # if ACOUSTIC2nd:
-        #     # acoustic
-        #     inputs = ctx.models + tuple(list(outputs)[::-1]) + ctx.geoms
-        # if not ACOUSTIC2nd:
-        #     # not acoustic
-        #     inputs = ctx.models + tuple(list(outputs)) + ctx.geoms
-
-        # inputs = [inp.detach().requires_grad_(value) for inp, value in zip(inputs, ctx.requires_grad_list)]
-
-        # with torch.enable_grad():
-        #     outputs = ctx.run_function(*inputs)
 
         outputs_with_grad = []
         args_with_grad = []
@@ -222,7 +197,8 @@ class CheckpointFunction(torch.autograd.Function):
 
         # assign boundary values
         outputs = list(outputs)
-        outputs[0] = restore_boundaries(outputs[0], list(packup_boundaries(ctx.saved_tensors, 4))[0])
+        #save_boundaries = sb2d if '2d' in inspect.getmodule(run_function).__name__ else sb3d
+        #outputs[0] = restore_boundaries(outputs[0], list(packup_boundaries(ctx.saved_tensors, 4))[0])
         # Update wavefields
         if not (CheckpointFunction.counts == 1 and ACOUSTIC2nd) or not CheckpointFunction.counts == 0:
             CheckpointFunction.wavefields.clear()

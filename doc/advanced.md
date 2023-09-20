@@ -145,3 +145,17 @@ class MyLoss2(torch.nn.Module):
 In the functions mentioned above, you've defined two classes, `MyLoss1` and `MyLoss2`, both of which inherit from torch.nn.Module. They each have a property attribute called `name`, and you can call the respective loss functions by accessing their `name` property.
 
 However, it's interesting to note that although you've defined a custom backward method in `MyLoss1`, when calculating gradients, the results are identical between the two loss functions. You can modify this code to implement your own custom backward method.
+
+
+## How to choose the value of `num-batches`?
+
+The parameter `num-batches` determines how many shots are grouped together for calculation. If `num-batches` is set too low, it can decrease computational efficiency, while if it's set too high, it may lead to out-of-memory (OOM) errors due to excessive GPU memory usage. We conducted several test runs for your reference.
+
+We employed a layered model with a size of `nz*nx=128*1024`for forward modeling to test the computational efficiency under various conditions, including different batch sizes, node counts, and GPU numbers.
+
+The following figure summarizes the efficiency. (CPU:  Intel(R) Xeon(R) Silver 4214R CPU @ 2.40GHz; GPU: Tesla V100S-PCIE-32GB)
+
+![1GPU1node](figures/others/nodes_setting.png)
+
+**Note**: When we had 4 GPUs, we utilized two nodes, each equipped with 2 GPU cards.
+
