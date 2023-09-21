@@ -45,4 +45,21 @@ The wavetorch project has provided valuable insights and innovative solutions in
 
 T. W. Hughes*, I. A. D. Williamson*, M. Minkov, and S. Fan, [Wave physics as an analog recurrent neural network](https://advances.sciencemag.org/content/5/12/eaay6946), Science Advances, vol. 5, no. 12, p. eaay6946, Dec. 2019
 
+Sun, J., Innanen, K., Zhang, T., & Trad, D. (2023). [Implicit seismic full waveform inversion with deep neural representation](https://doi.org/10.1029/2022JB025964). Journal of Geophysical Research: Solid Earth, 128, e2022JB025964.
 
+
+## Citation
+
+If you find this work useful for your research, please consider citing our paper [Memory Optimization in RNN-based Full Waveform Inversion using Boundary Saving Wavefield Reconstruction](https://ieeexplore.ieee.org/document/10256076):
+
+```
+@ARTICLE{10256076,
+  author={Wang, Shaowen and Jiang, Yong and Song, Peng and Tan, Jun and Liu, Zhaolun and He, Bingshou},
+  journal={IEEE Transactions on Geoscience and Remote Sensing}, 
+  title={Memory Optimization in RNN-based Full Waveform Inversion using Boundary Saving Wavefield Reconstruction}, 
+  year={2023},
+  volume={},
+  number={},
+  pages={1-1},
+  doi={10.1109/TGRS.2023.3317529}}
+```

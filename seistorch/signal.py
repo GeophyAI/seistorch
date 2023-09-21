@@ -1,6 +1,8 @@
 import torch
 import torch.nn.functional as F
 import numpy as np
+from scipy import signal
+from joblib import Parallel, delayed
 
 def batch_sta_lta(traces, sta_len, lta_len, threshold_on=0.5, threshold_off=1.0):
     """Summary: Calculate the STA/LTA ratio of a signal
@@ -78,6 +80,44 @@ def batch_sta_lta_torch(traces, sta_len, lta_len, threshold_on=0.5, threshold_of
     fa_time[fa_time==0] = nt-1
 
     return fa_time.squeeze().int()
+
+def _filter_(d, b, a, axis):
+    return signal.filtfilt(b, a, d, axis=axis).astype(np.float32)
+
+def filter(d, dt, N = 5, freqs = 5, axis = -1, threads=1, mode="lowpass"):
+    """
+        implementation of band pass filter.
+    """
+    if freqs == "all":
+        return d
+    else:
+        valid_modes = ["lowpass", "highpass", "bandpass"]
+        assert mode in valid_modes, "mode must be lowpass or highpass"
+
+        if mode in ["lowpass", "highpass"]:
+            assert isinstance(freqs, (int, float)), "freqs must be a number for lowpass or highpass filter"
+            freqs = [freqs]
+
+        if mode =="bandpass":
+            assert isinstance(freqs, (list, tuple)), "freqs must be a list or tuple for bandpass filter"
+
+        wn = [2*freq/(1/dt) for freq in list(freqs)]
+        wn = wn[0] if len(wn)==1 else wn
+
+        b, a = signal.butter(N, Wn=wn, btype=mode)
+        nshots  = d.shape[0]
+        d_filter = np.empty(nshots, dtype=np.ndarray)
+
+        d_filter[:] = Parallel(n_jobs=threads)(
+            delayed(_filter_)(d[i], b, a, axis)
+            for i in range(nshots)
+        )
+
+        # serial version
+        #for i in range(nshots):
+        #    d_filter[i] = signal.filtfilt(b, a, d[i], axis = axis).astype(np.float32)
+        return d_filter
+    
 
 def generate_mask(fa_time, nt, nr, N):
     mask = torch.zeros(nt, nr, dtype=torch.float32)

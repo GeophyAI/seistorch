@@ -405,14 +405,14 @@ class WaveGeometryFreeForm(WaveGeometry):
         mgrid = mgrid.reshape(-1, 2)
         return mgrid.to(self.device)
 
-    def gradient_smooth(self, sigma=2):
+    def gradient_smooth(self, sigma=2, radius=10):
         for para in self.model_parameters:
             var = self.__getattr__(para)
             if var.requires_grad:
                 smoothed_grad = var.grad.cpu().detach().numpy()
                 for i in range(10):
-                    smoothed_grad = gaussian_filter1d(smoothed_grad, sigma, axis=1)
-                    # smoothed_grad = gaussian_filter(smoothed_grad, sigma)
+                    # smoothed_grad = gaussian_filter1d(smoothed_grad, sigma, radius=radius, axis=1)
+                    smoothed_grad = gaussian_filter(smoothed_grad, sigma, radius=radius)
                 var.grad.copy_(to_tensor(smoothed_grad).to(var.grad.device))
 
     def gradient_cut(self, mask=None, padding=50):
