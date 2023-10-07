@@ -47,7 +47,7 @@ parser.add_argument('--gpuid', type=int, default=0,
                     help='which gpu is used for calculation')
 parser.add_argument('--checkpoint', type=str,
                     help='checkpoint path for resuming training')
-parser.add_argument('--opt', choices=['adam', 'lbfgs', 'ncg'], default='adam',
+parser.add_argument('--opt', choices=['adam', 'lbfgs', 'ncg', 'steepestdescent'], default='adam',
                     help='optimizer (adam)')
 parser.add_argument('--loss', action=DictAction, nargs="+",
                     help='loss dictionary')
@@ -123,6 +123,7 @@ if __name__ == '__main__':
     #model = torch.compile(model) #, mode="max-autotune"
     # Send the model to the device(CPU/GPU)
     model.to(args.dev)
+
     model.train()
     #model = torch.compile(model)
     # In coding fwi, the probes are set only once, 
@@ -146,6 +147,7 @@ if __name__ == '__main__':
     cfg["ROOTPATH"] = ROOTPATH
     cfg['training']['lr'] = args.lr
     cfg['training']['batchsize'] = BATCHSIZE
+    cfg['training']['optimizer'] = args.opt
     with open(os.path.join(ROOTPATH, "configure.yml"), "w") as f:
         dump(cfg, f)
     # print(probes)

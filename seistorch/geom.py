@@ -411,8 +411,7 @@ class WaveGeometryFreeForm(WaveGeometry):
             if var.requires_grad:
                 smoothed_grad = var.grad.cpu().detach().numpy()
                 for i in range(10):
-                    # smoothed_grad = gaussian_filter1d(smoothed_grad, sigma, radius=radius, axis=1)
-                    smoothed_grad = gaussian_filter(smoothed_grad, sigma, radius=radius)
+                    gaussian_filter(smoothed_grad, sigma, output=smoothed_grad, radius=radius)
                 var.grad.copy_(to_tensor(smoothed_grad).to(var.grad.device))
 
     def gradient_cut(self, mask=None, padding=50):
@@ -422,9 +421,6 @@ class WaveGeometryFreeForm(WaveGeometry):
             var = self.__getattr__(para)
             if var.requires_grad:
                 var.grad.data = var.grad.data * mask
-                # cut_grad = var.grad.cpu().detach().numpy()
-                # cut_grad = self.set_zero_boundaries(cut_grad)
-                # var.grad.copy_(to_tensor(cut_grad).to(var.grad.device))
 
     def reset_random_boundary(self,):
         for para in self.model_parameters:

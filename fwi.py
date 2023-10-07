@@ -27,7 +27,6 @@ from seistorch.eqconfigure import Parameters, Shape
 from seistorch.distributed import task_distribution_and_data_reception
 # from tensorflow.keras.models import load_model
 from seistorch.model import build_model
-from seistorch.optimizer import NonlinearConjugateGradient as NCG
 from seistorch.setup import *
 # from skopt import Optimizer
 from seistorch.signal import filter
@@ -44,7 +43,7 @@ parser.add_argument('--num-batches', type=int, default=1,
                     help='Number of batches to use')
 parser.add_argument('--use-cuda', action='store_true',
                     help='Use CUDA to perform computations')
-parser.add_argument('--opt', choices=['adam', 'lbfgs', 'ncg'], default='adam',
+parser.add_argument('--opt', choices=['adam', 'lbfgs', 'ncg', 'steepestdescent'], default='adam',
                     help='optimizer (adam)')
 parser.add_argument('--save-path', default='',
                     help='the root path for saving results')
@@ -191,8 +190,13 @@ if __name__ == '__main__':
         cfg["loss"] = args.loss
         cfg["ROOTPATH"] = ROOTPATH
         cfg['training']['lr'] = args.lr
+        cfg['training']['optimizer'] = args.opt
         SEABED = np.load(cfg['geom']['seabed']) if 'seabed' in cfg['geom'].keys() else None
         SEABED = torch.from_numpy(SEABED).to(args.dev) if SEABED is not None else None
+        
+        if "datamask" in cfg["geom"].keys():
+            datamask = np.load(cfg["geom"]["datamask"], allow_pickle=True)
+        
         if rank==0:
             os.makedirs(ROOTPATH, exist_ok=True)
             with open(os.path.join(ROOTPATH, "configure.yml"), "w") as f:
@@ -224,6 +228,7 @@ if __name__ == '__main__':
 
             if isinstance(freq, (int, float)): filter_mode = "lowpass"
             if isinstance(freq, list): filter_mode = "bandpass"
+            if freq == "all": filter_mode = "all"
             
             if rank==0:
                 print(f"Data filtering (mode: {filter_mode}): frequency:{freq}")
@@ -291,14 +296,20 @@ if __name__ == '__main__':
                             model.reset_probes(receivers)
                             syn = model(lp_wavelet)
                             obs = to_tensor(np.stack(filtered_data[shots], axis=0)).to(syn.device)#.unsqueeze(0)
+
+                            if "datamask" in cfg["geom"].keys():
+                                dmask = to_tensor(np.stack(datamask[shots], axis=0)).to(syn.device)#.unsqueeze(0)
+                                syn = syn * dmask
+                                obs = obs * dmask
+
                             #if shot==10:
                             #name_postfix = 'init' if epoch==0 else ''
                             name_postfix = ''
                             # np.save(f"{ROOTPATH}/obs{name_postfix}.npy", obs.cpu().detach().numpy())
                             # np.save(f"{ROOTPATH}/syn{name_postfix}.npy", syn.cpu().detach().numpy())
                             loss = criterions(syn, obs)
-                            #adj = torch.autograd.grad(loss, syn, create_graph=True)[0]
-                            #np.save(f"{ROOTPATH}/adj.npy", adj.detach().cpu().numpy())
+                            # adj = torch.autograd.grad(loss, syn, create_graph=True)[0]
+                            # np.save(f"{ROOTPATH}/adj.npy", adj.detach().cpu().numpy())
                             """HvP Start"""
                             # Perform a backward pass to compute the gradients
                             # grads = torch.autograd.grad(loss, [model.cell.geom.vp], create_graph=True)
@@ -358,11 +369,12 @@ if __name__ == '__main__':
                     for idx, para in enumerate(model.cell.geom.pars_need_invert):
                         var = model.cell.geom.__getattr__(para)
                         var.grad.data = to_tensor(grad2d[idx]).to(args.dev)
-                    if args.grad_cut and isinstance(SEABED, torch.Tensor):
-                        model.cell.geom.gradient_cut(SEABED, cfg['geom']['pml']['N'])
+
                     if args.grad_smooth:
                         model.cell.geom.gradient_smooth(sigma=5)
-                    # Gradient clip
+
+                    if args.grad_cut and isinstance(SEABED, torch.Tensor):
+                        model.cell.geom.gradient_cut(SEABED, cfg['geom']['pml']['N'])                    # Gradient clip
                     #torch.nn.utils.clip_grad_norm_(model.cell.parameters(), 1e-2)
                     # Update the model parameters and learning rate
                     optimizers.step()

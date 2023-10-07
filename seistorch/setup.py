@@ -1,4 +1,5 @@
 import os
+import importlib
 
 import numpy as np
 import torch
@@ -50,6 +51,7 @@ def setup_optimizer(model, cfg, idx_freq=0, implicit=False, *args, **kwargs):
         cfg (dict): The configuration file.
     """
     lr = cfg['training']['lr']
+    opt = cfg['training']['optimizer']
     epoch_decay = cfg['training']['lr_decay']
     scale_decay = cfg['training']['scale_decay']
     pars_need_by_eq = Parameters.valid_model_paras()[cfg['equation']]
@@ -70,13 +72,17 @@ def setup_optimizer(model, cfg, idx_freq=0, implicit=False, *args, **kwargs):
                                 'lr':_lr})
 
     # Setup the optimizer
-    if 'fatt' in cfg['loss'].values():
-        print("Using first arrival loss")
-        for idx in range(len(paras_for_optim)):
-            paras_for_optim[idx]['lr'] = 5e2 # For SGD
-        optimizers = torch.optim.SGD(paras_for_optim, momentum=0.9)
-    else:
-        optimizers = torch.optim.Adam(paras_for_optim, betas=(0.9, 0.999), eps=1e-22)
+    # if 'fatt' in cfg['loss'].values():
+    #     print("Using first arrival loss")
+    #     for idx in range(len(paras_for_optim)):
+    #         paras_for_optim[idx]['lr'] = 5e2 # For SGD
+    #     optimizers = torch.optim.SGD(paras_for_optim, momentum=0.9)
+    # else:
+    #     optimizers = SD(paras_for_optim)
+    #     #optimizers = torch.optim.Adam(paras_for_optim, betas=(0.9, 0.999), eps=1e-22)
+
+    opt_module = importlib.import_module('seistorch.optimizer')
+    optimizers = getattr(opt_module, opt.capitalize())(paras_for_optim, eps=1e-22)
 
     # Setup the learning rate scheduler
     lr_scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizers, epoch_decay, last_epoch=- 1, verbose=False)

@@ -118,7 +118,6 @@ def filter(d, dt, N = 5, freqs = 5, axis = -1, threads=1, mode="lowpass"):
         #    d_filter[i] = signal.filtfilt(b, a, d[i], axis = axis).astype(np.float32)
         return d_filter
     
-
 def generate_mask(fa_time, nt, nr, N):
     mask = torch.zeros(nt, nr, dtype=torch.float32)
 
@@ -131,6 +130,47 @@ def generate_mask(fa_time, nt, nr, N):
     mask[mask_indices] = 1
 
     return mask
+
+def hilbert(data):
+    """
+    Compute the Hilbert transform of the input data tensor.
+
+    Args:
+        data (torch.Tensor): The input data tensor.
+
+    Returns:
+        torch.Tensor: The Hilbert transform of the input data tensor.
+    """
+
+    nt, _, _ = data.shape
+    # nfft = 2 ** (nt - 1).bit_length()
+    nfft = nt # the scipy implementation uses this
+
+    # Compute the FFT
+    data_fft = torch.fft.fft(data, n=nfft, dim=0)
+
+    # Create the filter
+    # h = torch.zeros(nfft, device=data.device).unsqueeze(1).unsqueeze(2)
+    h = np.zeros(nfft, dtype=np.float32)
+
+    if nfft % 2 == 0:
+        h[0] = h[nfft // 2] = 1
+        h[1:nfft // 2] = 2
+    else:
+        h[0] = 1
+        h[1:(nfft + 1) // 2] = 2
+
+    h = np.expand_dims(h, 1)
+    h = np.expand_dims(h, 2)
+    h = torch.from_numpy(h).to(data.device)
+    # h = h.requires_grad_(True)
+    # Apply the filter and compute the inverse FFT
+    hilbert_data = torch.fft.ifft(data_fft * h, dim=0)
+
+    # Truncate the result to the original length
+    #hilbert_data = hilbert_data#[:nt]
+
+    return hilbert_data
 
 def pick_first_arrivals(d, *args, **kwargs):
     _, ntraces, nchannels = d.shape
@@ -164,8 +204,8 @@ def ricker_wave(fm, dt, nt, delay = 80, dtype='tensor', inverse=False):
     else:
         return torch.from_numpy(np.array(ricker).astype(np.float32))
 
-def travel_time_diff(x, y, dt=0.001):
-    if torch.max(torch.abs(x))>1e-5 or torch.max(torch.abs(y))>1e-5:
+def travel_time_diff(x, y, dt=0.001, eps=0):
+    if torch.max(torch.abs(x))>eps or torch.max(torch.abs(y))>eps:
         nt = x.shape[0]
         padding = nt-1
         cc = torch.abs(F.conv1d(x.unsqueeze(0), y.unsqueeze(0).unsqueeze(0), padding=padding))
