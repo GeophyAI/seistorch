@@ -1,4 +1,5 @@
 from . import geom, source, probe, utils, model, loss, optimizer, setup, distributed
+from .check import ConfigureCheck
 from .cell import WaveCell
 from .geom import WaveGeometryFreeForm
 from .probe import WaveProbe, WaveIntensityProbe

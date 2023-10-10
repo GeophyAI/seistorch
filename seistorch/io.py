@@ -94,3 +94,56 @@ class SeisIO:
         else:
             raise FileNotFoundError(f"Config file {cfg_path} not found.")
     
+    def read_fortran_binary(self, filename):
+        """
+        Reads Fortran-style unformatted binary data into numpy array.
+
+        .. note::
+            The FORTRAN runtime system embeds the record boundaries in the data by
+            inserting an INTEGER*4 byte count at the beginning and end of each
+            unformatted sequential record during an unformatted sequential WRITE.
+            see: https://docs.oracle.com/cd/E19957-01/805-4939/6j4m0vnc4/index.html
+
+        :type filename: str
+        :param filename: full path to the Fortran unformatted binary file to read
+        :rtype: np.array
+        :return: numpy array with data with data read in as type Float32
+        """
+        nbytes = os.path.getsize(filename)
+        with open(filename, "rb") as file:
+            # read size of record
+            file.seek(0)
+            n = np.fromfile(file, dtype="int32", count=1)[0]
+
+            if n == nbytes - 8:
+                file.seek(4)
+                data = np.fromfile(file, dtype="float32")
+                return data[:-1]
+            else:
+                file.seek(0)
+                data = np.fromfile(file, dtype="float32")
+                return data
+
+    def write_fortran_binary(self, arr, filename):
+        """
+        Writes Fortran style binary files. Data are written as single precision
+        floating point numbers.
+
+        .. note::
+            FORTRAN unformatted binaries are bounded by an INT*4 byte count. This
+            function mimics that behavior by tacking on the boundary data.
+            https://docs.oracle.com/cd/E19957-01/805-4939/6j4m0vnc4/index.html
+
+        :type arr: np.array
+        :param arr: data array to write as Fortran binary
+        :type filename: str
+        :param filename: full path to file that should be written in format
+            unformatted Fortran binary
+        """
+        buffer = np.array([4 * len(arr)], dtype="int32")
+        data = np.array(arr, dtype="float32")
+
+        with open(filename, "wb") as file:
+            buffer.tofile(file)
+            data.tofile(file)
+            buffer.tofile(file)

@@ -1,11 +1,156 @@
 import numpy as np
 from obspy import Trace, Stream
 import matplotlib.pyplot as plt
+from matplotlib.animation import FuncAnimation
 
 class SeisShow:
 
     def __init__(self,):
         pass
+
+    def alternate(self, obs, syn, interval=10, trace_normalize=True, dt=0.001, dx=12.5, **kwargs):
+        """Plot the observed and synthetic data in an alternating way.
+
+        Args:
+            obs (np.ndarray): The observed data.
+            syn (np.ndarray): The synthetic data.
+            interval (int, optional): The alternate interval . Defaults to 10.
+            dt (float, optional): time step. Defaults to 0.001.
+            dx (float, optional): trace step. Defaults to 12.5.
+        """
+        nt, nr = obs.shape
+        show_data = np.zeros_like(obs)
+        for i in range(0, nr, interval*2):
+            range_obs = np.arange(i, i+interval)
+            range_syn = np.arange(i+interval, i+2*interval)
+            show_data[:,range_obs] = obs[:,range_obs]
+            show_data[:,range_syn] = syn[:,range_syn]
+
+        if trace_normalize:
+            show_data /= np.max(np.abs(show_data), axis=0, keepdims=True)
+
+        fig, ax = plt.subplots(1,1,figsize=(10,6))
+        vmin, vmax=np.percentile(show_data, [2,98])
+        ax.imshow(show_data, vmin=vmin, vmax=vmax, extent=(0, nr*dx, nt*dt, 0), **kwargs)
+                # ax.text(0.00, 0.95, "obs", 
+                # transform=ax.transAxes, 
+                # color='w', fontsize=14, 
+                # fontweight='bold')
+        # show text on the image
+        kwargs_text = dict(color='w', fontsize=14, fontweight='bold')
+        for i in range(0, nr, interval*2):
+            ax.text(i*dx, 0.25, "obs", **kwargs_text)
+            ax.text((i+interval)*dx, 0.25, "syn", **kwargs_text)
+        
+        ax.set_xlabel("Distance (m)")
+        ax.set_ylabel("Time (s)")
+        plt.tight_layout()
+        plt.show()
+
+    def geometry(self, vel, sources:list, receivers:list, savepath:str, dh=1, interval=1):
+        """Plot the velocity model and the source and receiver list.
+
+        Args:
+            vel (np.ndarray): The velocity model.
+            sources (list): The source list.
+            receivers (list): The receiver list.
+            savepath (str): The path to save the gif figure.
+            dh (int, optional): The grid step in both x and z. Defaults to 20.
+            interval (int, optional): The interval between frames. Defaults to 1.
+
+        """
+
+        assert vel.ndim==2, "The velocity model should be 2D."
+        nz, nx = vel.shape
+        fig, ax = plt.subplots(figsize=(8, 6))
+        im = ax.imshow(vel, cmap='seismic', aspect="auto", extent=[0, nx*dh, nz*dh, 0])
+        sc_sources = ax.scatter([], [], c='red', marker="v", label='Sources')
+        sc_receivers = ax.scatter([], [], c='blue', marker="^", label='Receivers')
+        ax.set_xlabel("X (m)")
+        ax.set_ylabel("Z (m)")
+        ax.set_title(f"Sources: {len(sources)}, Receivers: {len(receivers[0][0])}")
+        plt.tight_layout()
+
+        # define the figure
+        def update(frame):
+            
+            sc_sources.set_offsets(np.stack(sources[frame], axis=0).T*dh)
+            sc_receivers.set_offsets(np.stack(receivers[frame], axis=1)*dh)
+
+            return sc_sources, sc_receivers
+
+        ani = FuncAnimation(fig, update, frames=len(sources), interval=interval)
+        ani.save(savepath, writer='imagemagick')  
+
+    def np2st(self, data, dt=0.001, dx=12.5, downsample=4):
+        """Convert numpy array to obspy stream.
+
+        Args:
+            data (np.ndarray): The data to be converted.
+            dt (time interval, optional): Time interval. Defaults to 0.001.
+
+        Returns:
+            obspy.Stream: The converted stream.
+        """
+        nt, nr, _ = data.shape
+        traces = []
+        for i in range(0, nr, downsample):
+            traces.append(Trace(data=data[:,i,0], header={"delta":dt, "distance": i*dx}))
+        return Stream(traces=traces)
+
+    def section(self, data, dx=12.5, dz=12.5, **kwargs):
+        """Plot a section of the data.
+
+        Args:
+            data (np.ndarray): The data to be plotted.
+            dx (float, optional): Spatial interval in x direction. Defaults to 12.5.
+            dz (float, optional): Spatial interval in z direction. Defaults to 12.5.
+        """
+        fig, ax = plt.subplots(1,1,figsize=(10,6))
+        vmin, vmax=np.percentile(data, [2,98])
+        ax.imshow(data, vmin=vmin, vmax=vmax, extent=(0, data.shape[1]*dx, data.shape[0]*dz, 0), **kwargs)
+        ax.set_xlabel("x (m)")
+        ax.set_ylabel("z (m)")
+        plt.tight_layout()
+        plt.show()
+
+    def shotgather(self,
+                   datalist: list, 
+                   titlelist: list=[], 
+                   figsize=(10,6),
+                   inacolumn=False,
+                   inarow=False,
+                   normalize=True,
+                   dx=12.5,
+                   dt=0.001,
+                   **kwargs):
+        
+        if inacolumn: ncols, nrows = (1, len(datalist))
+        elif inarow: ncols, nrows = (len(datalist), 1)
+
+        assert any([inacolumn, inarow]), "Please specify the plot layout."
+
+        fig, axes = plt.subplots(nrows,ncols,figsize=figsize)
+        
+        if datalist[0].ndim==2:
+            nt, nr = datalist[0].shape
+        elif datalist[0].ndim==3:
+            nt, nr, _ = datalist[0].shape
+
+        extent = (0, nr*dx, nt*dt, 0)
+        if normalize:            
+            vmin, vmax=np.percentile(datalist[0], [2,98])
+
+        for d, ax, title in zip(datalist, axes.ravel(), titlelist):
+            if d.ndim==3 and d.shape[2]==1: d = d[:,:,0]
+            if not normalize: vmin, vmax=np.percentile(d, [2,98])
+            ax.imshow(d, vmin=vmin, vmax=vmax, extent=extent, **kwargs)
+            ax.set_title(title)
+            ax.set_xlabel("x (m)")
+            ax.set_ylabel("t (s)")
+
+        plt.tight_layout()
+        plt.show()
 
     def spectrum(self, datalist: list, labellist: list, dt=0.001, db=False, endfreq=100, normalize=False):
         """Compute the frequency spectrum of the data.
@@ -44,22 +189,6 @@ class SeisShow:
         plt.ylabel("Amplitude")
         plt.legend()
         plt.show()
-
-    def np2st(self, data, dt=0.001, dx=12.5, downsample=4):
-        """Convert numpy array to obspy stream.
-
-        Args:
-            data (np.ndarray): The data to be converted.
-            dt (time interval, optional): Time interval. Defaults to 0.001.
-
-        Returns:
-            obspy.Stream: The converted stream.
-        """
-        nt, nr, _ = data.shape
-        traces = []
-        for i in range(0, nr, downsample):
-            traces.append(Trace(data=data[:,i,0], header={"delta":dt, "distance": i*dx}))
-        return Stream(traces=traces)
 
     def wiggle(self, 
                datalist: list, 
@@ -103,55 +232,4 @@ class SeisShow:
         if savepath:
             plt.savefig(savepath, dpi=300)
             plt.close()
-
-    def shotgather(self,
-                   datalist: list, 
-                   titlelist: list=[], 
-                   figsize=(10,6),
-                   inacolumn=False,
-                   inarow=False,
-                   dx=12.5,
-                   dt=0.001,
-                   **kwargs):
-        
-        if inacolumn: ncols, nrows = (1, len(datalist))
-        elif inarow: ncols, nrows = (len(datalist), 1)
-
-        assert any([inacolumn, inarow]), "Please specify the plot layout."
-
-        fig, axes = plt.subplots(nrows,ncols,figsize=figsize)
-        
-        if datalist[0].ndim==2:
-            nt, nr = datalist[0].shape
-        elif datalist[0].ndim==3:
-            nt, nr, _ = datalist[0].shape
-
-        extent = (0, nr*dx, nt*dt, 0)
-        for d, ax, title in zip(datalist, axes.ravel(), titlelist):
-            if d.ndim==3 and d.shape[2]==1: d = d[:,:,0]
-            vmin, vmax=np.percentile(d, [2,98])
-            ax.imshow(d, vmin=vmin, vmax=vmax, extent=extent, **kwargs)
-            ax.set_title(title)
-            ax.set_xlabel("x (m)")
-            ax.set_ylabel("t (s)")
-
-        plt.tight_layout()
-        plt.show()
-
-    def section(self, data, dx=12.5, dz=12.5, **kwargs):
-        """Plot a section of the data.
-
-        Args:
-            data (np.ndarray): The data to be plotted.
-            dx (float, optional): Spatial interval in x direction. Defaults to 12.5.
-            dz (float, optional): Spatial interval in z direction. Defaults to 12.5.
-        """
-        fig, ax = plt.subplots(1,1,figsize=(10,6))
-        vmin, vmax=np.percentile(data, [2,98])
-        ax.imshow(data, vmin=vmin, vmax=vmax, extent=(0, data.shape[1]*dx, data.shape[0]*dz, 0), **kwargs)
-        ax.set_xlabel("x (m)")
-        ax.set_ylabel("z (m)")
-        plt.tight_layout()
-        plt.show()
-
 

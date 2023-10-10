@@ -213,6 +213,13 @@ def travel_time_diff(x, y, dt=0.001, eps=0):
     else:
         return 0
 
+def differentiable_trvaletime_difference(input, beta=1):
+    *_, n = input.shape
+    input = F.softmax(beta * input, dim=-1)
+    indices = torch.linspace(0, 1, n).to(input.device)
+    result = torch.sum((n - 1) * input * indices, dim=-1)
+    return result      
+
 def normalize_trace_max(d):
     """Normalize the trace by its maximum value
 

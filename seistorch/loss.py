@@ -3,7 +3,7 @@
 import numpy as np
 import torch
 import torch.nn.functional as F
-from seistorch.signal import travel_time_diff
+from seistorch.signal import differentiable_trvaletime_difference as dtd
 from geomloss import SamplesLoss
 
 class Loss:
@@ -347,41 +347,6 @@ class Sinkhorn(torch.nn.Module):
             loss += SamplesLoss("sinkhorn", p=2, blur=0.00005)(x[i], y[i]).mean()
         return loss
 
-class TravelTimeCrossCorrelation(torch.nn.Module):
-    def __init__(self, dt=0.001, scale=100):
-        """
-        Initialize the parent class.
-        """
-        self.dt = dt
-        self.scale = scale
-        super(TravelTimeCrossCorrelation, self).__init__()
-
-    @property
-    def name(self,):
-        return "ttcc"
-    
-    def forward(self, x, y):
-        nb, nt, nr, nc = x.shape
-        padding = nt - 1
-        loss = 0.
-        indices = torch.arange(2*nt-1, device=x.device)
-        for b in range(nb):
-            for r in range(nr):
-                for c in range(nc):
-                    _x = x[b,:,r,c]
-                    _y = y[b,:,r,c]
-
-                    if torch.max(torch.abs(_x)) >0 and torch.max(torch.abs(_y)) >0:
-
-                        cc = F.conv1d(_x.unsqueeze(0), _y.unsqueeze(0).unsqueeze(0), padding=padding)
-                        logits = F.gumbel_softmax(cc*self.scale, tau=1, hard=True)
-                        max_index = torch.sum(indices * logits)
-                        loss += (max_index-nt+1)*self.dt
-
-                    else:
-                        loss += 0.
-        return loss
-
 class Traveltime(torch.autograd.Function):
 
     def __init__(ctx):
@@ -390,35 +355,52 @@ class Traveltime(torch.autograd.Function):
     @property
     def name(ctx,):
         return "traveltime"
-        
+    
     @staticmethod
-    def forward(ctx, x, y):
-        dt = 0.001#ctx.cfg['geom']['dt']
-        ctx.save_for_backward(x, y)
-        loss = 0
+    def compute_loss(x, y):
         nb, nt, nr, nc = x.shape
+        padding = nt - 1
+        loss = 0.
+        indices = torch.arange(2*nt-1, device=x.device)
+        traveltime_diff = torch.zeros((nb, 1, nr, nc), dtype=torch.float32, device=x.device)
         for b in range(nb):
             for r in range(nr):
                 for c in range(nc):
-                    loss += travel_time_diff(x[b,:,r,c], y[b,:,r,c], dt)
+                    _x = x[b,:,r,c]
+                    _y = y[b,:,r,c]
+
+                    if torch.max(torch.abs(_x)) >0 and torch.max(torch.abs(_y)) >0:
+
+                        # normaize the data
+                        _x = _x / torch.max(torch.abs(_x))
+                        _y = _y / torch.max(torch.abs(_y))
+
+                        # compute the cross correlation
+                        cc = F.conv1d(_x.unsqueeze(0), _y.unsqueeze(0).unsqueeze(0), padding=padding)
+                        # compute the softargmax
+                        max_index = dtd(cc, beta=1)
+                        traveltime_diff[b,0,r,c] = (max_index-nt+1)
+                        # compute the loss
+                        loss += traveltime_diff[b,0,r,c]
+                    else:
+                        loss += 0.
+        return loss, traveltime_diff
+        
+    @staticmethod
+    def forward(ctx, x, y):
+        with torch.no_grad():
+            loss, ttd = Traveltime.compute_loss(x, y)
+        ctx.save_for_backward(x, y, ttd)
         return loss
     
     @staticmethod
     def backward(ctx, grad_output):
-        syn, obs = ctx.saved_tensors
-        adj = torch.zeros_like(syn)
-        dt = 0.001#ctx.cfg['geom']['dt']
+        syn, obs, ttd = ctx.saved_tensors
 
-        adj[:,1:-1,...] = (syn[:,2:,...]-syn[:,:-2,...])/(2.*dt)
-        nb, nt, nr, nc = syn.shape
-        for b in range(nb):
-            for r in range(nr):
-                for c in range(nc):
-                    tt_diff = travel_time_diff(syn[b,:,r,c], obs[b,:,r,c], dt)
-                    norm = torch.sum(adj[b,:,r,c] * adj[b,:,r,c]) * dt
-                    adj[b,:,r,c] /= (norm+1e-16)
-                    adj[b,:,r,c] *= tt_diff
+        with torch.enable_grad():
+            loss, ttd = Traveltime.compute_loss(syn, obs)
 
-        adj = adj*grad_output
+        adj = torch.autograd.grad(loss, syn, create_graph=True)[0]
+        adj = adj*ttd*grad_output
 
         return adj, None

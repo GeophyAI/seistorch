@@ -1,6 +1,7 @@
 echo 'Reset the folder'
 rm -rf geometry
-rm -rf observed.npy
+rm -rf velocity_model
 rm -rf results
-rm -rf *.png *.gif
+rm -rf *.npy *.png *.gif
+rm -rf *.png
 echo 'Done'

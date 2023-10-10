@@ -3,6 +3,11 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
 
+import sys
+sys.path.append("../..")
+from seistorch.show import SeisShow
+
+show = SeisShow()
 
 def write_pkl(path: str, data: list):
     # Open the file in binary mode and write the list using pickle
@@ -53,24 +58,8 @@ while current_srcx<nx:
 
 print(f"the number of sources: {len(sources)}")
 dh=20
-# Plot the velocity model and the source and receiver list
-fig, ax = plt.subplots(figsize=(8, 6))
-im = ax.imshow(vel, cmap='seismic', aspect="auto", extent=[0, nx*dh, nz*dh, 0])
-sc_sources = ax.scatter([], [], c='red', marker="v", label='Sources')
-sc_receivers = ax.scatter([], [], c='blue', marker="^", label='Receivers')
-ax.set_xlabel("X (m)")
-ax.set_ylabel("Z (m)")
-plt.tight_layout()
-# define the figure
-def update(frame):
-    
-    sc_sources.set_offsets(np.stack(sources[frame], axis=0).T*dh)
-    sc_receivers.set_offsets(np.stack(receivers[frame], axis=1)*dh)
 
-    return sc_sources, sc_receivers
-
-ani = FuncAnimation(fig, update, frames=len(sources), interval=1)  # frames 是迭代次数，interval 是每帧之间的时间间隔
-ani.save('geometry.gif', writer='imagemagick')  # 使用 'imagemagick' 作为写入器保存为 GIF 格式
+show.geometry(vel, sources, receivers, savepath="geometry.gif", dh=dh, interval=1)
 
 # # Save the source and receiver list
 save_path = r"./geometry"
