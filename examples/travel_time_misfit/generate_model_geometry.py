@@ -18,7 +18,7 @@ def write_pkl(path: str, data: list):
 # This distinction is essential for accurate simulation and interpretation of results.
 
 dh = 20
-nz, nx = 301, 1001
+nz, nx = 151, 801
 
 vel1 = np.ones((nz, nx), np.float32)*1500
 vel2 = np.ones((nz, nx), np.float32)*1500
@@ -30,8 +30,8 @@ seabed[0:water_grid] = 0
 
 for depth in range(water_grid, nz):
     # let the velocity increasing with depth
-    vel1[depth] = 1500 + (depth-water_grid) * 12.5
-    vel2[depth] = 1500 + (depth-water_grid) * 15.5
+    vel1[depth] = 1500 + (depth-water_grid) * 10.
+    vel2[depth] = 1500 + (depth-water_grid) * 20.
 
 fig, axes= plt.subplots(3, 1, figsize=(8, 8))
 vmin=1500

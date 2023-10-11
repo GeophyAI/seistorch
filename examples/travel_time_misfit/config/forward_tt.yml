@@ -36,13 +36,11 @@ training:
 geom:
 
   # The observer data
-  obsPath: ./observed.npy
-
-  datamask: ./datamask.npy
+  obsPath: ./observed_invt_tt.npy
 
   # Wave speed model from disk_file for forward modeling
   truePath:
-    vp: ./velocity_model/true.npy
+    vp: ./velocity_model/inverted_tt.npy
     vs:
     rho:
     Q: 

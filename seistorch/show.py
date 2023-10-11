@@ -121,6 +121,7 @@ class SeisShow:
                    inacolumn=False,
                    inarow=False,
                    normalize=True,
+                   savepath="shotgather.png",
                    dx=12.5,
                    dt=0.001,
                    **kwargs):
@@ -151,6 +152,7 @@ class SeisShow:
 
         plt.tight_layout()
         plt.show()
+        plt.savefig(savepath, dpi=300, bbox_inches='tight')
 
     def spectrum(self, datalist: list, labellist: list, dt=0.001, db=False, endfreq=100, normalize=False):
         """Compute the frequency spectrum of the data.

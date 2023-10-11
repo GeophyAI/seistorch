@@ -1,7 +1,7 @@
 # Random seed for pytorch and all shuffle functions
 seed: 20230503
 
-name: coding_fwi
+name: forward_modeling
 
 # Data type to use for tensors, either float32 or float64
 dtype: float32
@@ -10,27 +10,19 @@ equation: acoustic
 
 training:
 
-  # Smooth the gradients
-  smooth:
-    counts: 
-    radius:
-    sigma:
-      x:
-      z:
-
   implicit:
     use: false
     pretrained:
 
   minibatch: true
 
-  batch_size: 20
+  batch_size: 10
 
   # Number of training epochs
-  N_epochs: 100
+  N_epochs: 50
 
   # Optimizer learning rate
-  lr: 5
+  lr: 0.001
 
   # Decay the learning rate by each of multi-scale
   scale_decay: 0.85
@@ -44,29 +36,29 @@ training:
 geom:
 
   # The observer data
-  obsPath: /public1/home/wangsw/FWI/NO_LOWFREQ/data/marmousi_acoustic_obn_p.npy
+  obsPath: ./observed_invt_l2.npy
 
   # Wave speed model from disk_file for forward modeling
   truePath:
-    vp: /home/les_01/wangsw/models/marmousi/10m/velocity/true_vp.npy
+    vp: ./velocity_model/inverted_l2.npy
     vs:
     rho:
     Q: 
     #/mnt/data/wangsw/inversion/marmousi_10m/data//velocity/q_const.npy
 
-  sources: /home/les_01/wangsw/fwi2d/geometry/marmousi_obn_10m/sources.pkl
+  sources: ./geometry/sources.pkl
 
-  receivers: /home/les_01/wangsw/fwi2d/geometry/marmousi_obn_10m/receivers.pkl
+  receivers: ./geometry/receivers.pkl
 
-  seabed: /home/les_01/wangsw/fwi2d/geometry/marmousi_obn_10m/seabed.npy
+  seabed: ./velocity_model/seabed.npy
 
-  wavelet: /public1/home/wangsw/FWI/NO_LOWFREQ/wavelet/nolow5hz.npy
+  wavelet:
 
   multiple: false
 
   boundary_saving: true
 
-  wavelet_delay: 500
+  wavelet_delay: 256
 
   wavelet_inverse: false
   #./geometry/ricker_lowcut5hz.npy
@@ -79,34 +71,36 @@ geom:
 
   # Inital Wave speed model from disk_file
   initPath: 
-    vp: /public1/home/wangsw/FWI/EFWI/Marmousi/marmousi_10m/velocity/inverted_p_vp.npy
+    vp: ./velocity_model/init.npy
     vs:
     rho:
     Q:
 
   invlist:
     vp: true
-    vs: true
-    rho: false
-    q: false
+    vs:
+    rho:
+    q:
 
   # Save the results of FWI
-  inv_savePath: /mnt/data/wangsw/inversion/marmousi_10m/Test
+  inv_savePath:
 
   multiscale:
-    - 0.0
+    - 3.0
+    - 5.0
+    - all
 
   # Time Sampling step
   dt: 0.001
 
   # Time samples
-  nt: 7000
+  nt: 4000
 
   # Main frequency of ricker wave
-  fm: 15.0
+  fm: 8.0
 
   # Spatial grid step size
-  h: 10.0
+  h: 20.0
 
   # Total Shots
   Nshots: 999

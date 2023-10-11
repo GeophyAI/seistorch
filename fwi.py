@@ -26,6 +26,7 @@ import seistorch
 from seistorch.eqconfigure import Parameters, Shape
 from seistorch.distributed import task_distribution_and_data_reception
 # from tensorflow.keras.models import load_model
+from seistorch.check import ConfigureCheck
 from seistorch.model import build_model
 from seistorch.setup import *
 # from skopt import Optimizer
@@ -371,7 +372,7 @@ if __name__ == '__main__':
                         var.grad.data = to_tensor(grad2d[idx]).to(args.dev)
 
                     if args.grad_smooth:
-                        model.cell.geom.gradient_smooth(sigma=5)
+                        model.cell.geom.gradient_smooth()
 
                     if args.grad_cut and isinstance(SEABED, torch.Tensor):
                         model.cell.geom.gradient_cut(SEABED, cfg['geom']['pml']['N'])                    # Gradient clip

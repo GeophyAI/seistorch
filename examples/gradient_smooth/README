@@ -1,0 +1,21 @@
+# workflow:
+# When you specify the gradient smoothing parameter "--grad-smooth" in <.sh> file, 
+# you should also specify the parameters under 'smooth' in <.yml> file.
+
+# 1. Generate model geometry
+python generate_model_geometry.py
+
+# 2. Generate shot gathers
+sh forward.sh
+
+# 3. Show shot gathers
+python show_shotgather.py
+
+# 4. Inversion with gradient smoothing
+sh inversion_gradsm.sh
+
+# 5. Inversion without gradient smoothing
+sh inversion_nogradsm.sh
+
+# 6. Show inversion results
+python results.py

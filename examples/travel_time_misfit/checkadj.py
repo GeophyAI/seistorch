@@ -15,9 +15,11 @@ obs = np.load("./observed.npy", allow_pickle=True)
 syn = np.load("./observed_init.npy", allow_pickle=True)
 mask = np.load("./datamask.npy", allow_pickle=True)
 
+syn_nomask = np.stack(syn[0:1], axis=0)
+obs_nomask = np.stack(obs[0:1], axis=0)
 obs = np.stack(obs[0:1], axis=0)*np.stack(mask[0:1], axis=0)
 syn = np.stack(syn[0:1], axis=0)*np.stack(mask[0:1], axis=0)
-
+mak = np.stack(mask[0:1], axis=0)
 criterion = Loss("traveltime").loss(None)
 
 obs = torch.from_numpy(obs).cuda()
@@ -38,8 +40,8 @@ show.shotgather([obs[shot_no].cpu().detach().numpy(),
                 dt=0.001,
                 normalize=False,
                 aspect="auto",
+                savepath="./checkadj.png",
                 dx=20)
-
 
 # nb, nt, nr, nc = obs.shape
 # tt = torch.zeros((nb, nr, nc), dtype=torch.float32)

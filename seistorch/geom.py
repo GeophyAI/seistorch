@@ -11,6 +11,7 @@ from torch.nn.functional import conv2d
 from .eqconfigure import Parameters
 from .utils import load_file_by_type, to_tensor
 from .siren import Siren
+from .check import ConfigureCheck
 
 
 class WaveGeometry(torch.nn.Module):
@@ -202,6 +203,7 @@ class WaveGeometryFreeForm(WaveGeometry):
         self.model_parameters = []
         self.inversion = False
         self.kwargs = kwargs
+        self.checkconfig = ConfigureCheck(kwargs)
         self.ndim = 2 if kwargs['geom']['Nz'] == 0 else 3
         super().__init__(self.domain_shape, h, abs_N, ndim=self.ndim, multiple=kwargs['geom']['multiple'])
         self.equation = kwargs["equation"]
@@ -405,12 +407,21 @@ class WaveGeometryFreeForm(WaveGeometry):
         mgrid = mgrid.reshape(-1, 2)
         return mgrid.to(self.device)
 
-    def gradient_smooth(self, sigma=2, radius=10):
+    def gradient_smooth(self, ):
+
+        self.checkconfig.check_smooth()
+
+        smcfg = self.kwargs['training']['smooth']
+
+        counts = smcfg['counts']
+        radius = (smcfg['radius']['z'], smcfg['radius']['x'])
+        sigma = (smcfg['sigma']['z'], smcfg['sigma']['x'])
+
         for para in self.model_parameters:
             var = self.__getattr__(para)
             if var.requires_grad:
                 smoothed_grad = var.grad.cpu().detach().numpy()
-                for i in range(10):
+                for i in range(counts):
                     gaussian_filter(smoothed_grad, sigma, output=smoothed_grad, radius=radius)
                 var.grad.copy_(to_tensor(smoothed_grad).to(var.grad.device))
 

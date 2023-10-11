@@ -8,6 +8,7 @@ from seistorch.show import SeisShow
 show = SeisShow()
 
 obs = np.load("./observed.npy", allow_pickle=True)
+ini = np.load("./observed_init.npy", allow_pickle=True)
 
 nshots = obs.shape[0]
 nsamples, ntraces, ncomponent = obs[0].shape
@@ -26,7 +27,7 @@ arrivals = arrivals.astype(int)
 
 for trace in range(ntraces):
     avl = arrivals[trace]
-    upper = avl-150 if avl-200 > 0 else 0
+    upper = avl-800 if avl-800 > 0 else 0
     mask[upper:avl+300, trace, :] = 1
 
 for shot in range(nshots):
@@ -36,8 +37,10 @@ shot_no = 50
 # plt.imshow(dmask[0].squeeze(), aspect="auto")
 # plt.show()
 
-show.shotgather([obs[shot_no].squeeze(), obs[shot_no].squeeze()*dmask[0].squeeze()], 
-                ["observed", "masked"], 
+show.shotgather([obs[shot_no].squeeze(), 
+                 obs[shot_no].squeeze()*dmask[0].squeeze(), 
+                 ini[shot_no].squeeze()*dmask[0].squeeze()], 
+                ["observed", "Masked obs", "Masked Init"], 
                 aspect="auto",
                 inarow=True)
 

@@ -14,33 +14,33 @@ training:
     use: false
     pretrained:
 
-  minibatch: true
+  minibatch:
 
-  batch_size: 10
+  batch_size:
 
   # Number of training epochs
-  N_epochs: 50
+  N_epochs:
 
   # Optimizer learning rate
-  lr: 0.001
+  lr:
 
   # Decay the learning rate by each of multi-scale
-  scale_decay: 0.85
+  scale_decay:
 
   # decay the lr by each of epochs
-  lr_decay: 0.995
+  lr_decay:
 
   # Filter order
-  filter_ord: 3
+  filter_ord:
 
 geom:
 
   # The observer data
-  obsPath: ./observed_invt.npy
+  obsPath: ./shot_gather.npy
 
   # Wave speed model from disk_file for forward modeling
   truePath:
-    vp: ./velocity_model/inverted.npy
+    vp: ./velocity_model/true.npy
     vs:
     rho:
     Q: 
@@ -50,7 +50,7 @@ geom:
 
   receivers: ./geometry/receivers.pkl
 
-  seabed: ./velocity_model/seabed.npy
+  seabed:
 
   wavelet:
 
@@ -71,13 +71,13 @@ geom:
 
   # Inital Wave speed model from disk_file
   initPath: 
-    vp: ./velocity_model/init.npy
+    vp:
     vs:
     rho:
     Q:
 
   invlist:
-    vp: true
+    vp:
     vs:
     rho:
     q:
@@ -86,21 +86,19 @@ geom:
   inv_savePath:
 
   multiscale:
-    - 3.0
-    - 5.0
-    - all
+    - 0.0
 
   # Time Sampling step
   dt: 0.001
 
   # Time samples
-  nt: 4000
+  nt: 1500
 
   # Main frequency of ricker wave
-  fm: 8.0
+  fm: 5.0
 
   # Spatial grid step size
-  h: 20.0
+  h: 10.0
 
   # Total Shots
   Nshots: 999
