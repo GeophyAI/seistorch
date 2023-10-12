@@ -140,3 +140,72 @@ def _single_tensor_gd(params: List[Tensor],
         max_value_of_grad = torch.max(torch.abs(d_p.data)).cpu()
         alpha = lr / max_value_of_grad
         param.add_(d_p, alpha=-alpha)
+
+class Cg(Optimizer):
+
+    @property
+    def name(self,):
+        return "ncg"
+    
+    def __init__(self, params, lr=1.0, beta_type='FR', gradient_clamp=True, **kwargs):
+        defaults = dict(lr=lr, beta_type=beta_type, gradient_clamp=gradient_clamp)
+        super(Cg, self).__init__(params, defaults)
+
+    def __setstate__(self, state):
+        super().__setstate__(state)
+        for group in self.param_groups:
+            group.setdefault('beta_type', 'FR')
+            group.setdefault('grad_clamp', True)
+
+    @torch.no_grad()
+    def step(self, closure=None):
+        loss = None
+        if closure is not None:
+            with torch.enable_grad():
+                loss = closure()
+        
+        for group in self.param_groups:
+            for p in group['params']:
+                if p.grad is None:
+                    continue
+
+                grad = p.grad.data
+                state = self.state[p]
+
+                if len(state) == 0:
+                    state['step'] = 0
+                    state['prev_grad'] = torch.zeros_like(grad)
+                    state['direction'] = -grad.clone()
+
+                prev_grad = state['prev_grad']
+                direction = state['direction']
+
+                # 计算beta值
+                if prev_grad.norm()==0:
+                    beta = 0
+                elif group['beta_type'] == 'FR':
+                    beta = grad.norm()**2 / prev_grad.norm()**2
+                elif group['beta_type'] == 'PR':
+                    beta = (grad - prev_grad).flatten().dot(grad.flatten()) / prev_grad.norm()**2
+                else:
+                    raise ValueError("Invalid beta_type. Must be 'FR' or 'PR'")
+
+                # 更新搜索方向
+                direction = -grad + beta * direction
+
+                # 使用线搜索更新模型参数
+                if group['gradient_clamp']:
+                    bound = torch.quantile(direction, torch.Tensor([0.02, 0.98]).to(direction.device).to(direction.dtype))
+                    direction = torch.clamp(direction, min=bound[0], max=bound[1])
+
+                max_value_of_grad = torch.max(torch.abs(direction.data)).cpu()
+                alpha = group['lr'] / max_value_of_grad
+                p.data.add_(alpha * direction)
+
+                # Update state
+                state['step'] += 1
+                state['prev_grad'] = grad.clone()
+                state['direction'] = direction
+
+
+        return loss

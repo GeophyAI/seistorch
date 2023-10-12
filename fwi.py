@@ -44,7 +44,7 @@ parser.add_argument('--num-batches', type=int, default=1,
                     help='Number of batches to use')
 parser.add_argument('--use-cuda', action='store_true',
                     help='Use CUDA to perform computations')
-parser.add_argument('--opt', choices=['adam', 'lbfgs', 'ncg', 'steepestdescent'], default='adam',
+parser.add_argument('--opt', choices=['adam', 'lbfgs', 'steepestdescent', 'cg'], default='adam',
                     help='optimizer (adam)')
 parser.add_argument('--save-path', default='',
                     help='the root path for saving results')
