@@ -1,5 +1,6 @@
 # from pytorch_msssim import SSIM as _ssim
 
+from typing import Any
 import numpy as np
 import torch
 import torch.nn.functional as F
@@ -304,6 +305,33 @@ class Phase(torch.nn.Module):
         for i in range(x.shape[0]):
             loss += self.phase_consistency(self.analytic(x[i]), self.analytic(y[i]))
         return loss
+
+class ReverseTimeMigration(torch.autograd.Function):
+    def __init__(ctx):
+        """
+        Initialize the parent class.
+        """
+        super(ReverseTimeMigration, ctx).__init__()
+
+    @property
+    def name(ctx,):
+        return "rtm"
+    
+    @staticmethod
+    def forward(ctx, x, y):
+        """No loss for RTM.
+
+        Args:
+            x (tensor): synthetic seismograms.
+            y (tensor): observed seismograms.
+        """
+        ctx.save_for_backward(x, y)
+        return torch.tensor(0.0, dtype=torch.float32, requires_grad=True)
+    
+    @staticmethod
+    def backward(ctx, grad_output):
+        syn, obs = ctx.saved_tensors
+        return obs, None
 
 class Sinkhorn(torch.nn.Module):
 
