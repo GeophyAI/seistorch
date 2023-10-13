@@ -9,10 +9,21 @@ class SeisIO:
     """The class for file/data input and output.
     """
 
-    def __init__(self, cfg_path=None, load_cfg=True):
+    def __init__(self, cfg_path=None, load_cfg=False):
         """Initialize the SeisIO class."""
         if load_cfg:
             self.cfg = self.read_cfg(cfg_path)
+
+    def get_file_extension(self, path: str):
+        """Get the extension of the file.
+
+        Args:
+            path (str): The path to the file.
+
+        Returns:
+            str: The extension of the file.
+        """
+        return os.path.splitext(path)[1]
 
     def gll2grid(self, data, x, z, grid_size:float):
         """Interpolate the data onto a regular grid.
@@ -57,24 +68,7 @@ class SeisIO:
         path = '' if path is None else path
 
         return os.path.exists(path)
-    
-    def read_pkl(self, path: str):
-        """Read a pickle file.
 
-        Args:
-            path (str): The path to the pickle file.
-
-        Returns:
-            data: The data loaded from the pickle file.
-        """
-        # Open the file in binary mode and load the list using pickle
-
-        self.path_exists(path)
-        with open(path, 'rb') as f:
-            data = pickle.load(f)
-
-        return data
-    
     def read_cfg(self, cfg_path):
         """Read the configure file.
 
@@ -94,6 +88,48 @@ class SeisIO:
         else:
             raise FileNotFoundError(f"Config file {cfg_path} not found.")
     
+    def read_pkl(self, path: str):
+        """Read a pickle file.
+
+        Args:
+            path (str): The path to the pickle file.
+
+        Returns:
+            data: The data loaded from the pickle file.
+        """
+        # Open the file in binary mode and load the list using pickle
+
+        self.path_exists(path)
+        with open(path, 'rb') as f:
+            data = pickle.load(f)
+
+        return data
+    
+    def read_vel(self, path: str, pmln=50, expand=0):
+        """Read the velocity model.
+
+        Args:
+            path (str): The path to the velocity model.
+            pmln (int, optional): The width of PML. Defaults to 50.
+            expand (int, optional): The widht of expandsion. Defaults to 0.
+        """
+        self.path_exists(path)
+
+        extension = self.get_file_extension(path)
+
+        vel_loader = {".npy": np.load, 
+                      ".bin": self.read_fortran_binary}
+        
+        if extension in vel_loader:
+            vel = vel_loader[extension](path)
+
+        if pmln > 0:
+            vel = vel[pmln:-pmln, pmln:-pmln]
+        if expand > 0:
+            vel = vel[:, expand:-expand]
+
+        return vel
+
     def read_fortran_binary(self, filename):
         """
         Reads Fortran-style unformatted binary data into numpy array.

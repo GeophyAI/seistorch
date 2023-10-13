@@ -26,3 +26,20 @@ Seistorch is a seismic inversion framework designed for researchers in the field
     - [Data format of seistorch](https://seistorch.readthedocs.io/en/latest/data_format.html)
     - [Configuration Parameters for FWI Scripts](https://seistorch.readthedocs.io/en/latest/running_commands.html)
     - [Advanced supports](https://seistorch.readthedocs.io/en/latest/advanced.html)
+
+
+# Citation
+
+If you find this work useful for your research, please consider citing our paper [Memory Optimization in RNN-based Full Waveform Inversion using Boundary Saving Wavefield Reconstruction](https://ieeexplore.ieee.org/document/10256076):
+
+```
+@ARTICLE{10256076,
+  author={Wang, Shaowen and Jiang, Yong and Song, Peng and Tan, Jun and Liu, Zhaolun and He, Bingshou},
+  journal={IEEE Transactions on Geoscience and Remote Sensing}, 
+  title={Memory Optimization in RNN-based Full Waveform Inversion using Boundary Saving Wavefield Reconstruction}, 
+  year={2023},
+  volume={},
+  number={},
+  pages={1-1},
+  doi={10.1109/TGRS.2023.3317529}}
+```

@@ -52,7 +52,7 @@ geom:
 
   seabed: ./velocity_model/seabed.npy
 
-  wavelet:
+  wavelet: ./wavelet/ricker.npy
 
   multiple: false
 
@@ -87,8 +87,6 @@ geom:
 
   multiscale:
     - 3.0
-    - 5.0
-    - all
 
   # Time Sampling step
   dt: 0.001

@@ -182,7 +182,7 @@ if __name__ == '__main__':
     """-------------------INVERSION-----------------"""
     """---------------------------------------------"""
 
-    if args.mode == 'inversion':
+    if args.mode in ['inversion', 'rtm']:
 
         """Write configure file to the inversion folder"""
         ROOTPATH = args.save_path if args.save_path else cfg["geom"]["inv_savePath"]

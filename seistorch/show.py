@@ -152,7 +152,7 @@ class SeisShow:
 
         plt.tight_layout()
         plt.show()
-        plt.savefig(savepath, dpi=300, bbox_inches='tight')
+        fig.savefig(savepath, dpi=300, bbox_inches='tight')
 
     def spectrum(self, datalist: list, labellist: list, dt=0.001, db=False, endfreq=100, normalize=False):
         """Compute the frequency spectrum of the data.
@@ -232,6 +232,6 @@ class SeisShow:
         plt.show()
         # Save figure
         if savepath:
-            plt.savefig(savepath, dpi=300)
+            fig.savefig(savepath, dpi=300)
             plt.close()
 

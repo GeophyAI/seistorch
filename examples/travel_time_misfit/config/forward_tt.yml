@@ -87,8 +87,6 @@ geom:
 
   multiscale:
     - 3.0
-    - 5.0
-    - all
 
   # Time Sampling step
   dt: 0.001

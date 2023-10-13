@@ -4,11 +4,19 @@ import matplotlib.pyplot as plt
 import sys, tqdm
 sys.path.append("../..")
 from seistorch.show import SeisShow
+from seistorch.io import SeisIO
+from seistorch.signal import filter
 
 show = SeisShow()
+io = SeisIO(load_cfg=False)
+cfg = io.read_cfg("./config/forward_obs.yml")
+freqs = cfg["geom"]["multiscale"][0]
 
 obs = np.load("./observed.npy", allow_pickle=True)
 ini = np.load("./observed_init.npy", allow_pickle=True)
+
+obs = filter(obs, dt=cfg['geom']['dt'], N=3, freqs=freqs, axis=0)
+ini = filter(ini, dt=cfg['geom']['dt'], N=3, freqs=freqs, axis=0)
 
 nshots = obs.shape[0]
 nsamples, ntraces, ncomponent = obs[0].shape
@@ -28,7 +36,7 @@ arrivals = arrivals.astype(int)
 for trace in range(ntraces):
     avl = arrivals[trace]
     upper = avl-800 if avl-800 > 0 else 0
-    mask[upper:avl+300, trace, :] = 1
+    mask[upper:avl+350, trace, :] = 1
 
 for shot in range(nshots):
     dmask[shot] = mask

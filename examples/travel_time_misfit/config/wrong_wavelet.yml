@@ -36,11 +36,11 @@ training:
 geom:
 
   # The observer data
-  obsPath: ./observed_init.npy
+  obsPath: ./observed_invt_tt.npy
 
   # Wave speed model from disk_file for forward modeling
   truePath:
-    vp: ./velocity_model/init.npy
+    vp: ./velocity_model/inverted_tt.npy
     vs:
     rho:
     Q: 
@@ -52,7 +52,7 @@ geom:
 
   seabed: ./velocity_model/seabed.npy
 
-  wavelet: ./wavelet/ricker.npy
+  wavelet: ./wavelet/ricker_diff.npy
 
   multiple: false
 
