@@ -2,17 +2,56 @@
 import os
 import pickle
 import numpy as np
-from yaml import load
+from yaml import load, dump
 from yaml import CLoader as Loader
 
 class SeisIO:
     """The class for file/data input and output.
     """
 
-    def __init__(self, cfg_path=None, load_cfg=False):
+    def __init__(self, cfg: dict = None, cfg_path: str=None, load_cfg=False):
         """Initialize the SeisIO class."""
-        if load_cfg:
+        if cfg is not None:
+            self.cfg = cfg
+        if load_cfg and cfg_path is not None:
             self.cfg = self.read_cfg(cfg_path)
+
+    def fromfile(self, path: str=None):
+        """Read the data.
+
+        Args:
+            path (str): The path to the data.
+            dtype (str): The data type.
+
+        Returns:
+            np.ndarray: The data.
+        """
+        self.path_exists(path)
+
+        data_loader = self.decide_loader(path)
+
+        return data_loader(path, allow_pickle=True)
+    
+    def decide_loader(self, path: str=None):
+        """Decide the data loader.
+
+        Args:
+            path (str): The path to the data.
+
+        Returns:
+            function: The data loader.
+        """
+
+        extension = self.get_file_extension(path)
+
+        data_loader = {".npy": np.load, 
+                       ".bin": self.read_fortran_binary, 
+                       ".pkl": self.read_pkl}
+
+        if extension in data_loader:
+            return data_loader[extension]
+        else:
+            raise NotImplementedError(f"Cannot read {extension} file.")
 
     def get_file_extension(self, path: str):
         """Get the extension of the file.
@@ -87,8 +126,22 @@ class SeisIO:
             return cfg
         else:
             raise FileNotFoundError(f"Config file {cfg_path} not found.")
-    
-    def read_pkl(self, path: str):
+
+    def read_geom(self, cfg: dict=None):
+
+        assert cfg is not None, "The configure file is not loaded."
+
+        spath = cfg["geom"]["sources"]
+        rpath = cfg["geom"]["receivers"]
+        assert os.path.exists(spath), "Cannot found source file."
+        assert os.path.exists(rpath), "Cannot found receiver file."
+        source_locs = self.read_pkl(spath)
+        recev_locs = self.read_pkl(rpath)
+        assert len(source_locs)==len(recev_locs), \
+            "The lenght of sources and recev_locs must be equal."
+        return source_locs, recev_locs
+
+    def read_pkl(self, path: str, **kwargs):
         """Read a pickle file.
 
         Args:
@@ -104,7 +157,7 @@ class SeisIO:
             data = pickle.load(f)
 
         return data
-    
+
     def read_vel(self, path: str, pmln=50, expand=0):
         """Read the velocity model.
 
@@ -130,7 +183,7 @@ class SeisIO:
 
         return vel
 
-    def read_fortran_binary(self, filename):
+    def read_fortran_binary(self, filename, **kwargs):
         """
         Reads Fortran-style unformatted binary data into numpy array.
 
@@ -160,7 +213,56 @@ class SeisIO:
                 data = np.fromfile(file, dtype="float32")
                 return data
 
-    def write_fortran_binary(self, arr, filename):
+    def to_file(self, path: str=None, data: np.ndarray=None):
+        """Write the data to a file.
+
+        Args:
+            path (str): The path to the file.
+            data (np.ndarray): The data to be written.
+        """
+
+        extension = self.get_file_extension(path)
+
+        wavelet_writer = {".npy": np.save, 
+                          ".bin": self.write_fortran_binary}
+
+        if extension in wavelet_writer:
+            wavelet_writer[extension](path, data)
+
+    def wavelet_fromfile(self, path: str=None):
+        """Read the wavelet.
+
+        Args:
+            path (str): The path to the wavelet.
+
+        Returns:
+            np.ndarray: The wavelet.
+        """
+        path = self.cfg['geom']['wavelet'] if path is None else path
+
+        self.path_exists(path)
+
+        extension = self.get_file_extension(path)
+
+        wavelet_loader = {".npy": np.load, 
+                          ".bin": self.read_fortran_binary}
+
+        if extension in wavelet_loader:
+            wavelet = wavelet_loader[extension](path)
+
+        return wavelet
+
+    def write_cfg(self, path: str, cfg: dict, ):
+        """Write the configure file.
+
+        Args:
+            cfg (dict): The configure dictionary.
+            path (str): The path to the configure file.
+        """
+        with open(path, 'w') as f:
+            dump(cfg, f)
+
+    def write_fortran_binary(self, filename, arr):
         """
         Writes Fortran style binary files. Data are written as single precision
         floating point numbers.

@@ -23,15 +23,14 @@ from torch.utils.tensorboard import SummaryWriter
 from yaml import dump, load
 
 import seistorch
-from seistorch.eqconfigure import Parameters, Shape
+from seistorch.eqconfigure import Shape
 from seistorch.distributed import task_distribution_and_data_reception
-# from tensorflow.keras.models import load_model
-from seistorch.check import ConfigureCheck
+from seistorch.io import SeisIO
 from seistorch.model import build_model
 from seistorch.setup import *
 # from skopt import Optimizer
 from seistorch.signal import filter
-from seistorch.utils import (DictAction, cpu_fft, get_src_and_rec, low_pass,
+from seistorch.utils import (DictAction, get_src_and_rec,
                              ricker_wave, to_tensor)
 
 
@@ -82,12 +81,13 @@ if __name__ == '__main__':
         if rank ==0:
             print("Configuration: %s" % args.config)
             print("Using CPU for calculation")
-
     'Sets the number of threads used for intraop parallelism on CPU.'
     torch.set_num_threads(args.num_threads)
     # Build model
     cfg, model = build_model(args.config, device=args.dev, mode=args.mode, source_encoding=args.source_encoding)
-    #model = torch.compile(model)
+
+    seisio = SeisIO(cfg)
+    shape = Shape(cfg)
 
     # Set the name of the process
     if rank!=0:
@@ -96,7 +96,7 @@ if __name__ == '__main__':
         setproctitle.setproctitle("TaskAssign")
 
     ### Get source-x and source-y coordinate in grid cells
-    src_list, rec_list = get_src_and_rec(cfg)
+    src_list, rec_list = seisio.read_geom(cfg)
 
     """Short cuts of the configures"""
     ELASTIC = cfg['equation'] in ['elastic', 'aec']
@@ -117,9 +117,7 @@ if __name__ == '__main__':
             x = ricker_wave(cfg['geom']['fm'], cfg['geom']['dt'], cfg['geom']['nt'], cfg['geom']['wavelet_delay'])
         else:
             print("Loading wavelet from file")
-            x = to_tensor(np.load(cfg["geom"]["wavelet"]))
-
-    shape = Shape(cfg)
+            x = to_tensor(seisio.wavelet_fromfile())
 
     """---------------------------------------------"""
     """-------------------MODELING------------------"""
@@ -128,12 +126,9 @@ if __name__ == '__main__':
     if args.mode == 'forward':
 
         if rank==0:
-            # each record have the same shape
-            #record = np.zeros(shape.record3d, dtype=np.float32)
             # each record have different shape
             record = np.empty(NSHOTS, dtype=np.ndarray) 
         else:
-            #record = np.zeros(shape.record2d, dtype=np.float32)
             x = torch.unsqueeze(x, 0)
 
         comm.Barrier()
@@ -175,8 +170,7 @@ if __name__ == '__main__':
         if rank==0:
             pbar.close()
             print("Modeling done, data will be writing to disk.")
-            np.save(cfg['geom']['obsPath'], record)
-
+            seisio.to_file(cfg['geom']['obsPath'], record)
 
     """---------------------------------------------"""
     """-------------------INVERSION-----------------"""
@@ -192,7 +186,9 @@ if __name__ == '__main__':
         cfg["ROOTPATH"] = ROOTPATH
         cfg['training']['lr'] = args.lr
         cfg['training']['optimizer'] = args.opt
-        SEABED = np.load(cfg['geom']['seabed']) if 'seabed' in cfg['geom'].keys() else None
+        
+        SEABED = seisio.fromfile(cfg['geom']['seabed']) if 'seabed' in cfg['geom'].keys() else None
+        #SEABED = np.load(cfg['geom']['seabed']) if 'seabed' in cfg['geom'].keys() else None
         SEABED = torch.from_numpy(SEABED).to(args.dev) if SEABED is not None else None
         
         if "datamask" in cfg["geom"].keys():
@@ -200,8 +196,7 @@ if __name__ == '__main__':
         
         if rank==0:
             os.makedirs(ROOTPATH, exist_ok=True)
-            with open(os.path.join(ROOTPATH, "configure.yml"), "w") as f:
-                dump(cfg, f)
+            seisio.write_cfg(f"{ROOTPATH}/configure.yml", cfg)
     
         if rank==1:
             writer = SummaryWriter(os.path.join(ROOTPATH, "logs"))
@@ -212,7 +207,7 @@ if __name__ == '__main__':
         """Only rank0 will read the full band data"""
         """Rank0 will broadcast the data after filtering"""
         if rank == 0:
-            full_band_data = np.load(cfg['geom']['obsPath'], allow_pickle=True)
+            full_band_data = seisio.fromfile(cfg['geom']['obsPath'])
             #filtered_data = np.zeros(shape.record3d, dtype=np.float32)
             loss = np.zeros((len(cfg['geom']['multiscale']), EPOCHS, NSHOTS), np.float32)
             # The gradient in rank0 is a 3D array.

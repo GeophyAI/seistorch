@@ -98,7 +98,7 @@ class SeisShow:
             traces.append(Trace(data=data[:,i,0], header={"delta":dt, "distance": i*dx}))
         return Stream(traces=traces)
 
-    def section(self, data, dx=12.5, dz=12.5, **kwargs):
+    def section(self, data, dx=12.5, dz=12.5, savepath=None, **kwargs):
         """Plot a section of the data.
 
         Args:
@@ -113,6 +113,8 @@ class SeisShow:
         ax.set_ylabel("z (m)")
         plt.tight_layout()
         plt.show()
+        if savepath:
+            fig.savefig(savepath, dpi=300, bbox_inches='tight')
 
     def shotgather(self,
                    datalist: list, 

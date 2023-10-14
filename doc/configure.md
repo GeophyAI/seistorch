@@ -35,6 +35,10 @@ geom:
 
   In **inversion**: The same `geom` -> `obsPath` parameter specifies the path to the observed seismic data that will be used as a reference for fitting.
 
+- `geom`->`datamask`
+
+  Only works in inversion. Without mask, the loss is calculated by `loss=criterion(syn, obs)`, with `datamask` parameter, the loss is computed by `loss=criterion(syn*datamask, obs*datamask)`. The shape of datamask must be the same as the shape of obs and syn. It's useful when performing wave-equation-based traveltime tomography or reverse time migration.
+
 - `geom`->`truePath`
 
   In **forward modeling**: When running the `fwi.py` script in Seistorch and setting the `--mode` parameter to `forward`, the seistorch is configured to load model parameters from the `truePath` dictionary. This behavior is essential for conducting forward modeling simulations.
@@ -143,8 +147,6 @@ training:
       rho: false
   ```
 
-
-
 ### Restricted choice parameter
 
 This type of parameters has a limited set of valid choices, causing errors if selections fall outside this predefined list.
@@ -209,6 +211,21 @@ This type of parameters has a limited set of valid choices, causing errors if se
 - `training`->`filter_ord`
 
     The order of the filter. Recommand value: from 1 to 4.
+
+- `training`->`smooth`
+
+  `Seistorch` use `scipy.ndimage.gaussian_filter` to smooth the gradients before calling `optimizer.step()`.
+
+  ```python
+  smooth:
+    counts: 10 # should be int, indictes the times for smooth
+    radius: # radius of the gaussian kernel in x and z direction.
+      x: 5
+      z: 10
+    sigma: # sigma of the gaussian kernel in x and z direction.
+      x:
+      z:
+  ```
 
 - `geom`->`wavelet_delay`
 

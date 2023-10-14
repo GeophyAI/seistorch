@@ -26,14 +26,14 @@ class ConfigureCheck:
             f"keyword <counts> should be int."
         
         assert isinstance(smooth["radius"], dict), \
-            f"keyword <sigma> should be dict."
+            f"keyword <radius> should be dict with keys <x, y, z>."
         
         for key in smooth["radius"].keys():
             assert isinstance(smooth["radius"][key], (int, float)), \
                 f"radius {key} should be float."
         
         assert isinstance(smooth["sigma"], dict), \
-            f"keyword <sigma> should be dict."
+            f"keyword <sigma> should be dict with keys <x, y, z>."
 
         for key in smooth["sigma"].keys():
             assert isinstance(smooth["sigma"][key], (int, float)), \
