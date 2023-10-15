@@ -26,10 +26,10 @@ import seistorch
 from seistorch.eqconfigure import Shape
 from seistorch.distributed import task_distribution_and_data_reception
 from seistorch.io import SeisIO
+from seistorch.signal import SeisSignal
 from seistorch.model import build_model
 from seistorch.setup import *
 # from skopt import Optimizer
-from seistorch.signal import filter
 from seistorch.utils import (DictAction, get_src_and_rec,
                              ricker_wave, to_tensor)
 
@@ -87,6 +87,7 @@ if __name__ == '__main__':
     cfg, model = build_model(args.config, device=args.dev, mode=args.mode, source_encoding=args.source_encoding)
 
     seisio = SeisIO(cfg)
+    seissignal = SeisSignal(cfg)
     shape = Shape(cfg)
 
     # Set the name of the process
@@ -155,10 +156,7 @@ if __name__ == '__main__':
                 # Forward modeling
                 with torch.no_grad():
                     shots = tasks
-
-                    sources, receivers = setup_acquisition(shots, src_list, rec_list, cfg)
-                    model.reset_sources(sources)
-                    model.reset_probes(receivers)
+                    model.reset_geom(shots, src_list, rec_list, cfg)
                     y = model(x)
                     record = y.cpu().detach().numpy()
 
@@ -222,15 +220,10 @@ if __name__ == '__main__':
         """Loop over all scale"""
         for idx_freq, freq in enumerate(cfg['geom']['multiscale']):
 
-            if isinstance(freq, (int, float)): filter_mode = "lowpass"
-            if isinstance(freq, list): filter_mode = "bandpass"
-            if freq == "all": filter_mode = "all"
-            
             if rank==0:
-                print(f"Data filtering (mode: {filter_mode}): frequency:{freq}")
                 # Filter both record and ricker
-                filtered_data = filter(full_band_data.copy(), cfg['geom']['dt'], N=FILTER_ORDER, freqs=freq, axis=0, mode=filter_mode)
-                #filtered_data = low_pass(full_band_data.copy(), cfg['geom']['dt'], N=FILTER_ORDER, low=freq, axis = 0)
+                filtered_data = seissignal.filter(full_band_data, freqs=freq)
+                # Pickle the filtered data
                 data_str = pickle.dumps(filtered_data)
 
             # Broadcast the filtered data to other processors
@@ -246,8 +239,7 @@ if __name__ == '__main__':
             if (use_mpi and rank!=0) or (not use_mpi):
                 # Low pass filtered wavelet
                 if isinstance(x, torch.Tensor): x = x.numpy()
-                lp_wavelet = filter(x.copy().reshape(1, -1), cfg['geom']['dt'], N=FILTER_ORDER, freqs=freq, axis=0, mode=filter_mode)[0]
-                # lp_wavelet = cpu_fft(x.copy(), cfg['geom']['dt'], N=FILTER_ORDER, low=freq, axis=0, mode='lowpass')
+                lp_wavelet = seissignal.filter(x.copy().reshape(1, -1), freqs=freq)[0]
                 lp_wavelet = torch.unsqueeze(torch.from_numpy(lp_wavelet), 0)
 
             """Loop over all epoches"""
@@ -281,15 +273,14 @@ if __name__ == '__main__':
                             break
                         sources = []
                         shots = tasks
-                        sources, receivers = setup_acquisition(shots, src_list, rec_list, cfg)
+                        #sources, receivers = setup_acquisition(shots, src_list, rec_list, cfg)
 
                         """Calculate one shot gradient"""
                         def closure():
                             optimizers.zero_grad()
                             """Although it is a for loop """
                             """But only one shot here when traditional workflow is using"""
-                            model.reset_sources(sources)
-                            model.reset_probes(receivers)
+                            model.reset_geom(shots, src_list, rec_list, cfg)
                             syn = model(lp_wavelet)
                             obs = to_tensor(np.stack(filtered_data[shots], axis=0)).to(syn.device)#.unsqueeze(0)
 

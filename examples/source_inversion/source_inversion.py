@@ -1,12 +1,12 @@
 import sys, os
 sys.path.append("../..")
-import torch, tqdm, lesio
+import torch, tqdm
 import numpy as np
 import matplotlib.pyplot as plt
-from seistorch.equations2d.acoustic import _time_step
 from seistorch.model import build_model
 from seistorch.setup import setup_src_rec, setup_rec_coords, setup_src_coords
 from seistorch.utils import ricker_wave
+from seistorch.optimizer import Cg
 
 from yaml import load
 from yaml import CLoader as Loader
@@ -65,10 +65,11 @@ model.reset_probes(probes)
 src = setup_src_coords(src_list[0], cfg['geom']['pml']['N'])
 model.reset_sources([src])
 # Setup optimizer and loss function
-optimizer = torch.optim.Adam([inverted], lr=0.01)
+# optimizer = torch.optim.Adam([inverted], lr=0.01)
+optimizer = Cg([inverted], lr=0.05)
 critic = torch.nn.MSELoss()
 
-Epochs = 201
+Epochs = 50
 pbar = tqdm.trange(Epochs)
 LOSS = []
 for epoch in pbar:
@@ -77,7 +78,7 @@ for epoch in pbar:
     syn = model(inverted)
 #     if epoch==0: init_data = ypred.cpu().detach().numpy()
 #     # Calculate the loss
-    loss = critic(syn, torch.from_numpy(obs).to(cfg['device']))
+    loss = critic(syn[0], torch.from_numpy(obs).to(cfg['device']))
     loss.backward()
     optimizer.step()
     pbar.set_description(f"Loss:{loss}")
@@ -85,7 +86,7 @@ for epoch in pbar:
 
     if epoch%20==0:
         fig, axes = plt.subplots(5,1, figsize=(10,8))
-        axes[0].plot(inverted.cpu().detach().numpy()[0], c='r', label='Inverted')
+        axes[0].plot(inverted.cpu().detach().numpy()[0].squeeze(), c='r', label='Inverted')
         axes[0].plot(init, c='b', label='Initial')
         axes[0].plot(true, c='g', label='True')
         axes[0].set_title("Inverted source wavelet")
@@ -94,7 +95,7 @@ for epoch in pbar:
         # # Plot the forward modeling result
         vmin, vmax=np.percentile(obs, [2, 98])
         kwargs = {"vmin":vmin, "vmax":vmax, "cmap":"seismic", "aspect":"auto"}
-        axes[1].imshow(syn.cpu().detach().numpy()[:,0:200], **kwargs)
+        axes[1].imshow(syn.cpu().detach().numpy()[0].squeeze(), **kwargs)
         axes[1].set_title("Predicted data")
         axes[2].imshow(obs, **kwargs)
         axes[2].set_title("Observed data")

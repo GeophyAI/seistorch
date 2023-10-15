@@ -4,6 +4,104 @@ import numpy as np
 from scipy import signal
 from joblib import Parallel, delayed
 
+class SeisSignal:
+
+    def __init__(self, cfg=None):
+        self.cfg = cfg
+        self.__setup__()
+
+    def __setup__(self, ):
+        self.dt = self.cfg['geom']['dt']
+        self.forder = self.cfg['training']['filter_ord']
+
+    def decide_filter_type(self, freq):
+        """Summary: Decide the filter type
+
+        Args:
+            freq (in, float, list): The frequency of the filter.
+
+        Returns:
+            str : The filter type.
+        """
+        if isinstance(freq, (int, float)): filter_mode = "lowpass"
+        if isinstance(freq, list): filter_mode = "bandpass"
+        if freq == "all": filter_mode = "all"
+        return filter_mode
+    
+    def _filter_(self, d, b, a, axis):
+        return signal.filtfilt(b, a, d, axis=axis).astype(np.float32)
+
+    def _filter2_(self, sos, data, axis=0, zero_phase=True):
+        if zero_phase:
+            firstpass = signal.sosfilt(sos, data, axis=axis)
+            return signal.sosfilt(sos, firstpass[::-1], axis=axis)[::-1]
+        else:
+            return signal.sosfilt(sos, data, axis=axis)
+
+    def filter(self, d, freqs, axis=0, threads=1, **kwargs):
+
+        filter_mode = self.decide_filter_type(freqs)
+        
+        print(f"Data filtering (mode: {filter_mode}): frequency:{freqs}")
+
+        if freqs == "all":
+            return d
+        else:
+            valid_modes = ["lowpass", "highpass", "bandpass"]
+            assert filter_mode in valid_modes, "mode must be lowpass, highpass or bandpass"
+
+            if filter_mode in ["lowpass", "highpass"]:
+                assert isinstance(freqs, (int, float)), "freqs must be a number for lowpass or highpass filter"
+                freqs = [freqs]
+
+            if filter_mode =="bandpass":
+                assert isinstance(freqs, (list, tuple)), "freqs must be a list or tuple for bandpass filter"
+
+        wn = [2*freq/(1/self.dt) for freq in list(freqs)]
+        wn = wn[0] if len(wn)==1 else wn
+
+        nshots  = d.shape[0]
+        d_filter = np.empty(nshots, dtype=np.ndarray)
+
+        # call _filter_
+        b, a = signal.butter(self.forder, Wn=wn, btype=filter_mode)
+
+        d_filter[:] = Parallel(n_jobs=threads)(
+            delayed(self._filter_)(d[i], b, a, axis)
+            for i in range(nshots)
+        )
+
+        # Filter 2
+        # z, p, k = signal.iirfilter(N, wn, btype=mode, ftype='butter', output='zpk')
+        # sos = signal.zpk2sos(z, p, k)
+
+        # d_filter[:] = Parallel(n_jobs=threads)(
+        #     delayed(self._filter2_)(sos, d[i], axis, zero_phase=zero_phase)
+        #     for i in range(nshots)
+        # )
+
+        return d_filter
+
+    @staticmethod
+    def ricker_wave(fm, dt, nt, delay = 80, dtype='tensor', inverse=False):
+        """
+            Ricker-like wave.
+        """
+        print(f"Wavelet inverse:{inverse}")
+        ricker = []
+        delay = delay * dt 
+        t = np.arange(0, nt*dt, dt)
+
+        c = np.pi * fm * (t - delay) #  delay
+        p = -1 if inverse else 1
+        ricker = p*(1-2*np.power(c, 2)) * np.exp(-np.power(c, 2))
+
+        if dtype == 'numpy':
+            return np.array(ricker).astype(np.float32)
+        else:
+            return torch.from_numpy(np.array(ricker).astype(np.float32))
+
+
 def batch_sta_lta(traces, sta_len, lta_len, threshold_on=0.5, threshold_off=1.0):
     """Summary: Calculate the STA/LTA ratio of a signal
     Args:
@@ -81,43 +179,6 @@ def batch_sta_lta_torch(traces, sta_len, lta_len, threshold_on=0.5, threshold_of
 
     return fa_time.squeeze().int()
 
-def _filter_(d, b, a, axis):
-    return signal.filtfilt(b, a, d, axis=axis).astype(np.float32)
-
-def filter(d, dt, N = 5, freqs = 5, axis = -1, threads=1, mode="lowpass"):
-    """
-        implementation of band pass filter.
-    """
-    if freqs == "all":
-        return d
-    else:
-        valid_modes = ["lowpass", "highpass", "bandpass"]
-        assert mode in valid_modes, "mode must be lowpass or highpass"
-
-        if mode in ["lowpass", "highpass"]:
-            assert isinstance(freqs, (int, float)), "freqs must be a number for lowpass or highpass filter"
-            freqs = [freqs]
-
-        if mode =="bandpass":
-            assert isinstance(freqs, (list, tuple)), "freqs must be a list or tuple for bandpass filter"
-
-        wn = [2*freq/(1/dt) for freq in list(freqs)]
-        wn = wn[0] if len(wn)==1 else wn
-
-        b, a = signal.butter(N, Wn=wn, btype=mode)
-        nshots  = d.shape[0]
-        d_filter = np.empty(nshots, dtype=np.ndarray)
-
-        d_filter[:] = Parallel(n_jobs=threads)(
-            delayed(_filter_)(d[i], b, a, axis)
-            for i in range(nshots)
-        )
-
-        # serial version
-        #for i in range(nshots):
-        #    d_filter[i] = signal.filtfilt(b, a, d[i], axis = axis).astype(np.float32)
-        return d_filter
-    
 def generate_mask(fa_time, nt, nr, N):
     mask = torch.zeros(nt, nr, dtype=torch.float32)
 

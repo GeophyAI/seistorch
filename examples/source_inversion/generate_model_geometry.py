@@ -5,6 +5,10 @@ import matplotlib.pyplot as plt
 from yaml import load
 from yaml import CLoader as Loader
 
+import sys
+sys.path.append("../..")
+from seistorch.show import SeisShow
+
 # Using Bspline wavelet as true wavelet
 def Bspline(t, fb, m, p, q):
     numerator = np.sqrt(fb) * (np.sinc((fb * t / m)) ** m)
@@ -65,7 +69,7 @@ with open(config_path, 'r') as ymlfile:
 dt = cfg['geom']['dt']
 nt = cfg['geom']['nt']
 t = np.arange(0, dt*nt, dt)-cfg['geom']['wavelet_delay']*dt
-true = Bspline(t=t, fb=10.0, m=5., p=7., q=15)
+true = Bspline(t=t, fb=15.0, m=10., p=7., q=30)
 
 np.save("wavelet_bspline.npy", true)
 fig,axes=plt.subplots(1,3,figsize=(10,5))
@@ -86,6 +90,11 @@ axes[2].legend()
 plt.tight_layout()
 plt.savefig("model_geometry.png", dpi=300)
 plt.show()
+
+show = SeisShow()
+show.spectrum([true.reshape(-1, 1)], 
+              ["true wavelet"], 
+              dt=dt)
 
 # Save the velocity model
 vel_path = r"./velocity_model"

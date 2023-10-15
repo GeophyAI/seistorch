@@ -2,6 +2,7 @@
 import os
 import pickle
 import numpy as np
+from obspy import Stream, Trace
 from yaml import load, dump
 from yaml import CLoader as Loader
 
@@ -94,6 +95,18 @@ class SeisIO:
         griddata[z_indices, x_indices] = data
 
         return griddata
+
+    def np2st(self, data, dt):
+        starttime = 0
+        nt, nr = data.shape[:2]
+        st = Stream()
+        sampling_rate=1/dt
+        # 遍历每个 trace，创建对应的 Trace 对象，并添加到 Stream 中
+        for i in range(nr):
+            trace_data = data[:, i]  # 获取第 i 列数据
+            trace = Trace(data=trace_data, header={"starttime": starttime, "sampling_rate": sampling_rate})
+            st += trace
+        return st
 
     def path_exists(self, path):
         """Check if the path exists.

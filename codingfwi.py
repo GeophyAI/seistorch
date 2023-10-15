@@ -25,7 +25,9 @@ from seistorch.eqconfigure import Shape
 # from tensorflow.keras.models import load_model
 from seistorch.model import build_model
 from seistorch.setup import *
-from seistorch.utils import (DictAction, cpu_fft, dict2table,
+from seistorch.io import SeisIO
+from seistorch.signal import SeisSignal
+from seistorch.utils import (DictAction, dict2table,
                              low_pass, roll, roll2, to_tensor)
 
 # from torchviz import make_dot
@@ -86,7 +88,9 @@ if __name__ == '__main__':
     torch.set_num_threads(args.num_threads)
     # Build model
     cfg, model = build_model(args.config, device=args.dev, mode=args.mode, source_encoding=args.source_encoding)
-    #exit()
+    
+    seisio = SeisIO(cfg)
+
     # Set random seed
     torch.manual_seed(cfg["seed"])
     np.random.seed(cfg["seed"])
@@ -154,6 +158,7 @@ if __name__ == '__main__':
     """# Read the wavelet"""
     x = setup_wavelet(cfg)
 
+    seissignal = SeisSignal(cfg)
     shape = Shape(cfg)
 
     """---------------------------------------------"""
@@ -170,7 +175,7 @@ if __name__ == '__main__':
 
     """Only rank0 will read the full band data"""
     """Rank0 will broadcast the data after filtering"""
-    full_band_data = np.load(cfg['geom']['obsPath'], allow_pickle=True)
+    full_band_data = seisio.fromfile(cfg['geom']['obsPath'])
     NSHOTS = min(NSHOTS, full_band_data.shape[0])
     #lp_rec = np.zeros(shape.record3d, dtype=np.float32)
     #coding_obs = torch.zeros(shape.record2d, device=args.dev)
@@ -188,12 +193,15 @@ if __name__ == '__main__':
             freq = cfg['geom']['multiscale'][idx_freq]
             # reset the optimizer
             optimizers, lr_scheduler = setup_optimizer(model, cfg, idx_freq, IMPLICIT)
-            # filter the data
+            
             # Filter both record and ricker
-            lp_rec = low_pass(full_band_data.copy(), cfg['geom']['dt'], N=FILTER_ORDER, low=freq, axis=0, threads=args.num_threads)
+            lp_rec = seissignal.filter(full_band_data, freqs=freq)
+
             # Low pass filtered wavelet
             if isinstance(x, torch.Tensor): x = x.numpy()
-            lp_wav = cpu_fft(x.copy(), cfg['geom']['dt'], N=FILTER_ORDER, low=freq, axis=0, mode='lowpass')
+
+            lp_wav = seissignal.filter(x.copy().reshape(1, -1), freqs=freq)[0]
+            #lp_wav = cpu_fft(x.copy(), cfg['geom']['dt'], N=FILTER_ORDER, low=freq, axis=0, mode='lowpass')
             lp_wav = torch.unsqueeze(torch.from_numpy(lp_wav), 0)
 
             logging.info(f"Info. of optimizers:{optimizers}")

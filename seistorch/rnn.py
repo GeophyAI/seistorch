@@ -6,6 +6,7 @@ from .source import WaveSource
 from .probe import WaveProbe
 from .cell import WaveCell
 from .utils import merge_dicts_with_same_keys
+from .setup import setup_acquisition
 
 class WaveRNN(torch.nn.Module):
     def __init__(self, cell, source_encoding=False):
@@ -71,8 +72,12 @@ class WaveRNN(torch.nn.Module):
             self.probes = torch.nn.ModuleList(probes)
         else:
             self.probes = torch.nn.ModuleList([probes])
-        
 
+    def reset_geom(self, shots, src_list, rec_list, cfg):
+        sources, receivers = setup_acquisition(shots, src_list, rec_list, cfg)
+        self.reset_sources(sources)
+        self.reset_probes(receivers)
+        
     """Original implementation"""
     def forward(self, x, omega=10.0):
         """Propagate forward in time for the length of the inputs
