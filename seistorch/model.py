@@ -6,10 +6,13 @@ import numpy as np
 import torch
 from yaml import load
 
+from scipy.ndimage import gaussian_filter
+
 from .cell import WaveCell
+from .check import ConfigureCheck
 from .geom import WaveGeometryFreeForm
 from .rnn import WaveRNN
-from .utils import set_dtype, update_cfg
+from .utils import set_dtype, update_cfg, to_tensor
 
 try:
     from yaml import CDumper as Dumper
@@ -17,7 +20,7 @@ try:
 except ImportError:
     from yaml import Dumper, Loader
 
-def build_model(config_path, device = "cuda", mode="forward", source_encoding=False):
+def build_model(config_path, device = "cuda", mode="forward", source_encoding=False, commands=None):
 
     assert mode in ["forward", "inversion"], f"No such mode {mode}!"
 
@@ -27,6 +30,8 @@ def build_model(config_path, device = "cuda", mode="forward", source_encoding=Fa
 
     VEL_PATH = cfg['geom']['initPath'] if mode == 'inversion' else cfg['geom']['truePath']
     cfg.update({'VEL_PATH': VEL_PATH})
+
+    ConfigureCheck(cfg, mode=mode, args=commands)
 
     # Try to get the data shape by vel model
     try:
@@ -49,6 +54,7 @@ def build_model(config_path, device = "cuda", mode="forward", source_encoding=Fa
 
     'update_cfg must be called since the width of pml need be added to Nx and Ny'
     cfg = update_cfg(cfg, device=device)
+    cfg['task'] = mode
 
     if cfg['seed'] is not None:
         'Sets the seed for generating random numbers. Returns a torch.Generator object.'

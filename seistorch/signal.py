@@ -82,12 +82,16 @@ class SeisSignal:
 
         return d_filter
 
-    @staticmethod
-    def ricker_wave(fm, dt, nt, delay = 80, dtype='tensor', inverse=False):
+    def ricker(self, dtype='tensor', inverse=False):
         """
             Ricker-like wave.
         """
-        print(f"Wavelet inverse:{inverse}")
+
+        fm = self.cfg['geom']['fm']
+        dt = self.cfg['geom']['dt']
+        nt = self.cfg['geom']['nt']
+        delay = self.cfg['geom']['wavelet_delay']
+
         ricker = []
         delay = delay * dt 
         t = np.arange(0, nt*dt, dt)

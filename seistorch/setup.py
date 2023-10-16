@@ -201,5 +201,6 @@ def setup_wavelet(cfg):
         print("Loading wavelet from file")
         x = to_tensor(np.load(cfg["geom"]["wavelet"]))
     # Save the wavelet
-    np.save(os.path.join(cfg['ROOTPATH'], "wavelet.npy"), x.cpu().numpy())
+    if 'ROOTPATH' in cfg.keys():
+        np.save(os.path.join(cfg['ROOTPATH'], "wavelet.npy"), x.cpu().numpy())
     return x

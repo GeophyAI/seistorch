@@ -1,8 +1,47 @@
+import os
+from .eqconfigure import Parameters, Wavefield
 
 class ConfigureCheck:
 
-    def __init__(self, cfg):
+    def __init__(self, cfg, mode="forward", args=None):
         self.cfg = cfg
+        self.mode = mode
+        self.args = args
+        self.__setup__()
+
+    def __setup__(self,):
+
+        self.check_equation()
+        self.check_source_receiver_type()
+        if self.args.grad_smooth:
+            self.check_smooth()
+        if self.args.grad_cut:
+            self.check_seabed()
+
+    def check_dict(self, key, dict):
+        assert key in dict.keys(), \
+            f"{key} is not in the config file."
+        
+    def check_equation(self, title="equation"):
+
+        modelPath = self.cfg['VEL_PATH']
+        invlist = self.cfg['geom']['invlist']
+
+        needed_model_paras = Parameters.valid_model_paras()[self.cfg['equation']]
+
+        for para in needed_model_paras:
+            # check if the model of <para> is in the modelPath
+            if para not in modelPath.keys():
+                print(f"Model '{para}' is not found in modelPath")
+                exit()
+            # check if the model of <para> is in the invlist
+            if para not in invlist.keys():
+                print(f"Model '{para}' is not found in invlist")
+                exit()
+            # check the existence of the model file
+            if not os.path.exists(modelPath[para]):
+                print(f"Cannot find model file '{modelPath[para]}' which is needed by equation {self.cfg['equation']}")
+                exit()
 
     def check_smooth(self, 
                      title="smooth", 
@@ -39,5 +78,22 @@ class ConfigureCheck:
             assert isinstance(smooth["sigma"][key], (int, float)), \
                 f"sigma {key} should be float."
             
+    def check_source_receiver_type(self,):
+        
+        wavefield_names = Wavefield(self.cfg['equation']).wavefields
 
-    
+        # Check source type:
+        for source_type in self.cfg['geom']['source_type']:
+            assert source_type in wavefield_names, \
+                f"Valid source type are {wavefield_names}, but got '{source_type}'. Please check your configure file."
+
+        # Check receiver type:
+        for recev_type in self.cfg['geom']['receiver_type']:
+            assert recev_type in wavefield_names, \
+                f"Valid receiver type are {wavefield_names}, but got '{recev_type}'. Please check your configure file."
+
+    def check_seabed(self, title="seabed"):
+        """Check the seabed parameters.
+        """
+        assert title in self.cfg["geom"].keys(), \
+            f"When you specify <--grad-cut> in commands, you must also specify <geom>-><seabed> in config file."

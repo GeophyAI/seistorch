@@ -87,7 +87,7 @@ if __name__ == '__main__':
     'Sets the number of threads used for intraop parallelism on CPU.'
     torch.set_num_threads(args.num_threads)
     # Build model
-    cfg, model = build_model(args.config, device=args.dev, mode=args.mode, source_encoding=args.source_encoding)
+    cfg, model = build_model(args.config, device=args.dev, mode=args.mode, source_encoding=args.source_encoding, commands=args)
     
     seisio = SeisIO(cfg)
 
@@ -99,11 +99,8 @@ if __name__ == '__main__':
     setproctitle.setproctitle("coding_fwi")
 
     """Short cuts of the configures"""
-    ELASTIC = cfg['equation'] in ['elastic', 'aec']
-    ACOUSTIC = cfg['equation'] == 'acoustic'
     EPOCHS = cfg['training']['N_epochs']
     NSHOTS = cfg['geom']['Nshots']
-    FILTER_ORDER = cfg['training']['filter_ord']
     IMPLICIT = cfg['training']['implicit']['use']
     MINIBATCH = cfg['training']['minibatch']
     BATCHSIZE = cfg['training']['batch_size'] if args.batchsize < 0 else args.batchsize
@@ -201,7 +198,6 @@ if __name__ == '__main__':
             if isinstance(x, torch.Tensor): x = x.numpy()
 
             lp_wav = seissignal.filter(x.copy().reshape(1, -1), freqs=freq)[0]
-            #lp_wav = cpu_fft(x.copy(), cfg['geom']['dt'], N=FILTER_ORDER, low=freq, axis=0, mode='lowpass')
             lp_wav = torch.unsqueeze(torch.from_numpy(lp_wav), 0)
 
             logging.info(f"Info. of optimizers:{optimizers}")
@@ -242,8 +238,8 @@ if __name__ == '__main__':
             model.reset_sources(sources)
             coding_syn = model(coding_wav)
             # loss = criterion(coding_syn, coding_obs, model.cell.geom.vp)
-            np.save(f"{ROOTPATH}/syn.npy", coding_syn.cpu().detach().numpy())
-            np.save(f"{ROOTPATH}/obs.npy", coding_obs.cpu().detach().numpy())
+            # (f"{ROOTPATH}/syn.npy", coding_syn.cpu().detach().numpy())
+            # np.save(f"{ROOTPATH}/obs.npy", coding_obs.cpu().detach().numpy())
             if not MULTI_LOSS:
                 # One loss function for all parameters
                 loss = criterions(coding_syn, coding_obs.unsqueeze(0))

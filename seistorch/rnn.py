@@ -5,7 +5,6 @@ from .eqconfigure import Wavefield
 from .source import WaveSource
 from .probe import WaveProbe
 from .cell import WaveCell
-from .utils import merge_dicts_with_same_keys
 from .setup import setup_acquisition
 
 class WaveRNN(torch.nn.Module):
@@ -15,22 +14,7 @@ class WaveRNN(torch.nn.Module):
 
         self.cell = cell
         #  Check the availability of the type of sources and probes.
-        self.check()
         self.source_encoding = source_encoding # short cut
-
-    def check(self,):
-        
-        wavefield_names = Wavefield(self.cell.geom.equation).wavefields
-
-        # Check source type:
-        for source_type in self.cell.geom.source_type:
-            assert source_type in wavefield_names, \
-                f"Valid source type are {wavefield_names}, but got '{source_type}'. Please check your configure file."
-
-        # Check receiver type:
-        for recev_type in self.cell.geom.receiver_type:
-            assert recev_type in wavefield_names, \
-                f"Valid receiver type are {wavefield_names}, but got '{recev_type}'. Please check your configure file."
 
     def merge_sources_with_same_keys(self,):
         """Merge all source coords into a super shot.

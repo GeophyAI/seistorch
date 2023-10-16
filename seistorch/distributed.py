@@ -94,3 +94,4 @@ def split_batches(shot_nums, num_batches):
         groups[group_index].append(num)  # Add the shot to the group
 
     return groups
+

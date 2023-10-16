@@ -1,18 +1,15 @@
 import os
-from copy import deepcopy
 from typing import Tuple
 
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
-from scipy.ndimage import gaussian_filter, gaussian_filter1d
-from torch.nn.functional import conv2d
+from scipy.ndimage import gaussian_filter
 
 from .eqconfigure import Parameters
-from .utils import load_file_by_type, to_tensor
+from .utils import to_tensor
 from .siren import Siren
-from .check import ConfigureCheck
-
+from .io import SeisIO
 
 class WaveGeometry(torch.nn.Module):
     def __init__(self, domain_shape: Tuple, h: float, abs_N: int = 20, equation: str = "acoustic", ndim: int = 2, multiple: bool = False):
@@ -29,11 +26,8 @@ class WaveGeometry(torch.nn.Module):
         self.register_buffer("abs_N", to_tensor(abs_N, dtype=torch.uint8))
 
         # INIT boundary coefficients
-        # self._init_b(abs_N)
-        # self._init_cpml(abs_N)
         generate_pml_coefficients = getattr(self, f"generate_pml_coefficients_{ndim}d")
         generate_pml_coefficients(abs_N)
-        #self.generate_pml_coefficients_2d(abs_N)
 
     def state_reconstruction_args(self):
         return {"h": self.h.item(),
@@ -58,12 +52,6 @@ class WaveGeometry(torch.nn.Module):
     @property
     def d(self,):
         return self._d
-
-    def _init_cpml(self, abs_N:int, f0:float=10.0, cp:float=1500., pa:float=1., pd:float=2., pb:float=1.):
-        """Initialize the distribution of the d for unsplit PML"""
-        """[1], Wei Zhang, Yang Shen, doi:10.1190/1.3463431"""
-        self._init_d(abs_N, cp=cp, order=pd)
-        #np.save("/home/wangsw/Desktop/wangsw/fwi/pmld.npy", self.d.cpu().detach().numpy())
 
     def _corners(self, abs_N, d, dx, dy, multiple=False):
         Nx, Ny = self.domain_shape
@@ -136,55 +124,6 @@ class WaveGeometry(torch.nn.Module):
 
         self.register_buffer("_d", torch.sqrt(b_x ** 2 + b_y ** 2 + b_z ** 2))
 
-    def _init_d(self, abs_N, order:float = 2.0, cp:float = 1500.):
-
-        Nx, Ny = self.domain_shape
-
-        R = 10**(-((np.log10(abs_N)-1)/np.log10(2))-3)
-        #d0 = -(order+1)*cp/(2*abs_N)*np.log(R) # Origin
-        R = 1e-6; order = 2; cp = 3000.# Mao shibo Master
-        d0 = (1.5*cp/abs_N)*np.log10(R**-1)
-        d_vals = d0 * torch.linspace(0.0, 1.0, abs_N + 1) ** order
-        d_vals = torch.flip(d_vals, [0])
-
-        d_x = torch.zeros(Ny, Nx)
-        d_y = torch.zeros(Ny, Nx)
-        
-        if abs_N > 0:
-            d_x[0:abs_N + 1, :] = d_vals.repeat(Nx, 1).transpose(0, 1)
-            d_x[(Ny - abs_N - 1):Ny, :] = torch.flip(d_vals, [0]).repeat(Nx, 1).transpose(0, 1)
-
-            d_y[:, 0:abs_N + 1] = d_vals.repeat(Ny, 1)
-            d_y[:, (Nx - abs_N - 1):Nx] = torch.flip(d_vals, [0]).repeat(Ny, 1)
-
-        self.register_buffer("_d", torch.sqrt(d_x ** 2 + d_y ** 2).transpose(0, 1))
-        self._corners(abs_N, self._d, d_x.T, d_y.T)
-
-    def _init_b(self, abs_N: int, B:float = 100.0, mode = 'cosine'):
-        """Initialize the distribution of the damping parameter for the PML"""
-
-        Nx, Ny = self.domain_shape
-
-        assert Nx > 2 * abs_N + 1, "The domain isn't large enough in the x-direction to fit absorbing layer. Nx = {} and N = {}".format(
-            Nx, abs_N)
-        assert Ny > 2 * abs_N + 1, "The domain isn't large enough in the y-direction to fit absorbing layer. Ny = {} and N = {}".format(
-            Ny, abs_N)
-            
-        b_x = torch.zeros(Ny, Nx)
-        b_y = torch.zeros(Ny, Nx)
-                
-        if mode == 'cosine':
-            idx = (torch.ones(abs_N + 1) * (abs_N+1)  - torch.linspace(0.0, (abs_N+1), abs_N + 1))/(2*(abs_N+1))
-            b_vals = torch.cos(np.pi*idx)
-            b_vals = torch.ones_like(b_vals) * B * (torch.ones_like(b_vals) - b_vals)
-
-            b_x[0:abs_N+1,:] = b_vals.repeat(Nx, 1).transpose(0, 1)
-            b_x[(Ny - abs_N - 1):Ny, :] = torch.flip(b_vals, [0]).repeat(Nx, 1).transpose(0, 1)
-            b_y[:, 0:abs_N + 1] = b_vals.repeat(Ny, 1)
-            b_y[:, (Nx - abs_N - 1):Nx] = torch.flip(b_vals, [0]).repeat(Ny, 1)
-
-        self.register_buffer("_b", torch.sqrt(b_x ** 2 + b_y ** 2).transpose(0, 1))    
-
 class WaveGeometryFreeForm(WaveGeometry):
     def __init__(self, mode='forward', **kwargs):
 
@@ -203,7 +142,10 @@ class WaveGeometryFreeForm(WaveGeometry):
         self.model_parameters = []
         self.inversion = False
         self.kwargs = kwargs
-        self.checkconfig = ConfigureCheck(kwargs)
+
+        self.seismp = ModelProcess(kwargs)
+        self.seisio = SeisIO(kwargs)
+
         self.ndim = 2 if kwargs['geom']['Nz'] == 0 else 3
         super().__init__(self.domain_shape, h, abs_N, ndim=self.ndim, multiple=kwargs['geom']['multiple'])
         self.equation = kwargs["equation"]
@@ -239,18 +181,7 @@ class WaveGeometryFreeForm(WaveGeometry):
         self.true_models = dict()
         self.pars_need_invert = []
         for para in needed_model_paras:
-            # check if the model of <para> is in the modelPath
-            if para not in modelPath.keys():
-                print(f"Model '{para}' is not found in modelPath")
-                exit()
-            # check if the model of <para> is in the invlist
-            if para not in invlist.keys():
-                print(f"Model '{para}' is not found in invlist")
-                exit()
-            # check the existence of the model file
-            if not os.path.exists(modelPath[para]):
-                print(f"Cannot find model file '{modelPath[para]}' which is needed by equation {self.equation}")
-                exit()
+
             # add the model to the graph
             mname, mpath = para, modelPath[para]
             print(f"Loading model '{mpath}', invert = {invlist[mname]}")
@@ -261,11 +192,11 @@ class WaveGeometryFreeForm(WaveGeometry):
             # load the ground truth model for calculating the model error
             true_model_path = self.kwargs['geom']['truePath'][mname]
             if true_model_path is not None and os.path.exists(true_model_path):
-                self.true_models[mname]=np.load(true_model_path)
+                self.true_models[mname]=self.seisio.fromfile(true_model_path)
             # load the initial model for the inversion
             if not self.use_implicit:
                 invert = False if self.mode=='forward' else invlist[mname]
-                self.__setattr__(mname, self.add_parameter(mpath, invert))
+                self.__setattr__(mname, self.seismp.add_parameter(mpath, invert))
 
         # Loop over all the model parameters (invert=True)
         # for par in self.pars_need_invert:
@@ -298,93 +229,52 @@ class WaveGeometryFreeForm(WaveGeometry):
         if self.use_implicit:
             self.step_implicit()
 
-    
     def anti_normalization(self, model, mean=3000., std=1000.):
         return model * std + mean
     
     def __repr__(self):
         return f"Paramters of {self.model_parameters} have been defined."
-
-    # Add the torch paramter
-    def add_parameter(self, path: str, requires_grad=False):
-        """Read the model paramter and setting the attribute 'requires_grad'.
-
-        Args:
-            path (str): The path of the model file. 
-            requires_grad (bool, optional): Wheter this parameter need to be inverted. Defaults to False.
-
-        Returns:
-            _type_: torch.nn.Tensor
-        """
-        model = self.pad(load_file_by_type(path), mode="edge")
-        return torch.nn.Parameter(to_tensor(model), requires_grad=requires_grad)
-
-    def pad(self, d: np.ndarray, mode='edge'):
-        """Padding the model based on the PML width.
-
-        Args:
-            d (np.ndarray): The data need to be padded.
-            mode (str, optional): padding mode. Defaults to 'edge'.
-
-        Returns:
-            np.ndarray: the data after padding.
-        """
-        mode_options = ['constant', 'edge', 'linear_ramp', 'maximum', 'mean', 'median', 'minimum', 'reflect', 'symmetric', 'wrap']
-        padding = self.padding
-        if mode in mode_options:
-            top = 0 if self.multiple else padding
-            if self.ndim==2:
-                return np.pad(d, ((top, padding), (padding,padding)), mode=mode)
-            elif self.ndim==3:
-                _padding_ = ((padding, padding), )*self.ndim
-                return np.pad(d, _padding_, mode=mode)
-        else: # Padding the velocity with random velocites
-            return self.pad_model_with_random_values(d, padding)
         
     def pad_model_with_random_values(self, model, N):
-        # 获取模型的形状
         nz, nx = model.shape
 
-        # 找到模型的最大值和最小值
         # min_val = np.min(model)
         # max_val = np.max(model)
         min_val = 400
         max_val = np.min(model)
 
-        # 创建新的填充后的模型
         padded_model = np.zeros((nz + 2 * N, nx + 2 * N))
 
-        # 将原来的模型复制到新的填充后的模型中心
+        # Set the inner values
         padded_model[N:N+nz, N:N+nx] = model
 
-        # 在外侧填充随机值
+        # Set the boundary values
         for i in range(N):
-            padded_model[i, :] = np.random.uniform(min_val, max_val, (nx + 2 * N))  # 上侧
-            padded_model[-i-1, :] = np.random.uniform(min_val, max_val, (nx + 2 * N))  # 下侧
-            padded_model[:, i] = np.random.uniform(min_val, max_val, (nz + 2 * N))  # 左侧
-            padded_model[:, -i-1] = np.random.uniform(min_val, max_val, (nz + 2 * N))  # 右侧
+            padded_model[i, :] = np.random.uniform(min_val, max_val, (nx + 2 * N))  # 
+            padded_model[-i-1, :] = np.random.uniform(min_val, max_val, (nx + 2 * N))  # 
+            padded_model[:, i] = np.random.uniform(min_val, max_val, (nz + 2 * N))  # 
+            padded_model[:, -i-1] = np.random.uniform(min_val, max_val, (nz + 2 * N))  # 
 
         return padded_model
     
     def tensor_to_img(self, key, array, padding=0, vmin=None, vmax=None, cmap="seismic"):
         cmap = plt.get_cmap(cmap)
         array = array[padding:-padding, padding:-padding]
-        # 如果没有指定vmin和vmax，则使用数据的最小值和最大值
+        #
         if vmin is None:
             vmin = array.min()
         if vmax is None:
             vmax = array.max()
         
-        # 截断vmin和vmax之外的值
         array = np.clip(array, vmin, vmax)
         
-        # 将数据缩放到[0, 1]
+        # Normalize to [0, 1]
         array = (array - vmin) / (vmax - vmin+1e-10)
         
-        # 将数据转换为RGBA图像
+        # Apply the colormap
         img = cmap(array)
         
-        # 转换为PyTorch张量并添加批处理维度
+        # Convert to numpy
         img = torch.from_numpy(img).permute(2, 0, 1)#.unsqueeze(0)
 
         return img
@@ -409,20 +299,14 @@ class WaveGeometryFreeForm(WaveGeometry):
 
     def gradient_smooth(self, ):
 
-        self.checkconfig.check_smooth()
-
-        smcfg = self.kwargs['training']['smooth']
-
-        counts = smcfg['counts']
-        radius = (smcfg['radius']['z'], smcfg['radius']['x'])
-        sigma = (smcfg['sigma']['z'], smcfg['sigma']['x'])
-
         for para in self.model_parameters:
             var = self.__getattr__(para)
             if var.requires_grad:
+                # copy data from tensor to numpy
                 smoothed_grad = var.grad.cpu().detach().numpy()
-                for i in range(counts):
-                    gaussian_filter(smoothed_grad, sigma, output=smoothed_grad, radius=radius)
+                # smooth the data
+                smoothed_grad = self.seismp.smooth(smoothed_grad)
+                # copy data from numpy to tensor
                 var.grad.copy_(to_tensor(smoothed_grad).to(var.grad.device))
 
     def gradient_cut(self, mask=None, padding=50):
@@ -488,4 +372,71 @@ class WaveGeometryFreeForm(WaveGeometry):
                                         dataformats='CHW',)
                     # Write the model error to tensorboard.
                     writer.add_scalar(f"model_error/{para}", model_error, global_step=freq_idx*max_epoch+epoch)
-                
+
+class ModelProcess:
+
+    def __init__(self, cfg, ):
+        self.cfg = cfg
+        self.io = SeisIO(cfg)
+
+    # Add the torch paramter
+    def add_parameter(self, path: str, requires_grad=False):
+        """Read the model paramter and setting the attribute 'requires_grad'.
+
+        Args:
+            path (str): The path of the model file. 
+            requires_grad (bool, optional): Wheter this parameter need to be inverted. Defaults to False.
+
+        Returns:
+            _type_: torch.nn.Tensor
+        """
+        model = self.pad(self.io.fromfile(path), mode="edge")
+        return torch.nn.Parameter(to_tensor(model), requires_grad=requires_grad)
+
+    def pad(self, d, mode="edge"):
+        """Padding the model based on the PML width.
+
+        Args:
+            d (np.ndarray): The data need to be padded.
+            mode (str, optional): padding mode. Defaults to 'edge'.
+
+        Returns:
+            np.ndarray: the data after padding.
+        """
+        mode_options = ['constant', 'edge', 'linear_ramp', 'maximum', 'mean', 'median', 'minimum', 'reflect', 'symmetric', 'wrap']
+        assert mode in mode_options, f"mode must be one of {mode_options}"
+
+        padding = self.cfg['geom']['pml']['N']
+        multiple = self.cfg['geom']['multiple']
+        ndim = 2 if self.cfg['geom']['Nz'] == 0 else 3
+
+        top = 0 if multiple else padding
+        if ndim==2:
+            return np.pad(d, ((top, padding), (padding,padding)), mode=mode)
+        elif ndim==3:
+            _padding_ = ((padding, padding), )*ndim
+            return np.pad(d, _padding_, mode=mode)
+        
+    def smooth(self, data):
+        """Smooth the data.
+
+        Args:
+            data (np.ndarray): The data need to be smoothed.
+
+        Returns:
+            np.ndarray: The smoothed data.
+        """
+        
+        smcfg = self.cfg['training']['smooth']
+
+        counts = smcfg['counts']
+        radius = (smcfg['radius']['z'], smcfg['radius']['x'])
+        sigma = (smcfg['sigma']['z'], smcfg['sigma']['x'])
+
+        smdata = data.copy()
+        for _ in range(counts):
+            smdata = gaussian_filter(smdata, sigma, radius=radius)
+        return smdata
+    
+    def mask_gradient(self, gradient):
+        pass

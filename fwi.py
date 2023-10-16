@@ -29,9 +29,7 @@ from seistorch.io import SeisIO
 from seistorch.signal import SeisSignal
 from seistorch.model import build_model
 from seistorch.setup import *
-# from skopt import Optimizer
-from seistorch.utils import (DictAction, get_src_and_rec,
-                             ricker_wave, to_tensor)
+from seistorch.utils import (DictAction, to_tensor)
 
 
 parser = argparse.ArgumentParser()
@@ -84,7 +82,8 @@ if __name__ == '__main__':
     'Sets the number of threads used for intraop parallelism on CPU.'
     torch.set_num_threads(args.num_threads)
     # Build model
-    cfg, model = build_model(args.config, device=args.dev, mode=args.mode, source_encoding=args.source_encoding)
+
+    cfg, model = build_model(args.config, device=args.dev, mode=args.mode, source_encoding=args.source_encoding, commands=args)
 
     seisio = SeisIO(cfg)
     seissignal = SeisSignal(cfg)
@@ -100,25 +99,16 @@ if __name__ == '__main__':
     src_list, rec_list = seisio.read_geom(cfg)
 
     """Short cuts of the configures"""
-    ELASTIC = cfg['equation'] in ['elastic', 'aec']
-    ACOUSTIC = cfg['equation'] == 'acoustic'
     EPOCHS = cfg['training']['N_epochs']
     NSHOTS = min(cfg['geom']['Nshots'], len(src_list))
-    FILTER_ORDER = cfg['training']['filter_ord']
     cfg['geom']['Nshots'] = NSHOTS
-
     use_mpi = size > 1
     if (use_mpi and rank!=0) or (not use_mpi):
         model.to(args.dev)
         model.train()
 
-        """# Read the wavelet"""
-        if not cfg["geom"]["wavelet"]:
-            print("Using wavelet func.")
-            x = ricker_wave(cfg['geom']['fm'], cfg['geom']['dt'], cfg['geom']['nt'], cfg['geom']['wavelet_delay'])
-        else:
-            print("Loading wavelet from file")
-            x = to_tensor(seisio.wavelet_fromfile())
+        # Set up the wavelet
+        x = setup_wavelet(cfg)
 
     """---------------------------------------------"""
     """-------------------MODELING------------------"""
@@ -127,7 +117,7 @@ if __name__ == '__main__':
     if args.mode == 'forward':
 
         if rank==0:
-            # each record have different shape
+            # in case each record have different shape
             record = np.empty(NSHOTS, dtype=np.ndarray) 
         else:
             x = torch.unsqueeze(x, 0)
@@ -136,8 +126,7 @@ if __name__ == '__main__':
         # Rank 0 is the master node for assigning tasks
         if rank == 0:
             num_batches = min(NSHOTS, args.num_batches)
-            pbar = tqdm.trange(num_batches, position=0)
-            pbar.set_description(cfg['equation'])
+            pbar = tqdm.trange(num_batches, position=0, desc=cfg['equation'])
             shots = np.arange(NSHOTS)
             kwargs = {'record': record}
 
@@ -184,14 +173,16 @@ if __name__ == '__main__':
         cfg["ROOTPATH"] = ROOTPATH
         cfg['training']['lr'] = args.lr
         cfg['training']['optimizer'] = args.opt
+        cfg['gradient_cut'] = args.grad_cut
+        cfg['gradient_smooth'] = args.grad_smooth
         
         SEABED = seisio.fromfile(cfg['geom']['seabed']) if 'seabed' in cfg['geom'].keys() else None
         #SEABED = np.load(cfg['geom']['seabed']) if 'seabed' in cfg['geom'].keys() else None
         SEABED = torch.from_numpy(SEABED).to(args.dev) if SEABED is not None else None
         
         if "datamask" in cfg["geom"].keys():
-            datamask = np.load(cfg["geom"]["datamask"], allow_pickle=True)
-        
+            datamask = seisio.fromfile(cfg["geom"]["datamask"])
+
         if rank==0:
             os.makedirs(ROOTPATH, exist_ok=True)
             seisio.write_cfg(f"{ROOTPATH}/configure.yml", cfg)
@@ -269,11 +260,8 @@ if __name__ == '__main__':
                         # Receive task from the master node
                         tasks = comm.recv(source=0, tag=MPI.ANY_TAG)
                         # Break the loop if the master node has sent stop signal
-                        if tasks == -1:
-                            break
-                        sources = []
+                        if tasks == -1: break
                         shots = tasks
-                        #sources, receivers = setup_acquisition(shots, src_list, rec_list, cfg)
 
                         """Calculate one shot gradient"""
                         def closure():
