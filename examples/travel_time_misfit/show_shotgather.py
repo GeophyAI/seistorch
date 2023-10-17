@@ -4,17 +4,24 @@ import matplotlib.pyplot as plt
 from yaml import load
 from yaml import CLoader as Loader
 np.random.seed(20230915)
+
+import sys
+sys.path.append("../..")
+from seistorch.show import SeisShow
+show = SeisShow()
 """
 Configures
 """
 config_path = "./config/forward_obs.yml"
 obsPath = "./observed.npy"
+iniPath = "./observed_init.npy"
 
 # Load the configure file
 with open(config_path, 'r') as ymlfile:
     cfg = load(ymlfile, Loader=Loader)
 # Load the modeled data
 obs = np.load(obsPath, allow_pickle=True)
+ini = np.load(iniPath, allow_pickle=True)
 
 nshots = obs.shape[0]
 nsamples, ntraces, ncomponent = obs[0].shape
@@ -23,19 +30,11 @@ print(f"The data has {nshots} shots, {nsamples} time samples, {ntraces} traces, 
 
 # show 5 shots randomly
 showshots = np.random.randint(0, nshots, 5)
-# Plot the data
-fig, axes = plt.subplots(nrows=1, ncols=showshots.size, figsize=(12, 6))
-for ax, shot_no in zip(axes.ravel(), showshots.tolist()):
-    vmin, vmax = np.percentile(obs[shot_no], [2, 98])
-    kwargs = {"cmap": "seismic", 
-            "aspect": "auto", 
-            "vmin": vmin, 
-            "vmax": vmax, 
-            "extent": [0, ntraces*cfg['geom']['h'], nsamples*cfg['geom']['dt'], 0]}
-    ax.imshow(obs[shot_no][..., 0], **kwargs)
-    ax.set_xlabel("x (m)")
-    ax.set_ylabel("t (s)")
-    ax.set_title(f"Shot {shot_no}")
-plt.tight_layout()
-plt.savefig("shot_gather.png", dpi=300)
-plt.show()
+
+show.wiggle([obs[showshots[0]], ini[showshots[0]]],
+            ["r", "b"],
+            ["Observed","Initial"],
+            dt=cfg['geom']['dt'],
+            dx=cfg['geom']['h'],
+            savepath="./wiggle.png", 
+            downsample=20)

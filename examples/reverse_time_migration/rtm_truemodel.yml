@@ -73,7 +73,7 @@ geom:
 
   # Inital Wave speed model from disk_file
   initPath: 
-    vp: ../marmousi_model/true_vp.npy
+    vp: ../marmousi_model/smooth_true_vp.npy
     vs:
     rho:
     Q:
@@ -103,7 +103,7 @@ geom:
   h: 20.0
 
   # Total Shots
-  Nshots: 999
+  Nshots: 87
 
   pml:
     N: 50    # PML thickness in number of grid cells

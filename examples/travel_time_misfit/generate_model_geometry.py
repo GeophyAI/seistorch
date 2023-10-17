@@ -31,7 +31,7 @@ seabed[0:water_grid] = 0
 for depth in range(water_grid, nz):
     # let the velocity increasing with depth
     vel1[depth] = 1500 + (depth-water_grid) * 10.
-    vel2[depth] = 1500 + (depth-water_grid) * 20.
+    vel2[depth] = 1500 + (depth-water_grid) * 15.
 
 fig, axes= plt.subplots(3, 1, figsize=(8, 8))
 vmin=1500

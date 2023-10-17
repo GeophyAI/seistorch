@@ -50,7 +50,5 @@ This example locates at `examples/reverse_time_migration`, we use a towed acqusi
     The laplace filtered migration sections are shown below:
     ![RTM](figures/reverse_time_migration/RTM.png "RTM")
 
-
-
-
-
+    If you want to obtain a common image gather, you need to set `--num-batches` to the number of shots `nshots` to get the gradient of each shot. The following figures show the common image gather migrated by a smoothed model and a linear model:
+    ![CIG](figures/reverse_time_migration/CIG.png "CIG")

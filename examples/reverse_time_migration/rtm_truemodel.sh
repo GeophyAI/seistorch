@@ -5,9 +5,8 @@ mpirun -f hosts \
 python ../../fwi.py rtm_truemodel.yml  \
 --opt adam \
 --loss vp=rtm \
---num-batches 10 \
+--num-batches 87 \
 --lr vp=10.0 \
 --mode inversion \
 --save-path ./results/rtm_true \
---grad-cut \
 --use-cuda

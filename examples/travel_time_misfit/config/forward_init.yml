@@ -52,7 +52,7 @@ geom:
 
   seabed: ./velocity_model/seabed.npy
 
-  wavelet: ./wavelet/ricker.npy
+  wavelet: ./wavelet/ricker_true.npy
 
   multiple: false
 

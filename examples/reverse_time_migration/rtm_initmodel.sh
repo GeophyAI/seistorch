@@ -5,9 +5,8 @@ mpirun -f hosts \
 python ../../fwi.py rtm_initmodel.yml  \
 --opt adam \
 --loss vp=rtm \
---num-batches 10 \
+--num-batches 87 \
 --lr vp=10.0 \
 --mode inversion \
 --save-path ./results/rtm_init \
---grad-cut \
 --use-cuda

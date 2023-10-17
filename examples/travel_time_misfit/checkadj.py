@@ -9,7 +9,7 @@ from seistorch.show import SeisShow
 from seistorch.signal import travel_time_diff
 from seistorch.loss import Loss
 from seistorch.io import SeisIO
-from seistorch.signal import filter
+from seistorch.signal import SeisSignal
 
 io = SeisIO(load_cfg=False)
 show = SeisShow()
@@ -19,9 +19,10 @@ syn = np.load("./observed_init.npy", allow_pickle=True)
 mask = np.load("./datamask.npy", allow_pickle=True)
 
 cfg = io.read_cfg("./config/forward_obs.yml")
+ss = SeisSignal(cfg)
 freqs = cfg["geom"]["multiscale"][0]
-obs = filter(obs, dt=cfg['geom']['dt'], N=3, freqs=freqs, axis=0)
-syn = filter(syn, dt=cfg['geom']['dt'], N=3, freqs=freqs, axis=0)
+obs = ss.filter(obs, freqs=freqs, axis=0)
+syn = ss.filter(syn, freqs=freqs, axis=0)
 
 
 syn_nomask = np.stack(syn[0:1], axis=0)

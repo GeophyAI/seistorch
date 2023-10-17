@@ -168,7 +168,7 @@ if __name__ == '__main__':
         """Write configure file to the inversion folder"""
         ROOTPATH = args.save_path if args.save_path else cfg["geom"]["inv_savePath"]
         MINIBATCH = cfg['training']['minibatch']
-        BATCHSIZE = cfg['training']['batch_size']
+        BATCHSIZE = cfg['training']['batch_size'] if MINIBATCH else None
         cfg["loss"] = args.loss
         cfg["ROOTPATH"] = ROOTPATH
         cfg['training']['lr'] = args.lr
@@ -186,7 +186,7 @@ if __name__ == '__main__':
         if rank==0:
             os.makedirs(ROOTPATH, exist_ok=True)
             seisio.write_cfg(f"{ROOTPATH}/configure.yml", cfg)
-    
+
         if rank==1:
             writer = SummaryWriter(os.path.join(ROOTPATH, "logs"))
 
@@ -332,7 +332,7 @@ if __name__ == '__main__':
                     # Calculate the gradient of other ranks
                     grad2d[:] = np.sum(grad3d, axis=0)
                     np.save(f"{ROOTPATH}/loss.npy", loss)
-                    # np.save(f"{ROOTPATH}/grad3d.npy", grad3d)
+                    np.save(f"{ROOTPATH}/grad3d.npy", grad3d)
                     # np.save(f"{ROOTPATH}/grad2d.npy", grad2d)
                     # Clean the grad3d
                     grad3d[:] = 0.

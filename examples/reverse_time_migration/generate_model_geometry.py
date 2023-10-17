@@ -1,11 +1,13 @@
 import os, pickle
 import numpy as np
+from scipy.ndimage import gaussian_filter
 import matplotlib.pyplot as plt
-from matplotlib.animation import FuncAnimation
-
 import sys
 sys.path.append("../..")
 from seistorch.show import SeisShow
+from seistorch.utils import ricker_wave
+from seistorch.signal import SeisSignal
+from seistorch.io import SeisIO
 
 show = SeisShow()
 
@@ -21,10 +23,15 @@ def write_pkl(path: str, data: list):
 # This distinction is essential for accurate simulation and interpretation of results.
 
 vel = np.load("../marmousi_model/true_vp.npy")
+
+smvel = vel.copy()
+smvel = gaussian_filter(smvel, sigma=3)
+
 # The depth of the sea is 24*20=480m
 seabed = np.ones_like(vel)
 seabed[0:24] = 0
 np.save("../marmousi_model/seabed.npy", seabed)
+np.save("../marmousi_model/smooth_true_vp.npy", smvel)
 nz, nx =  vel.shape
 expand = 50
 
@@ -59,7 +66,7 @@ while current_srcx<nx:
 print(f"the number of sources: {len(sources)}")
 dh=20
 
-show.geometry(vel, sources, receivers, savepath="geometry.gif", dh=dh, interval=1)
+show.geometry(smvel, sources, receivers, savepath="geometry.gif", dh=dh, interval=1)
 
 # # Save the source and receiver list
 save_path = r"./geometry"

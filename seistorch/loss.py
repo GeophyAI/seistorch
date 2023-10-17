@@ -423,7 +423,7 @@ class Traveltime(torch.nn.Module):
         traveltime_diff = (max_index-nt+1)
         traveltime_diff = traveltime_diff.view(nb, 1, nr, nc)**2
         # compute the loss
-        loss = traveltime_diff.sum()
+        loss = traveltime_diff.mean()
 
         return loss, traveltime_diff
         

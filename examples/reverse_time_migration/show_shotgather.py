@@ -37,5 +37,5 @@ for ax, shot_no in zip(axes.ravel(), showshots.tolist()):
     ax.set_ylabel("t (s)")
     ax.set_title(f"Shot {shot_no}")
 plt.tight_layout()
-plt.savefig("shot_gather.png", dpi=300)
+fig.savefig("shot_gather.png", dpi=300)
 plt.show()

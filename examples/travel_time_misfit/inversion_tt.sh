@@ -6,7 +6,7 @@ python ../../fwi.py config/forward_obs.yml \
 --opt steepestdescent \
 --loss vp=traveltime \
 --num-batches 1 \
---lr vp=20.0 \
+--lr vp=30.0 \
 --mode inversion \
 --save-path ./results/traveltime \
 --grad-cut \
