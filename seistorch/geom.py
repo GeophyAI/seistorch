@@ -164,8 +164,9 @@ class WaveGeometryFreeForm(WaveGeometry):
                                     hidden_layers=4, outermost_linear=True)
             # load the pretrained model if it exists
             pretrained = self.kwargs['training']['implicit']['pretrained']
+            pretrained = '' if pretrained is None else pretrained
             if os.path.exists(pretrained):
-                self.siren[par].load_state_dict(torch.load())
+                self.siren[par].load_state_dict(torch.load(pretrained))
             else:
                 print(f"Cannot find the pretrained model '{pretrained}'")
             # send the siren to the target device
@@ -209,25 +210,30 @@ class WaveGeometryFreeForm(WaveGeometry):
         #     model = model * std + mean
         #     self.__setattr__(par, model)
 
-    def step_implicit(self,):
+    def step_implicit(self, mask):
         coords = self.coords # x, y coordinates
         shape = self.domain_shape # shape of the model
         for par in self.pars_need_invert:
             par_value = self.siren[par](coords)[0].view(shape)
+            if mask is not None:
+                mask = torch.nn.functional.pad(mask, (self.padding,)*4, mode='constant', value=0)
             # an-ti normalization for getting the true values
-            setattr(self, par, self.anti_normalization(par_value))
+            anti_value = self.anti_normalization(par_value)
+            #anti_value *= mask
+            anti_value[0:self.padding+12] = 1500.
+            setattr(self, par, anti_value)
 
-    def step(self,):
+    def step(self, seabed):
         """
             Doing this step for each iteration.
         """
         # If we use implicit neural network for reparameterization, 
         # we need to reset model parameters by input the coords of 
         # the model to the implicit neural network.
-        # e.g: vp = siren_vp(coords); 
-        # e.g: vs = siren_vs(coords);
+        # e.g: vp = self.siren['vp'](coords); 
+        # e.g: vs = self.siren['vs'](coords);
         if self.use_implicit:
-            self.step_implicit()
+            self.step_implicit(seabed)
 
     def anti_normalization(self, model, mean=3000., std=1000.):
         return model * std + mean
@@ -316,6 +322,18 @@ class WaveGeometryFreeForm(WaveGeometry):
             var = self.__getattr__(para)
             if var.requires_grad:
                 var.grad.data = var.grad.data * mask
+    
+    def gradient_clip(self,):
+        grad_list = [param.grad for param in self.siren["vp"].parameters()]
+
+        grad = torch.cat([grad.flatten() for grad in grad_list])
+
+        bound = torch.quantile(grad, torch.Tensor([0.02, 0.98]).to(grad.device).to(grad.dtype))
+        min_val = torch.min(bound[0])
+        max_val = torch.max(bound[1])
+
+        for para in self.siren["vp"].parameters():
+            para.grad.data.clamp_(min=min_val, max=max_val)
 
     def reset_random_boundary(self,):
         for para in self.model_parameters:
@@ -344,8 +362,9 @@ class WaveGeometryFreeForm(WaveGeometry):
                 continue
             # if the model parameter is in the invlist, then save it.
             var_par = var.cpu().detach().numpy()
-            if var.grad is not None:
-                var_grad = var.grad.cpu().detach().numpy()
+            if not self.use_implicit:
+                if var.grad is not None:
+                    var_grad = var.grad.cpu().detach().numpy()
             else:
                 var_grad = np.zeros_like(var_par)
             for key, data in zip(["para"+para, "grad"+para], [var_par, var_grad]):
@@ -438,5 +457,3 @@ class ModelProcess:
             smdata = gaussian_filter(smdata, sigma, radius=radius)
         return smdata
     
-    def mask_gradient(self, gradient):
-        pass

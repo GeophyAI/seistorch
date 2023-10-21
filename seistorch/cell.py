@@ -23,9 +23,12 @@ class WaveCell(torch.nn.Module):
         for param in self.geom.parameters():
             yield param
 
-    def get_parameters(self, key=None, recursive=True):
-        #yield self.geom.__getattr__(key)
-        yield getattr(self.geom, key)
+    def get_parameters(self, key=None, recursive=True, implicit=False):
+        if implicit:
+            for param in self.geom.siren[key].parameters():
+                yield param
+        else:
+            yield getattr(self.geom, key)
 
     def forward(self, wavefields, model_vars, **kwargs):
         """Take a step through time

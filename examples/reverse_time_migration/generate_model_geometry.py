@@ -31,7 +31,7 @@ smvel = gaussian_filter(smvel, sigma=3)
 seabed = np.ones_like(vel)
 seabed[0:24] = 0
 np.save("../marmousi_model/seabed.npy", seabed)
-np.save("../marmousi_model/smooth_true_vp.npy", smvel)
+np.save("../marmousi_model/smooth_true_vp_for_rtm.npy", smvel)
 nz, nx =  vel.shape
 expand = 50
 

@@ -59,30 +59,16 @@ def setup_optimizer(model, cfg, idx_freq=0, implicit=False, *args, **kwargs):
 
     # Setup the learning rate for each parameter
     paras_for_optim = []
-    # 
-    if not implicit:
-        for para in pars_need_by_eq:
-            # Set the learning rate for each parameter
-            _lr = 0. if para not in pars_need_invert else lr[para]*scale_decay**idx_freq
-            paras_for_optim.append({'params': model.cell.get_parameters(para), 
-                                    'lr':_lr})
-    if implicit:
-        _lr = 1e-4
-        paras_for_optim.append({'params': model.cell.geom.siren.parameters(), 
-                                'lr':_lr})
 
-    # Setup the optimizer
-    # if 'fatt' in cfg['loss'].values():
-    #     print("Using first arrival loss")
-    #     for idx in range(len(paras_for_optim)):
-    #         paras_for_optim[idx]['lr'] = 5e2 # For SGD
-    #     optimizers = torch.optim.SGD(paras_for_optim, momentum=0.9)
-    # else:
-    #     optimizers = SD(paras_for_optim)
-    #     #optimizers = torch.optim.Adam(paras_for_optim, betas=(0.9, 0.999), eps=1e-22)
+    for para in pars_need_by_eq:
+        # Set the learning rate for each parameter
+        _lr = 0. if para not in pars_need_invert else lr[para]*scale_decay**idx_freq
+        paras_for_optim.append({'params': model.cell.get_parameters(para, implicit=implicit), 
+                                'lr':_lr})
+        eps = 1e-22 if not implicit else 1e-8
 
     opt_module = importlib.import_module('seistorch.optimizer')
-    optimizers = getattr(opt_module, opt.capitalize())(paras_for_optim, eps=1e-22)
+    optimizers = getattr(opt_module, opt.capitalize())(paras_for_optim, eps=eps)
 
     # Setup the learning rate scheduler
     lr_scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizers, epoch_decay, last_epoch=- 1, verbose=False)

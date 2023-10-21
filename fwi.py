@@ -349,7 +349,8 @@ if __name__ == '__main__':
                         model.cell.geom.gradient_smooth()
 
                     if args.grad_cut and isinstance(SEABED, torch.Tensor):
-                        model.cell.geom.gradient_cut(SEABED, cfg['geom']['pml']['N'])                    # Gradient clip
+                        model.cell.geom.gradient_cut(SEABED, cfg['geom']['pml']['N'])        
+
                     #torch.nn.utils.clip_grad_norm_(model.cell.parameters(), 1e-2)
                     # Update the model parameters and learning rate
                     optimizers.step()

@@ -32,12 +32,12 @@ class Steepestdescent(Optimizer):
         super().__init__(params, defaults)
 
 
-    def __setstate__(self, state):
-        super().__setstate__(state)
-        for group in self.param_groups:
-            group.setdefault('maximize', False)
-            group.setdefault('differentiable', False)
-            group.setdefault('grad_clamp', True)
+    # def __setstate__(self, state):
+    #     super().__setstate__(state)
+    #     for group in self.param_groups:
+    #         group.setdefault('maximize', False)
+    #         group.setdefault('differentiable', False)
+    #         group.setdefault('grad_clamp', False)
 
     def _init_group(self, group, params_with_grad, d_p_list):
         has_sparse_grad = False
@@ -147,15 +147,15 @@ class Cg(Optimizer):
     def name(self,):
         return "ncg"
     
-    def __init__(self, params, lr=1.0, beta_type='FR', gradient_clamp=True, **kwargs):
+    def __init__(self, params, lr=1.0, beta_type='PR', gradient_clamp=True, **kwargs):
         defaults = dict(lr=lr, beta_type=beta_type, gradient_clamp=gradient_clamp)
         super(Cg, self).__init__(params, defaults)
 
-    def __setstate__(self, state):
-        super().__setstate__(state)
-        for group in self.param_groups:
-            group.setdefault('beta_type', 'FR')
-            group.setdefault('grad_clamp', True)
+    # def __setstate__(self, state):
+    #     super().__setstate__(state)
+    #     for group in self.param_groups:
+    #         group.setdefault('beta_type', 'FR')
+    #         group.setdefault('grad_clamp', True)
 
     @torch.no_grad()
     def step(self, closure=None):
@@ -169,7 +169,15 @@ class Cg(Optimizer):
                 if p.grad is None:
                     continue
 
-                grad = p.grad.data
+                # grad = p.grad.data
+                # Clamp the gradient
+                if group['gradient_clamp']:
+                    grad_temp = p.grad.data
+                    bound = torch.quantile(grad_temp, torch.Tensor([0.02, 0.98]).to(grad_temp.device).to(grad_temp.dtype))
+                    grad = torch.clamp(grad_temp, min=bound[0], max=bound[1])
+                else:
+                    grad = p.grad.data
+
                 state = self.state[p]
 
                 if len(state) == 0:
@@ -180,7 +188,7 @@ class Cg(Optimizer):
                 prev_grad = state['prev_grad']
                 direction = state['direction']
 
-                # 计算beta值
+                # Compute beta
                 if prev_grad.norm()==0:
                     beta = 0
                 elif group['beta_type'] == 'FR':
@@ -190,13 +198,13 @@ class Cg(Optimizer):
                 else:
                     raise ValueError("Invalid beta_type. Must be 'FR' or 'PR'")
 
-                # 更新搜索方向
+                # update direction
                 direction = -grad + beta * direction
 
-                # 使用线搜索更新模型参数
-                if group['gradient_clamp']:
-                    bound = torch.quantile(direction, torch.Tensor([0.02, 0.98]).to(direction.device).to(direction.dtype))
-                    direction = torch.clamp(direction, min=bound[0], max=bound[1])
+                # Clamp the direction
+                # if group['gradient_clamp']:
+                #     bound = torch.quantile(direction, torch.Tensor([0.02, 0.98]).to(direction.device).to(direction.dtype))
+                #     direction = torch.clamp(direction, min=bound[0], max=bound[1])
 
                 max_value_of_grad = torch.max(torch.abs(direction.data)).cpu()
                 alpha = group['lr'] / max_value_of_grad
@@ -206,6 +214,5 @@ class Cg(Optimizer):
                 state['step'] += 1
                 state['prev_grad'] = grad.clone()
                 state['direction'] = direction
-
 
         return loss

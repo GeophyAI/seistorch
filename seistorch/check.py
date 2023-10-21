@@ -13,10 +13,11 @@ class ConfigureCheck:
 
         self.check_equation()
         self.check_source_receiver_type()
-        if self.args.grad_smooth:
-            self.check_smooth()
-        if self.args.grad_cut:
-            self.check_seabed()
+        if self.args is not None:
+            if self.args.grad_smooth:
+                self.check_smooth()
+            if self.args.grad_cut:
+                self.check_seabed()
 
     def check_dict(self, key, dict):
         assert key in dict.keys(), \

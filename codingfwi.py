@@ -49,7 +49,7 @@ parser.add_argument('--gpuid', type=int, default=0,
                     help='which gpu is used for calculation')
 parser.add_argument('--checkpoint', type=str,
                     help='checkpoint path for resuming training')
-parser.add_argument('--opt', choices=['adam', 'lbfgs', 'ncg', 'steepestdescent'], default='adam',
+parser.add_argument('--opt', choices=['adam', 'lbfgs', 'cg', 'steepestdescent'], default='adam',
                     help='optimizer (adam)')
 parser.add_argument('--loss', action=DictAction, nargs="+",
                     help='loss dictionary')
@@ -183,7 +183,7 @@ if __name__ == '__main__':
     # The total number of epochs is the number of epochs times the number of scales
     for epoch in range(EPOCHS*len(cfg['geom']['multiscale'])):
 
-        model.cell.geom.step()
+        model.cell.geom.step(SEABED)
         # Reset for each scale
         idx_freq, local_epoch = divmod(epoch, EPOCHS)
         if local_epoch==0:
@@ -286,7 +286,7 @@ if __name__ == '__main__':
         if args.grad_smooth:
             model.cell.geom.gradient_smooth(sigma=1)
 
-        if args.grad_cut and isinstance(SEABED, torch.Tensor):
+        if args.grad_cut and isinstance(SEABED, torch.Tensor) and not IMPLICIT:
             model.cell.geom.gradient_cut(SEABED, cfg['geom']['pml']['N'])
 
         # Update the parameters

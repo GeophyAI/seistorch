@@ -13,9 +13,11 @@ We'll cover the following topics:
     - [memory-saving fwi using boundary-saving](fwi.md#boundary-saving-based-automatic-differentiation)
     - [towed acquistion fwi with marmousi model](fwi.md#towed-streamer-data-generation-and-inversion)
 
-3. [**Reverse time migration**](rtm.md): This topic intorduce how to perform reverse time migration using seistorch.
+3. [**Reverse time migration**](rtm.md): This topic introduce how to perform reverse time migration using seistorch.
 
-4. [**Other usage**](other_examples.md): This topic covers following examples:
+4. [**FWI combined with Neural network**](fwiplusnn.md): This topic will introduce some examples of fwi combied with tradtional neural network methods.
+
+5. [**Other usage**](other_examples.md): This topic covers following examples:
 
     - how to perform [source inversion](other_examples.md#source-inversion)
     - how to [calculate the adjoint source using torch](other_examples.md#how-to-calculate-the-adjoint-source-in-torch)
