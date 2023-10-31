@@ -64,6 +64,8 @@ class Shape():
         # Build shape based on dictionary
         self.grad2d = self.__grad2d__# self.grad2d_lib[equation]
         self.grad3d = self.__grad3d__# self.grad3d_lib[equation]
+
+        self.grad_worker = self.__grad_worker__
         
     @property
     def numel(self,):
@@ -94,6 +96,10 @@ class Shape():
     def __grad3d__(self,):
         cfg = self.cfg
         return (self.nshots, self.length_invert, cfg['geom']['Ny'], cfg['geom']['Nx'])
+    
+    @property
+    def __grad_worker__(self,):
+        return (self.length_invert,)+self.cfg['domain_shape']
     
     @property
     def __record2d__(self,):

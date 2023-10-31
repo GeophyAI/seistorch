@@ -46,19 +46,21 @@ class WaveRNN(torch.nn.Module):
         return super_probes
 
     def reset_sources(self, sources):
-        if type(sources) is list:
+        if isinstance(sources, list):
             self.sources = torch.nn.ModuleList(sources)
         else:
             self.sources = torch.nn.ModuleList([sources])
 
     def reset_probes(self, probes):
-        if type(probes) is list:
+        if isinstance(probes, list):
             self.probes = torch.nn.ModuleList(probes)
         else:
             self.probes = torch.nn.ModuleList([probes])
 
     def reset_geom(self, shots, src_list, rec_list, cfg):
+
         sources, receivers = setup_acquisition(shots, src_list, rec_list, cfg)
+
         self.reset_sources(sources)
         self.reset_probes(receivers)
         
@@ -78,12 +80,11 @@ class WaveRNN(torch.nn.Module):
         # Init hidden states
         batchsize = 1 if self.source_encoding else len(self.sources)
         hidden_state_shape = (batchsize,) + self.cell.geom.domain_shape
-        
         wavefield_names = Wavefield(self.cell.geom.equation).wavefields
         # Set wavefields
         for name in wavefield_names:
             setattr(self, name, torch.zeros(hidden_state_shape, device=device))
-        
+
         length_record = len(self.cell.geom.receiver_type)
         p_all = [[] for i in range(length_record)]
 
@@ -96,11 +97,9 @@ class WaveRNN(torch.nn.Module):
 
         # Loop through time
         x = x.to(device)
-
         super_source = WaveSource(**self.merge_sources_with_same_keys()).to(device)
         super_probes = WaveProbe(**self.merge_receivers_with_same_keys()).to(device)
         super_source.source_encoding = self.source_encoding
-
         time_offset = 2 if self.cell.geom.equation == "acoustic" else 0
 
         for i, xi in enumerate(x.chunk(x.size(1), dim=1)):
@@ -131,7 +130,7 @@ class WaveRNN(torch.nn.Module):
 
         # Combine outputs into a single tensor
         permute_axis = (0, 1, 3, 2) if torch.stack(p_all[0], dim=1).dim() == 4 else (1, 2, 3, 0)
-
+        
         y = torch.concat([torch.stack(y, dim=1).permute(*permute_axis) for y in p_all], dim = 3)
         
         has_nan = torch.isnan(y).any()

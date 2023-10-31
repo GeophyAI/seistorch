@@ -1,5 +1,5 @@
 export LD_LIBRARY_PATH=/home/wangsw/anaconda3/lib:$LD_LIBRARY_PATH && \
-python ../../codingfwi.py fullband.yml \
+python ../../codingfwi.py multiscale.yml \
 --gpuid 0 \
 --opt adam \
 --loss vp=implicit \

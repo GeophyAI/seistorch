@@ -28,7 +28,7 @@ class SeisIO:
         Returns:
             np.ndarray: The data.
         """
-        self.path_exists(path)
+        assert self.path_exists(path), f"Cannot found {path}."
 
         data_loader = self.decide_loader(path)
 
@@ -163,8 +163,8 @@ class SeisIO:
         assert os.path.exists(rpath), "Cannot found receiver file."
         source_locs = self.read_pkl(spath)
         recev_locs = self.read_pkl(rpath)
-        assert len(source_locs)==len(recev_locs), \
-            "The lenght of sources and recev_locs must be equal."
+        # assert len(source_locs)==len(recev_locs), \
+        #     "The lenght of sources and recev_locs must be equal."
         return source_locs, recev_locs
 
     def read_pkl(self, path: str, **kwargs):
@@ -287,6 +287,11 @@ class SeisIO:
         """
         with open(path, 'w') as f:
             dump(cfg, f)
+
+    def write_pkl(self, path: str, data: list):
+        # Open the file in binary mode and write the list using pickle
+        with open(path, 'wb') as f:
+            pickle.dump(data, f)
 
     def write_fortran_binary(self, filename, arr):
         """

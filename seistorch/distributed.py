@@ -1,6 +1,6 @@
 from mpi4py import MPI
 from mpi4py.util import pkl5
-
+import torch, pickle
 
 comm = pkl5.Intracomm(MPI.COMM_WORLD)
 rank = comm.Get_rank()
@@ -27,6 +27,8 @@ def task_distribution_and_data_reception(shots, pbar, mode, num_batches=10, **kw
         epoch = kwargs['epoch']
         grad3d = kwargs['grad3d']
         idx_freq = kwargs['idx_freq']
+        ndim = kwargs['ndim']
+        ROOTPATH = kwargs['ROOTPATH']
     # if num_batches is not specified, then num_batches=shots.size
     # i.e. each shot is a batch
     num_batches = shots.size if num_batches == -1 else num_batches
@@ -58,7 +60,10 @@ def task_distribution_and_data_reception(shots, pbar, mode, num_batches=10, **kw
                 record[shot] = results[0][idx]
 
         elif mode == 'inversion':
-            grad3d[completed_task[0]][:] = results[0]
+            if ndim==3: 
+                grad3d[num_completed_tasks][:] = results[0]
+            else:
+                grad3d[completed_task[0]][:] = results[0]
             loss[idx_freq][epoch][completed_task] = results[1]
 
         # task_index plus one
@@ -94,4 +99,3 @@ def split_batches(shot_nums, num_batches):
         groups[group_index].append(num)  # Add the shot to the group
 
     return groups
-

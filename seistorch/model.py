@@ -77,7 +77,7 @@ def build_model(config_path, device = "cuda", mode="forward", source_encoding=Fa
     backward_func = getattr(module, "_time_step_backward", None)
     main_torch_version = int(torch.__version__.split('.')[0])
     #COMPILE = True if main_torch_version > 1 else False
-    COMPILE = False
+    COMPILE = True
     if COMPILE:
         forward_func = torch.compile(forward_func)
         backward_func = torch.compile(backward_func)

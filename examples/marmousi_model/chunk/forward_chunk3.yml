@@ -1,0 +1,59 @@
+dtype: float32
+equation: acoustic
+geom:
+  Nshots: 999
+  boundary_saving: true
+  dt: 0.001
+  fm: 5.0
+  h: 20.0
+  initPath:
+    Q: null
+    rho: null
+    vp: ../examples/marmousi_model/linear_vp.npy
+    vs: null
+  inv_savePath: null
+  invlist:
+    q: null
+    rho: null
+    vp: true
+    vs: null
+  multiple: false
+  multiscale:
+  - 1.0
+  - 3.0
+  - 5.0
+  - all
+  nt: 4000
+  obsPath: ./observed.npy
+  pml:
+    N: 50
+  receiver_type:
+  - h1
+  receivers: ../marmousi_model/chunk/receivers_chunk3.pkl
+  seabed: ../marmousi_model/seabed.npy
+  source_type:
+  - h1
+  sources: ../marmousi_model/chunk/sources_chunk3.pkl
+  truePath:
+    Q: null
+    rho: null
+    vp: ../marmousi_model/chunk/vp_chunk_3.npy
+    vs: null
+  wavelet: null
+  wavelet_delay: 256
+  wavelet_inverse: false
+modelparallel:
+  overlap: 5
+name: forward_modeling
+seed: 20230503
+training:
+  N_epochs: 50
+  batch_size: 20
+  filter_ord: 3
+  implicit:
+    pretrained: null
+    use: false
+  lr: 0.001
+  lr_decay: 0.995
+  minibatch: true
+  scale_decay: 0.85

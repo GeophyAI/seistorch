@@ -5,12 +5,14 @@ from .utils import to_tensor
 
 class WaveSource(torch.nn.Module):
 	def __init__(self, **kwargs):
+
 		super().__init__()
 		self._ndim = len(kwargs)
 		self.coord_labels = list(kwargs.keys())
-		# Register index buffer
+
 		for key, value in kwargs.items():
-			self.register_buffer(key, to_tensor(value, dtype=torch.int64))
+			value = None if value is None else to_tensor(value, dtype=torch.int64)
+			self.register_buffer(key, value)
 
 		self.forward = self.get_forward_func()
 		self._source_encoding=False
@@ -53,7 +55,6 @@ class WaveSource(torch.nn.Module):
 			Y_new[..., self.y, self.x] += dt*X
 
 		return Y_new
-
 
 	# def forward2d(self, Y, X, dt=1.0):
 	# 	# No memory leakage problem

@@ -258,11 +258,16 @@ def set_dtype(dtype=None):
 
 def to_tensor(x, dtype=None):
     dtype = dtype if dtype is not None else torch.get_default_dtype()
+
+    if "numpy" in str(type(x)):
+        x = np.asarray(x)
     if isinstance(x, np.ndarray):
         return torch.from_numpy(x).type(dtype)
     elif isinstance(x, float) or isinstance(x, int):
         return torch.tensor(x).type(dtype)
     elif isinstance(x, list):
+        if None in x:
+            return torch.Tensor([])  # Return empty tensor
         new_list = []
         for item in x:
             if hasattr(item, 'device'):
@@ -285,7 +290,6 @@ def update_cfg(cfg, geom = 'geom', device='cpu'):
 
     cfg[geom].update({'Nx':Nx + 2*cfg[geom]['pml']['N']})
 
-    
     if Nz==0: # 2d = (Nz==0)
         if cfg[geom]['multiple']:
             nz = Ny + cfg[geom]['pml']['N']
@@ -312,6 +316,17 @@ def write_pkl(path: str, data: list):
     # Open the file in binary mode and write the list using pickle
     with open(path, 'wb') as f:
         pickle.dump(data, f)
+
+def is_empty(nested_list):
+    if not nested_list:
+        return True
+    for item in nested_list:
+        if isinstance(item, list):
+            if not is_empty(item):
+                return False
+        elif item:
+            return False
+    return True
 
 class DictAction(argparse.Action):
     def __call__(self, parser, namespace, values, option_string=None):

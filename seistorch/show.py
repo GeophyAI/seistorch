@@ -59,8 +59,12 @@ class SeisShow:
             interval (int, optional): The interval between frames. Defaults to 1.
 
         """
+        dim_of_vel = vel.ndim
+        dim_of_src = len(sources[0])
+        dim_of_rec = len(receivers[0])
 
-        assert vel.ndim==2, "The velocity model should be 2D."
+        assert dim_of_vel==2, f"The velocity model should be 2D, but got {dim_of_vel}D"
+
         nz, nx = vel.shape
         fig, ax = plt.subplots(figsize=(8, 6))
         im = ax.imshow(vel, cmap='seismic', aspect="auto", extent=[0, nx*dh, nz*dh, 0])
@@ -74,8 +78,8 @@ class SeisShow:
         # define the figure
         def update(frame):
             
-            sc_sources.set_offsets(np.stack(sources[frame], axis=0).T*dh)
-            sc_receivers.set_offsets(np.stack(receivers[frame], axis=1)*dh)
+            sc_sources.set_offsets(np.stack(sources[frame][:2], axis=0).T*dh)
+            sc_receivers.set_offsets(np.stack(receivers[frame][:2], axis=1)*dh)
 
             return sc_sources, sc_receivers
 

@@ -528,4 +528,4 @@ class ImplicitLoss(torch.nn.Module):
 
             style_loss += layer_style_loss / (d * h * w)
 
-        return content_loss*0+style_loss
+        return content_loss#+style_loss

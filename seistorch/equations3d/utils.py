@@ -65,39 +65,42 @@ def save_boundaries(tensor: torch.Tensor, NPML: int=49, N: int=1):
     Returns:
         Tuple: top, bottom, left and right boundary.
     """
-    tensor = tensor.squeeze(0)
-    top = tensor[NPML:NPML+N, ...].clone().cpu()
-    bottom = tensor[-N:, ...].clone() if NPML == 0 else tensor[-(NPML+N):-NPML, ...].clone().cpu()
-    left = tensor[:,NPML:NPML+N,:].clone().cpu()
-    right = tensor[:, -N:, :].clone() if NPML == 0 else tensor[:, -(NPML+N):-NPML,:].clone().cpu()
-    front = tensor[..., NPML:NPML+N].clone().cpu()
-    back = tensor[..., -N:].clone() if NPML == 0 else tensor[..., -(NPML+N):-NPML].clone().cpu()
+    #tensor = tensor.squeeze(0)
+    # Shape: (batch, nx, nz, ny)
+    cpu = torch.device("cpu")
+    nb = True
+    top = tensor[:, NPML:NPML+N, ...].clone().to(cpu, non_blocking=nb)#cpu()
+    bottom = tensor[:, -N:, ...].clone() if NPML == 0 else tensor[:,-(NPML+N):-NPML, ...].clone().to(cpu, non_blocking=nb)#cpu()
+    left = tensor[:,:,NPML:NPML+N,:].clone().to(cpu, non_blocking=nb)#cpu()
+    right = tensor[:, :, -N:, :].clone() if NPML == 0 else tensor[:, :, -(NPML+N):-NPML,:].clone().to(cpu, non_blocking=nb)#cpu()
+    front = tensor[..., NPML:NPML+N].clone().to(cpu, non_blocking=nb)#cpu()
+    back = tensor[..., -N:].clone() if NPML == 0 else tensor[..., -(NPML+N):-NPML].clone().to(cpu, non_blocking=nb)#cpu()
 
     return top, bottom, left, right, front, back
 
 def restore_boundaries(tensor, memory, NPML=49, N=1):
     device = tensor.device
-    #tensor = tensor.cpu()
 
     top, bottom, left, right, front, back = memory
 
     # Top
-    tensor[0, NPML:NPML+N, ...] = top.to(device)
+    # Shape: (batch, nx, nz, ny)
+    tensor[:, NPML:NPML+N, ...] = top.to(device)
 
     # Bottom
     if NPML!=0:
-        tensor[0, -(NPML+N):-NPML, ...] = bottom.to(device)
+        tensor[:, -(NPML+N):-NPML, ...] = bottom.to(device)
     else:
-        tensor[0, -N:, ...] = bottom.to(device)
+        tensor[:, -N:, ...] = bottom.to(device)
 
     # Left
-    tensor[0, :, NPML:NPML+N, :] = left.to(device)
+    tensor[:, :, NPML:NPML+N, :] = left.to(device)
 
     # Right
     if NPML!=0:
-        tensor[0, :, -(NPML+N):-NPML, :] = right.to(device)
+        tensor[:, :, -(NPML+N):-NPML, :] = right.to(device)
     else:
-        tensor[..., :, -N: ] = right.to(device)
+        tensor[:, :, -N:,:] = right.to(device)
 
     # Front
     tensor[..., NPML:NPML+N] = front.to(device)
@@ -108,4 +111,4 @@ def restore_boundaries(tensor, memory, NPML=49, N=1):
     else:
         tensor[..., -N:] = back.to(device)
     
-    return tensor#.to(device)
+    return tensor

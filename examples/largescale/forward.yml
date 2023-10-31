@@ -8,6 +8,9 @@ dtype: float32
 
 equation: acoustic
 
+modelparallel:
+  overlap: 5
+
 training:
 
   implicit:
@@ -71,7 +74,7 @@ geom:
 
   # Inital Wave speed model from disk_file
   initPath: 
-    vp: ../marmousi_model/linear_vp.npy
+    vp: ../examples/marmousi_model/linear_vp.npy
     vs:
     rho:
     Q:
@@ -87,6 +90,7 @@ geom:
 
   multiscale:
     - 1.0
+    - 3.0
     - 5.0
     - all
 

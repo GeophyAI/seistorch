@@ -1,12 +1,14 @@
 import os
 import importlib
+from copy import deepcopy
 
 import numpy as np
 import torch
 
 from seistorch.eqconfigure import Parameters
 from seistorch.loss import Loss
-from seistorch.utils import read_pkl, ricker_wave, to_tensor
+from seistorch.io import SeisIO
+from seistorch.utils import read_pkl, ricker_wave, to_tensor, is_empty
 from seistorch.source import WaveSource
 from seistorch.probe import WaveIntensityProbe
 
@@ -43,6 +45,24 @@ def setup_criteria(cfg: dict, loss: dict, *args, **kwargs):
         print(f"Multiple loss functions are used:\n {criterions}")
     return criterions
 
+def setup_device_by_rank(use_cuda=True, rank=0):
+    """Setup the device for the model
+
+    Args:
+        use_cuda (bool, optional): Whether use GPU or not. Defaults to True.
+
+    Returns:
+        torch.device: The device for the model.
+    """
+    if use_cuda and torch.cuda.is_available():
+        # Get the local_rank on each node
+        torch.cuda.set_device(rank%torch.cuda.device_count())
+        dev = torch.cuda.current_device()
+    else:
+        dev = torch.device('cpu')
+
+    return dev
+
 def setup_optimizer(model, cfg, idx_freq=0, implicit=False, *args, **kwargs):
     """Setup the optimizer for the model
 
@@ -75,6 +95,60 @@ def setup_optimizer(model, cfg, idx_freq=0, implicit=False, *args, **kwargs):
 
     return optimizers, lr_scheduler
 
+def setup_split_configs(cfg_path: str, chunk_size, mode, *args, **kwargs):
+    IO = SeisIO(load_cfg=False)
+    cfg = IO.read_cfg(cfg_path)
+    # Get the path of the model
+    key = 'initPath' if mode == 'inversion' else 'truePath'
+    MODEL_PATH = cfg['geom'][key]
+    # Get the parameters needed by the equation
+    needed_model_paras = Parameters.valid_model_paras()[cfg['equation']]
+    # Set the save path of the splitted model
+    ROOT_PATH = os.path.dirname(MODEL_PATH['vp'])
+    ROOT_PATH = os.path.join(ROOT_PATH, "chunk")
+    os.makedirs(ROOT_PATH, exist_ok=True)
+    new_config_paths = []
+    # Split the configure file
+    cfg_chunks = [deepcopy(cfg) for _ in range(chunk_size)]
+
+    for param in needed_model_paras:
+        cfg_chunk = cfg.copy()
+        # Load the model parameter
+        path = MODEL_PATH[param]
+        if path is not None and os.path.exists(path):
+            para_value = IO.read_vel(path, pmln=0)
+        # Split the model parameter
+        para_chunks = split_model_to_chunks(para_value, chunk_size, cfg['modelparallel']['overlap'], to_gpu=False)
+
+        for idx, para_chunk in enumerate(para_chunks):
+            m_savepath = f"{ROOT_PATH}/{param}_chunk_{idx}.npy"
+            np.save(m_savepath, para_chunk)
+            cfg_chunks[idx]['geom'][key][param] = m_savepath
+
+    # Read the source and receiver locations from the configuration file
+    srcs, recs = IO.read_geom(cfg)
+    # Split the source and receiver locations to chunks
+    new_srcs, new_recs = split_geom_to_chunks(srcs, recs, chunk_size, cfg['modelparallel']['overlap'], para_value.shape)
+
+    for ichunk in range(chunk_size):
+
+        src_savepath = f"{ROOT_PATH}/sources_chunk{ichunk}.pkl"
+        rec_savepath = f"{ROOT_PATH}/receivers_chunk{ichunk}.pkl"
+
+        cfg_chunks[ichunk]['geom']['sources'] = src_savepath
+        cfg_chunks[ichunk]['geom']['receivers'] = rec_savepath
+        
+        IO.write_pkl(src_savepath, new_srcs[ichunk])
+        IO.write_pkl(rec_savepath, new_recs[ichunk])
+
+    # Write the splitted configure file
+    for ichunk in range(chunk_size):
+        config_savepath = f"{ROOT_PATH}/{mode}_chunk{ichunk}.yml"
+        IO.write_cfg(config_savepath, cfg_chunks[ichunk])
+        new_config_paths.append(config_savepath)
+
+    return new_config_paths
+
 def setup_rec_coords(coords, Npml, multiple=False):
     """Setup receiver coordinates.
 
@@ -93,11 +167,12 @@ def setup_rec_coords(coords, Npml, multiple=False):
 
     # Without multiple
     for key, value in zip(keys, coords):
-        kwargs[key] = [v+Npml for v in value]
+        kwargs[key] = [v + Npml if v is not None else None for v in value]
 
     # 2D case with multiple
     if 'z' not in kwargs.keys() and multiple:
-        kwargs['y'] = [v-Npml for v in kwargs['y']]
+        kwargs['y'] = [v - Npml if v is not None else None for v in kwargs['y']]
+
     # 3D case with multiple
     if 'z' in kwargs.keys() and multiple:
         raise NotImplementedError("Multiples in 3D case is not implemented yet.")
@@ -154,12 +229,17 @@ def setup_src_coords(coords, Npml, multiple=False):
     # Coordinate are specified
     keys = ['x', 'y', 'z']
     kwargs = dict()
+    # Padding the source location with PML
     for key, value in zip(keys, coords):
-        kwargs[key] = value+Npml
-    
+        if isinstance(value, (int, float)):
+            kwargs[key] = value+Npml
+        else:
+            kwargs[key] = value # value = None
+
     # 2D case with multiple
-    if 'z' not in kwargs.keys() and multiple:
+    if 'z' not in kwargs.keys() and multiple and bool(kwargs['y']):
         kwargs['y'] -= Npml
+
     # 3D case with multiple
     if 'z' in kwargs.keys() and multiple:
         raise NotImplementedError("Multiples in 3D case is not implemented yet.")
@@ -190,3 +270,80 @@ def setup_wavelet(cfg):
     if 'ROOTPATH' in cfg.keys():
         np.save(os.path.join(cfg['ROOTPATH'], "wavelet.npy"), x.cpu().numpy())
     return x
+
+def split_geom_to_chunks(srcs, recs, chunk_num, overlap, shape):
+
+    nz, nx = shape
+    chunk_size = nx // chunk_num
+
+    last_start = 0
+    chunk_ranges = []
+    # Get the range of each chunk in the whole model
+    for i in range(chunk_num):
+        start = last_start
+        end = min(start+chunk_size, nx) if i != chunk_num-1 else nx
+        record = (start, end)# if i == 0 else (start+overlap, end)
+        chunk_ranges.append(record)
+        last_start = end - overlap
+
+    # The length of the src/rec is the shot number
+    new_srcs = [[] for _ in range(chunk_num)]
+
+    for src in srcs:
+        src_x = src[0]
+        src_z = src[1]
+        for ichunk, range_ in enumerate(chunk_ranges):
+            if range_[0] <= src_x < range_[1]:
+                src_x = src_x if i==0 else src_x - range_[0]
+                new_srcs[ichunk].append([src_x, src_z])
+                #break
+            else:
+                new_srcs[ichunk].append([None, None])
+
+    new_recs = [[ [[], []] for _ in range(len(recs))] for _ in range(chunk_num)]
+
+    for ishot, rec in enumerate(recs):
+        for rec_x, rec_z in zip(rec[0], rec[1]):
+
+            ichunk = find_range_index(chunk_ranges, rec_x)
+
+            new_rec_x = rec_x# if ichunk==0 else rec_x - range_[0]
+            new_recs[ichunk][ishot][0].append(new_rec_x)
+            new_recs[ichunk][ishot][1].append(rec_z)
+
+    return new_srcs, new_recs
+
+def split_model_to_chunks(model, chunk_num, overlap, to_gpu=True):
+    """Split the model to chunks.
+
+    Args:
+        model (np.ndarray): Numpy array containing the model.
+        chunk_num (int): The number of chunks.
+        overlap (int): The overlap between chunks.
+        to_gpu (bool, optional): Transfer to gpu. Defaults to True.
+
+    Returns:
+        list: List containing the splitted model.
+    """
+
+    nz, nx = model.shape
+    chunk_size = nx // chunk_num
+    chunks = []
+    last_start = 0
+    for i in range(chunk_num):
+        start = last_start
+        end = min(start+chunk_size, nx) if i != chunk_num-1 else nx
+        chunk = model[:, start:end]
+        if to_gpu:
+            chunks.append(torch.from_numpy(chunk).to(f"cuda:{i}"))
+        else:
+            chunks.append(chunk)
+        last_start = end - overlap
+
+    return chunks
+
+def find_range_index(range_list, num):
+    for index, (start, end) in enumerate(range_list):
+        if start <= num <= end:
+            return index
+    return None

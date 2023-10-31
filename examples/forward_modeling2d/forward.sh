@@ -4,5 +4,5 @@ export LD_LIBRARY_PATH=/root/miniconda3/lib:$LD_LIBRARY_PATH && \
 mpirun -f hosts \
 python ../../fwi.py forward.yml \
 --mode forward \
---num-batches 10 \
+--num-batches 1 \
 --use-cuda

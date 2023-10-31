@@ -374,21 +374,18 @@ class WaveGeometryFreeForm(WaveGeometry):
 
                 # Calcualte the model error when the true model is known.
                 if "para" in key and self.true_models:
-                    _pad = self.padding
-                    if self.multiple:
-                        data_copy = data[:-_pad, _pad:-_pad]
-                    else:
-                        data_copy = data[_pad:-_pad, _pad:-_pad]
+                    data_copy = self.seismp.depad(data)
                     model_error = np.sum((data_copy - self.true_models[para])**2)
 
                 # Write the data to tensorboard.
                 if writer is not None:
-                    tensor_data = self.tensor_to_img(key, data, padding=self.padding, vmin=None, vmax=None)
-                    # Write the model parameters and their gradients(if they have) to tensorboard.
-                    writer.add_images(key, 
-                                        tensor_data, 
-                                        global_step=freq_idx*max_epoch+epoch, 
-                                        dataformats='CHW',)
+                    if self.ndim==2:
+                        tensor_data = self.tensor_to_img(key, data, padding=self.padding, vmin=None, vmax=None)
+                        # Write the model parameters and their gradients(if they have) to tensorboard.
+                        writer.add_images(key, 
+                                            tensor_data, 
+                                            global_step=freq_idx*max_epoch+epoch, 
+                                            dataformats='CHW',)
                     # Write the model error to tensorboard.
                     writer.add_scalar(f"model_error/{para}", model_error, global_step=freq_idx*max_epoch+epoch)
 
@@ -409,7 +406,8 @@ class ModelProcess:
         Returns:
             _type_: torch.nn.Tensor
         """
-        model = self.pad(self.io.fromfile(path), mode="edge")
+        d = self.io.fromfile(path)
+        model = self.pad(d, mode="edge")
         return torch.nn.Parameter(to_tensor(model), requires_grad=requires_grad)
 
     def pad(self, d, mode="edge"):
@@ -435,6 +433,25 @@ class ModelProcess:
         elif ndim==3:
             _padding_ = ((padding, padding), )*ndim
             return np.pad(d, _padding_, mode=mode)
+    
+    def depad(self, d):
+        """Depadding the model based on the PML width.
+
+        Args:
+            d (np.ndarray): The data need to be depadded.
+
+        Returns:
+            np.ndarray: the data after depadding.
+        """
+        padding = self.cfg['geom']['pml']['N']
+        multiple = self.cfg['geom']['multiple']
+        ndim = 2 if self.cfg['geom']['Nz'] == 0 else 3
+
+        top = 0 if multiple else padding
+        if ndim==2:
+            return d[top:-padding, padding:-padding]
+        elif ndim==3:
+            return d[padding:-padding, padding:-padding, padding:-padding]
         
     def smooth(self, data):
         """Smooth the data.

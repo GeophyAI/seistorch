@@ -59,13 +59,13 @@ padding = kernel.shape[-1]//2
 
 def _laplacian(y, h):
     """Laplacian operator"""
-    #kernel = torch.tensor([[[[0.0, 1.0, 0.0], [1.0, -4.0, 1.0], [0.0, 1.0, 0.0]]]]).to(y.device)
+    # kernel = torch.tensor([[[[0.0, 1.0, 0.0], [1.0, -4.0, 1.0], [0.0, 1.0, 0.0]]]]).to(y.device)
     # kernel = torch.tensor([[[[0.0, 0.0, -0.083, 0.0, 0.0],
     #                          [0.0, 0.0, 1.333, 0.0, 0.0],
     #                          [-0.083, 1.333, -2.5, 1.333, -0.083],
     #                          [0.0, 0.0, 1.333, 0.0, 0.0],
     #                          [0.0, 0.0, -0.083, 0.0, 0.0]]]]).to(y.device)
-
+    
     operator = h ** (-2) * kernel#.to(y.device)
     y = y.unsqueeze(1)
     return conv2d(y, operator, padding=padding).squeeze(1)
@@ -82,6 +82,7 @@ def _time_step(*args):
                 (2 / dt**2 * h1 - torch.mul((dt**-2 - b * dt**-1), h2)
                 + torch.mul(c.pow(2), _laplacian(h1, h)))
                 )
+
     return y, h1
 
 def _time_step_backward(*args):
