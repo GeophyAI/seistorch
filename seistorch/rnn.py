@@ -6,6 +6,7 @@ from .source import WaveSource
 from .probe import WaveProbe
 from .cell import WaveCell
 from .setup import setup_acquisition
+from .type import TensorList
 
 class WaveRNN(torch.nn.Module):
     def __init__(self, cell, source_encoding=False):
@@ -85,8 +86,16 @@ class WaveRNN(torch.nn.Module):
         for name in wavefield_names:
             setattr(self, name, torch.zeros(hidden_state_shape, device=device))
 
-        length_record = len(self.cell.geom.receiver_type)
-        p_all = [[] for i in range(length_record)]
+        # nchannels = len(self.cell.geom.receiver_type)
+
+        recs = dict()
+        y = TensorList()
+        for key in self.cell.geom.receiver_type:
+            recs[key] = {}
+            for igroup in range(len(self.probes)):
+                recs[key][f"group{igroup}"] = []
+
+        # p_all = [[] for i in range(nchannels)]
 
         # Set model parameters
         for name in self.cell.geom.model_parameters:
@@ -97,11 +106,13 @@ class WaveRNN(torch.nn.Module):
 
         # Loop through time
         x = x.to(device)
-        super_source = WaveSource(**self.merge_sources_with_same_keys()).to(device)
-        super_probes = WaveProbe(**self.merge_receivers_with_same_keys()).to(device)
-        super_source.source_encoding = self.source_encoding
-        time_offset = 2 if self.cell.geom.equation == "acoustic" else 0
 
+        super_source = WaveSource(**self.merge_sources_with_same_keys()).to(device)
+        #super_probes = WaveProbe(**self.merge_receivers_with_same_keys()).to(device)
+        super_source.source_encoding = self.source_encoding
+
+        time_offset = 2 if self.cell.geom.equation == "acoustic" else 0
+        
         for i, xi in enumerate(x.chunk(x.size(1), dim=1)):
         
             # Propagate the fields
@@ -123,16 +134,16 @@ class WaveRNN(torch.nn.Module):
                 setattr(self, source_type, super_source(getattr(self, source_type), xi.view(xi.size(1), -1)))
 
             # Measure probe(s)
-            #for probe in self.probes:
-            for receiver, p_all_sub in zip(self.cell.geom.receiver_type, p_all):
-                #p_all_sub.append(probe(getattr(self, receiver)))
-                p_all_sub.append(super_probes(getattr(self, receiver)))
+            for key in self.cell.geom.receiver_type:
+                for igroup, recgroup in enumerate(self.probes):
+                    recs[key][f"group{igroup}"].append(recgroup(getattr(self, key))[igroup])
 
         # Combine outputs into a single tensor
-        permute_axis = (0, 1, 3, 2) if torch.stack(p_all[0], dim=1).dim() == 4 else (1, 2, 3, 0)
+        for igroup in range(len(self.probes)):
+            for key in self.cell.geom.receiver_type:
+                recs[key][f"group{igroup}"] = torch.stack(recs[key][f"group{igroup}"], dim=0)
+            y.append(torch.stack([recs[key][f"group{igroup}"] for key in recs.keys()], dim=2))
         
-        y = torch.concat([torch.stack(y, dim=1).permute(*permute_axis) for y in p_all], dim = 3)
-        
-        has_nan = torch.isnan(y).any()
-        assert not has_nan, "Warning!!Data has nan!!"
+        y.has_nan()
+
         return y

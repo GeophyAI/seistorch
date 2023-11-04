@@ -63,7 +63,10 @@ class L2(torch.nn.Module):
         return "l2"
     
     def forward(self, x, y):
-        return torch.nn.MSELoss()(x, y)
+        loss = 0.
+        for _x, _y in zip(x, y):
+            loss += torch.nn.MSELoss()(_x, _y)
+        return loss
 
 class CosineSimilarity(torch.nn.Module):
     """The cosine similarity (Normalized cross correlation) loss function.

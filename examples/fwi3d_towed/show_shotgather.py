@@ -21,7 +21,7 @@ nsamples, ntraces, ncomponent = obs[0].shape
 
 print(f"The data has {nshots} shots, {nsamples} time samples, {ntraces} traces, and {ncomponent} components.")
 
-showshots = np.array([i for i in range(9)])#np.random.randint(0, obs.shape[0], 8)
+showshots = np.array([i for i in range(4)])#np.random.randint(0, obs.shape[0], 8)
 
 # Plot the data
 fig, axes = plt.subplots(nrows=1, ncols=showshots.size, figsize=(12, 4))

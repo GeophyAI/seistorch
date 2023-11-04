@@ -6,8 +6,6 @@ import numpy as np
 import torch
 from yaml import load
 
-from scipy.ndimage import gaussian_filter
-
 from .cell import WaveCell
 from .check import ConfigureCheck
 from .geom import WaveGeometryFreeForm
@@ -20,7 +18,12 @@ try:
 except ImportError:
     from yaml import Dumper, Loader
 
-def build_model(config_path, device = "cuda", mode="forward", source_encoding=False, commands=None):
+def build_model(config_path, 
+                device = "cuda", 
+                mode="forward", 
+                source_encoding=False, 
+                commands=None, 
+                logger=None):
 
     assert mode in ["forward", "inversion"], f"No such mode {mode}!"
 
@@ -28,6 +31,7 @@ def build_model(config_path, device = "cuda", mode="forward", source_encoding=Fa
     with open(config_path, 'r') as ymlfile:
         cfg = load(ymlfile, Loader=Loader)
 
+    # update the configure file
     VEL_PATH = cfg['geom']['initPath'] if mode == 'inversion' else cfg['geom']['truePath']
     cfg.update({'VEL_PATH': VEL_PATH})
 
@@ -62,7 +66,7 @@ def build_model(config_path, device = "cuda", mode="forward", source_encoding=Fa
         np.random.seed(cfg['seed'])
 
     # Set up geometry
-    geom  = WaveGeometryFreeForm(mode=mode, **cfg)
+    geom  = WaveGeometryFreeForm(mode=mode, logger=logger, **cfg)
     geom.inversion = mode == "inversion"
 
     # Import cells
@@ -77,7 +81,7 @@ def build_model(config_path, device = "cuda", mode="forward", source_encoding=Fa
     backward_func = getattr(module, "_time_step_backward", None)
     main_torch_version = int(torch.__version__.split('.')[0])
     #COMPILE = True if main_torch_version > 1 else False
-    COMPILE = True
+    COMPILE = False
     if COMPILE:
         forward_func = torch.compile(forward_func)
         backward_func = torch.compile(backward_func)

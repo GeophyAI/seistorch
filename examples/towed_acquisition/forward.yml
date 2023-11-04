@@ -86,8 +86,8 @@ geom:
   inv_savePath:
 
   multiscale:
-  - - 1.0
-    - 3.0
+  - 1.0
+  - 3.0
   - 5.0
   - all
 
@@ -104,7 +104,7 @@ geom:
   h: 20.0
 
   # Total Shots
-  Nshots: 999
+  Nshots: 99
 
   pml:
     N: 50    # PML thickness in number of grid cells

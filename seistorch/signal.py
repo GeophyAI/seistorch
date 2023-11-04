@@ -6,8 +6,9 @@ from joblib import Parallel, delayed
 
 class SeisSignal:
 
-    def __init__(self, cfg=None):
+    def __init__(self, cfg=None, logger=None):
         self.cfg = cfg
+        self.logger = logger
         self.__setup__()
 
     def __setup__(self, ):
@@ -42,7 +43,7 @@ class SeisSignal:
 
         filter_mode = self.decide_filter_type(freqs)
         
-        print(f"Data filtering (mode: {filter_mode}): frequency:{freqs}")
+        self.logger.print(f"Data filtering (mode: {filter_mode}): frequency:{freqs}")
 
         if freqs == "all":
             return d

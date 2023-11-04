@@ -3,9 +3,122 @@ import os
 import pickle
 import torch
 import numpy as np
+from .type import TensorList
 from obspy import Stream, Trace
 from yaml import load, dump
 from yaml import CLoader as Loader
+import h5py
+
+
+class SeisRecord:
+
+    def __init__(self, cfg, logger=None):
+
+        self.cfg = cfg
+        self.logger = logger
+        self.io = SeisIO(load_cfg=False)
+        
+        self.datapath = cfg['geom']['obsPath']
+        self.recpath = cfg['geom']['receivers']
+
+        self.nshots = len(self.io.read_pkl(self.recpath))
+
+        self.filetype = self.io.get_file_extension(self.datapath)
+
+    def create_hdf5_file(self, datapath=None, recpath=None):
+
+        if datapath is None:
+            datapath = self.datapath
+
+        if recpath is None:
+            recpath = self.recpath
+
+        rec_groups = self.load_receivers(recpath)
+        nshots = len(rec_groups)
+        nc = len(self.cfg['geom']['receiver_type'])
+        nt = self.cfg['geom']['nt']
+
+        with h5py.File(datapath, 'w') as f:
+            for shot in range(nshots):
+                nr = len(rec_groups[shot][0])
+                # self.logger.print(f"Create shot {shot} with shape ({nt}, {nr}, {nc}).")
+                f.create_dataset(f'shot_{shot}', (nt, nr, nc), dtype='f', chunks=True)
+            print(f"Create file {datapath} successfully.")
+
+    def load_receivers(self, path=None):
+
+        if path is None:
+            path = self.recpath
+
+        return self.io.read_pkl(path)
+
+    def setup(self, mode):
+
+        # self.logger.print(f"Detect filetype is {self.filetype}.")
+
+        _setup_ = getattr(self, f"setup_{mode}")
+        _setup_()
+
+    def setup_forward(self, ):
+        if self.filetype == '.npy':
+            # self.logger.print(f"Create empty numpy array with shape ({self.nshots}, ).")
+            self.record = np.empty(self.nshots, dtype=np.ndarray)
+
+        if self.filetype == '.hdf5':
+            # self.logger.print("Create hdf5 file on disk.")
+            self.create_hdf5_file()
+
+    def setup_inversion(self, ):
+        if self.filetype == '.npy':
+            # self.logger.print(f"Load numpy array from {self.datapath}.")
+            self.record = np.load(self.datapath, allow_pickle=True)
+
+        if self.filetype == '.hdf5':
+            pass
+            # self.logger.print("Memory map hdf5 file on disk.")
+
+    def write_shot(self, shot_no, data, datapath=None):
+            
+        if datapath is None:
+            datapath = self.datapath
+
+        if self.filetype == '.hdf5':
+            with h5py.File(datapath, 'a') as f:
+                f[f'shot_{shot_no}'][...] = data
+
+        if self.filetype == '.npy':
+            self.record[shot_no] = data
+            np.save(datapath, self.record)
+
+    @property
+    def shape(self, ):
+        if self.filetype == '.npy':
+            return (self.record.shape[0],)
+
+        if self.filetype == '.hdf5':
+            with h5py.File(self.datapath, 'r') as f:
+                return (len(f.keys()),)
+
+    def __setitem__(self, key, value):
+        if isinstance(key, int) and isinstance(value, np.ndarray):
+            self.write_shot(key, value, self.datapath)
+
+    def __getitem__(self, key):
+
+        if self.filetype == '.hdf5':
+            return self.getitem_from_hdf5(key)
+            # with h5py.File(self.datapath, 'r') as f:
+            #     return f[f'shot_{key}'][...].copy()
+            
+        if self.filetype == '.npy':
+            return self.record[key]
+        
+    def getitem_from_hdf5(self, key):
+        with h5py.File(self.datapath, 'r') as f:
+            if isinstance(key, list):
+                return TensorList([f[f'shot_{k}'][...].copy() for k in key])
+            if isinstance(key, int):
+                return f[f'shot_{key}'][...].copy()
 
 class SeisIO:
     """The class for file/data input and output.
@@ -166,6 +279,11 @@ class SeisIO:
         # assert len(source_locs)==len(recev_locs), \
         #     "The lenght of sources and recev_locs must be equal."
         return source_locs, recev_locs
+
+    def read_hdf5(self, path: str, shot_no: int=None, **kwargs):
+        with h5py.File(path, 'r') as f:
+            d = f[f'shot_{shot_no}'][...].copy()
+        return d
 
     def read_pkl(self, path: str, **kwargs):
         """Read a pickle file.

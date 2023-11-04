@@ -235,7 +235,6 @@ def ricker_wave(fm, dt, T, delay = 80, dtype='tensor', inverse=False):
     """
         Ricker-like wave.
     """
-    print(f"Wavelet inverse:{inverse}")
     ricker = []
     delay = delay * dt 
     for i in range(T):

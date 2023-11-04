@@ -8,7 +8,6 @@ from scipy.ndimage import gaussian_filter1d
 
 show = SeisShow()
 
-
 def write_pkl(path: str, data: list):
     # Open the file in binary mode and write the list using pickle
     with open(path, 'wb') as f:
@@ -24,7 +23,7 @@ def write_pkl(path: str, data: list):
 # |________|/
 #
 dtype = np.float32
-nx, ny, nz = 801, 801, 128
+nx, ny, nz = 401, 401, 128
 vel = np.ones((nx, nz, ny), dtype=dtype)*1500
 vel[:, 64:, :] = 2000
 
@@ -36,11 +35,10 @@ for i in range(5):
     gaussian_filter1d(velsmooth, sigma=10, axis=1, output=velsmooth)
 
 fig, ax = plt.subplots(1,1)
-ax.plot(vel[400, :,400], label="True")
-ax.plot(velsmooth[400, :,400], label="Smoothed")
+ax.plot(vel[200, :,200], label="True")
+ax.plot(velsmooth[200, :,200], label="Smoothed")
 ax.legend()
 plt.show()
-
 
 # Generate the source and receiver list
 # Please note that in Seistorch, 
@@ -61,7 +59,7 @@ plt.show()
 # * represents the location of shots
 # v represents the location of receivers
 
-sx = np.arange(400, 401, 1)
+sx = np.arange(200, 201, 1)
 sy = np.arange(50, ny-50, 80)
 
 srcx_grid, srcy_grid = np.meshgrid(sx, sy)

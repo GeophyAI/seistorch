@@ -12,7 +12,7 @@ class WaveProbe(torch.nn.Module):
 		for key, value in kwargs.items():
 			self.register_buffer(key, to_tensor(value, dtype=torch.int64))
 		self.forward = self.get_forward_func()
-		self.batchsize = self.x.size(0)
+		self.batchsize = self.x.size(0) if self.x.ndim>1 else 1
 
 	@property
 	def ndim(self,):
@@ -42,8 +42,10 @@ class WaveProbe(torch.nn.Module):
 	
 	def forward3d(self, x):
 		#return x[:, self.x, self.z, self.y]
+		return x[:, self.x, self.z, self.y]
+
 		# Towed
-		return torch.stack([x[i:i+1, self.x[i], self.z[i], self.y[i]] for i in range(self.batchsize)])
+		#return torch.stack([x[i:i+1, self.x[i], self.z[i], self.y[i]] for i in range(self.batchsize)])
 
 class WaveIntensityProbe(WaveProbe):
 	def __init__(self, **kwargs):

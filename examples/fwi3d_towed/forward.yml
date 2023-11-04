@@ -36,7 +36,7 @@ training:
 geom:
 
   # The observer data
-  obsPath: ./shot_gather.npy
+  obsPath: ./shot_gather.hdf5
 
   # Wave speed model from disk_file for forward modeling
   truePath:

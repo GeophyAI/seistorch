@@ -125,7 +125,7 @@ class WaveGeometry(torch.nn.Module):
         self.register_buffer("_d", torch.sqrt(b_x ** 2 + b_y ** 2 + b_z ** 2))
 
 class WaveGeometryFreeForm(WaveGeometry):
-    def __init__(self, mode='forward', **kwargs):
+    def __init__(self, mode='forward', logger=None, **kwargs):
 
         self.mode = mode
         self.autodiff = True
@@ -142,6 +142,7 @@ class WaveGeometryFreeForm(WaveGeometry):
         self.model_parameters = []
         self.inversion = False
         self.kwargs = kwargs
+        self.logger = logger
 
         self.seismp = ModelProcess(kwargs)
         self.seisio = SeisIO(kwargs)
@@ -185,7 +186,7 @@ class WaveGeometryFreeForm(WaveGeometry):
 
             # add the model to the graph
             mname, mpath = para, modelPath[para]
-            print(f"Loading model '{mpath}', invert = {invlist[mname]}")
+            self.logger.print(f"Loading model '{mpath}', invert = {invlist[mname]}")
             if invlist[mname]:
                 self.pars_need_invert.append(mname)
             # add the model to a list for later use

@@ -25,6 +25,7 @@ from seistorch.eqconfigure import Shape
 # from tensorflow.keras.models import load_model
 from seistorch.model import build_model
 from seistorch.setup import *
+from seistorch.log import SeisLog
 from seistorch.io import SeisIO
 from seistorch.signal import SeisSignal
 from seistorch.utils import (DictAction, dict2table,
@@ -71,29 +72,20 @@ parser.add_argument('--source-encoding', action='store_true', default=True,
 if __name__ == '__main__':
 
     args = parser.parse_args()
-    # Setup the device
-    if args.use_cuda and torch.cuda.is_available():
-        # Get the local_rank on each node
-        torch.cuda.set_device(args.gpuid)
-        args.dev = torch.cuda.current_device()
-        print("Configuration: %s" % args.config)
-        print("Using CUDA for calculation")
-        print(f"Using {args.opt}")
-    else:
-        args.dev = torch.device('cpu')
-        print("Configuration: %s" % args.config)
-        print("Using CPU for calculation")
+
+    args.dev = setup_device(args.gpuid, args.use_cuda)
+
+    seislog = SeisLog("Seistorch", backend="LOCAL")
 
     'Sets the number of threads used for intraop parallelism on CPU.'
     torch.set_num_threads(args.num_threads)
     # Build model
-    cfg, model = build_model(args.config, device=args.dev, mode=args.mode, source_encoding=args.source_encoding, commands=args)
+    cfg, model = build_model(args.config, device=args.dev, mode=args.mode, source_encoding=args.source_encoding, commands=args, logger=seislog)
     
     seisio = SeisIO(cfg)
-
+    setup = SeisSetup(cfg, args, seislog)
     # Set random seed
-    torch.manual_seed(cfg["seed"])
-    np.random.seed(cfg["seed"])
+    setup.setup_seed()
 
     # Set the name of the process
     setproctitle.setproctitle("coding_fwi")
@@ -106,8 +98,7 @@ if __name__ == '__main__':
     BATCHSIZE = cfg['training']['batch_size'] if args.batchsize < 0 else args.batchsize
     PARS_NEED_INVERT = [k for k, v in cfg['geom']['invlist'].items() if v]
     ROOTPATH = args.save_path if args.save_path else cfg["geom"]["inv_savePath"]
-    SEABED = np.load(cfg['geom']['seabed']) if 'seabed' in cfg['geom'].keys() else None
-    SEABED = torch.from_numpy(SEABED).to(args.dev) if SEABED is not None else None
+    SEABED = setup.setup_seabed()
     # Check the working folder
     if not os.path.exists(ROOTPATH):
         os.makedirs(ROOTPATH, exist_ok=True)
@@ -117,8 +108,8 @@ if __name__ == '__main__':
                         filename=f'{ROOTPATH}/log.log',  # Specify the log file name
                         filemode='w')  # Set the file mode to write mode
     writer = SummaryWriter(os.path.join(ROOTPATH, "logs"))
-    print(f"The results will be saving at '{ROOTPATH}'")
-    print(f"BATCHSIZE: {args.batchsize}")
+    seislog.print(f"The results will be saving at '{ROOTPATH}'")
+    seislog.print(f"BATCHSIZE: {args.batchsize}")
     ### Get source-x and source-y coordinate in grid cells
     src_list, rec_list, full_rec_list, fixed_receivers = setup_src_rec(cfg)
     #model = torch.compile(model) #, mode="max-autotune"
@@ -143,19 +134,19 @@ if __name__ == '__main__':
     # print(checkpoint)
     # # model.load_state_dict(checkpoint['model_state_dict'])
     # exit()
-    """Write configure file to the inversion folder"""
     cfg["loss"] = args.loss
     cfg["ROOTPATH"] = ROOTPATH
     cfg['training']['lr'] = args.lr
     cfg['training']['batchsize'] = BATCHSIZE
     cfg['training']['optimizer'] = args.opt
-    with open(os.path.join(ROOTPATH, "configure.yml"), "w") as f:
-        dump(cfg, f)
-    # print(probes)
-    """# Read the wavelet"""
-    x = setup_wavelet(cfg)
 
-    seissignal = SeisSignal(cfg)
+    """Write configure file to the inversion folder"""
+    seisio.write_cfg(os.path.join(ROOTPATH, "configure.yml"), cfg)
+
+    """# Read the wavelet"""
+    x = setup.setup_wavelet()
+
+    seissignal = SeisSignal(cfg, seislog)
     shape = Shape(cfg)
 
     """---------------------------------------------"""
@@ -167,7 +158,8 @@ if __name__ == '__main__':
     for _t in cfg_table: logging.info(cfg_table)
     """Define the misfit function for different parameters"""
     # The parameters needed to be inverted
-    criterions = setup_criteria(cfg, args.loss)
+    criterions = setup.setup_criteria()
+
     MULTI_LOSS = isinstance(criterions, dict)
 
     """Only rank0 will read the full band data"""
@@ -189,7 +181,7 @@ if __name__ == '__main__':
         if local_epoch==0:
             freq = cfg['geom']['multiscale'][idx_freq]
             # reset the optimizer
-            optimizers, lr_scheduler = setup_optimizer(model, cfg, idx_freq, IMPLICIT)
+            optimizers, lr_scheduler = setup.setup_optimizer(model, idx_freq, IMPLICIT)
             
             # Filter both record and ricker
             lp_rec = seissignal.filter(full_band_data, freqs=freq)
@@ -309,8 +301,8 @@ if __name__ == '__main__':
                                    writer=writer, max_epoch=EPOCHS)
 
         # logging
-        logging.info(f"Encoding shots: {shots}")
-        logging.info(f"Freq {idx_freq:02d} Epoch {local_epoch:02d} loss: {loss[idx_freq][local_epoch]}")
+        seislog.info(f"Encoding shots: {shots}")
+        seislog.info(f"Freq {idx_freq:02d} Epoch {local_epoch:02d} loss: {loss[idx_freq][local_epoch]}")
 
         # Add scalars to tensorboard
         writer.add_scalar(f"Loss", loss[idx_freq][local_epoch], global_step=epoch)

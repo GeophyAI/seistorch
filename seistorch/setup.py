@@ -1,4 +1,4 @@
-import os
+import os, tqdm
 import importlib
 from copy import deepcopy
 
@@ -7,10 +7,195 @@ import torch
 
 from seistorch.eqconfigure import Parameters
 from seistorch.loss import Loss
-from seistorch.io import SeisIO
-from seistorch.utils import read_pkl, ricker_wave, to_tensor, is_empty
+from seistorch.io import SeisIO, SeisRecord
+from seistorch.utils import read_pkl, ricker_wave, to_tensor
 from seistorch.source import WaveSource
 from seistorch.probe import WaveIntensityProbe
+
+class SeisSetup:
+
+    def __init__(self, cfg, args, logger):
+        self.io = SeisIO(load_cfg=False)
+        self.cfg = cfg
+        self.args = args
+        self.logger = logger
+
+    def setup_batchsize(self):
+        use_minibatch = self.cfg['training']['minibatch']
+
+        num_shots_actual = self.setup_num_shots()
+
+        if use_minibatch:
+            batchsize = self.cfg['training']['batch_size']
+        else:
+            batchsize = min(num_shots_actual, self.args.num_batches)
+
+        # How many tasks will be run on all GPU.
+        num_batches = min(num_shots_actual, self.args.num_batches, batchsize)
+
+        return batchsize, num_batches
+
+    def setup_criteria(self, ):
+        """Setup the loss functions for the model
+
+        Args:
+        Returns:
+            torch.nn.module: The specified loss function.
+        """
+        ACOUSTIC = self.cfg['equation'] == 'acoustic'
+        # The parameters needed to be inverted
+        loss_names = set(self.args.loss.values())
+        MULTI_LOSS = len(loss_names) > 1
+        if not MULTI_LOSS or ACOUSTIC:
+            self.logger.print("Only one loss function is used.")
+            criterions = Loss(list(loss_names)[0]).loss(self.cfg)
+        else:
+            criterions = {k:Loss(v).loss(self.cfg) for k,v in self.args.loss.items()}
+            self.logger.print(f"Multiple loss functions are used:\n {criterions}")
+        return criterions
+
+    def setup_device(self, rank):
+        """Setup the device for the model
+
+        Args:
+            rank (int): The rank of the process.
+
+        Returns:
+            dev: The device for the model.
+        """
+
+        use_cuda = self.args.use_cuda and torch.cuda.is_available()
+
+        if use_cuda:
+            # Get the local_rank on each node
+            torch.cuda.set_device(rank%torch.cuda.device_count())
+            dev = torch.cuda.current_device()
+
+        else:
+            dev = torch.device('cpu')
+
+        return dev
+
+    def setup_file_system(self, ):
+        self.logger.print("Setting up file system...")
+        #seisrec = SeisRecord(self.cfg, logger=self.logger)
+        seisrec = SeisRecord(self.cfg, logger=None)
+        seisrec.setup(self.args.mode)
+        return seisrec
+
+    def setup_num_shots(self):
+        # Read the source and receiver locations from the configuration file
+        src_list, _ = self.io.read_geom(self.cfg)
+        # Get the number of shots in the geometry file
+        num_shots_in_geom = len(src_list)
+        # Get the number of shots in the configure file
+        num_shots_in_cfg = self.cfg['geom']['Nshots']
+        # The number of shots used in the simulation
+        num_shots_actual = min(num_shots_in_cfg, num_shots_in_geom)
+
+        return num_shots_actual
+
+    def setup_optimizer(self, model, idx_freq=0, implicit=False, *args, **kwargs):
+        """Setup the optimizer for the model
+
+        Args:
+            model (RNN): The model to be optimized.
+            cfg (dict): The configuration file.
+        """
+        lr = self.cfg['training']['lr']
+        opt = self.cfg['training']['optimizer']
+        epoch_decay = self.cfg['training']['lr_decay']
+        scale_decay = self.cfg['training']['scale_decay']
+        pars_need_by_eq = Parameters.valid_model_paras()[self.cfg['equation']]
+        pars_need_invert = [k for k, v in self.cfg['geom']['invlist'].items() if v]
+
+        # Setup the learning rate for each parameter
+        paras_for_optim = []
+
+        for para in pars_need_by_eq:
+            # Set the learning rate for each parameter
+            _lr = 0. if para not in pars_need_invert else lr[para]*scale_decay**idx_freq
+            paras_for_optim.append({'params': model.cell.get_parameters(para, implicit=implicit), 
+                                    'lr':_lr})
+            eps = 1e-22 if not implicit else 1e-8
+
+        opt_module = importlib.import_module('seistorch.optimizer')
+        optimizers = getattr(opt_module, opt.capitalize())(paras_for_optim, eps=eps)
+
+        # Setup the learning rate scheduler
+        lr_scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizers, epoch_decay, last_epoch=- 1, verbose=False)
+
+        return optimizers, lr_scheduler
+
+    def setup_pbar(self, stop, desc):
+
+        return tqdm.trange(stop, position=0, desc=desc)
+
+    def setup_seed(self,):
+        # Set random seed
+        torch.manual_seed(self.cfg["seed"])
+        np.random.seed(self.cfg["seed"])
+
+    def setup_seabed(self):
+        use_seabed = True if 'seabed' in self.cfg['geom'].keys() else False
+        if use_seabed:
+            seabed = np.load(self.cfg['geom']['seabed'])
+            SEABED = torch.from_numpy(seabed).to(self.args.dev)
+        else:
+            SEABED = None
+        return SEABED
+
+    def setup_tasks(self):
+
+        # Bools
+        use_minibatch = self.cfg['training']['minibatch']
+        forward = self.args.mode == "forward"
+        inversion = self.args.mode == "inversion"
+
+        batchsize, num_batches = self.setup_batchsize()
+        num_shots_actual = self.setup_num_shots()
+
+        if forward or (inversion and not use_minibatch):
+            tasks = np.arange(num_shots_actual)
+
+        if inversion and use_minibatch:
+
+            scales = len(self.cfg['geom']['multiscale'])
+            epoch_per_scale = self.cfg['training']['N_epochs']
+            num_iters = epoch_per_scale * scales
+            shot_index = np.arange(num_shots_actual)
+            tasks = iter([np.random.choice(shot_index, batchsize, replace=False) for _ in range(num_iters)])
+
+        return tasks
+            
+    def setup_wavelet(self, ):
+        """Setup the wavelet for the simulation.
+
+        Returns:
+            torch.Tensor: Tensor containing the wavelet.
+        """
+        if not self.cfg["geom"]["wavelet"]:
+            self.logger.print("Using wavelet func.")
+            x = ricker_wave(self.cfg['geom']['fm'], 
+                            self.cfg['geom']['dt'], 
+                            self.cfg['geom']['nt'], 
+                            self.cfg['geom']['wavelet_delay'], 
+                            inverse=self.cfg['geom']['wavelet_inverse'])
+        else:
+            self.logger.print("Loading wavelet from file")
+            x = to_tensor(np.load(self.cfg["geom"]["wavelet"]))
+        # Save the wavelet
+        if 'ROOTPATH' in self.cfg.keys():
+            self.logger.print(f"The wavelet is saved to {self.cfg['ROOTPATH']}.")
+            np.save(os.path.join(self.cfg['ROOTPATH'], "wavelet.npy"), x.cpu().numpy())
+        return x
+
+    def update_pbar(self, pbar, freq_idx, local_epoch):
+
+        num_scales = len(self.cfg['geom']['multiscale'])
+        num_epochs = self.cfg['training']['N_epochs']
+
+        pbar.set_description(f"Epoch {local_epoch+1}/{num_epochs} | Scale {freq_idx+1}/{num_scales}")
 
 def setup_acquisition(shots, src_list, rec_list, cfg, *args, **kwargs):
 
@@ -24,26 +209,28 @@ def setup_acquisition(shots, src_list, rec_list, cfg, *args, **kwargs):
 
     return sources, receivers
 
-def setup_criteria(cfg: dict, loss: dict, *args, **kwargs):
-    """Setup the loss functions for the model
+def setup_device(rank, use_cuda=True):
+    """Setup the device for the model
 
     Args:
-        cfg (dict): The configuration file.
-        loss (dict): The losses specified in the running arguments.
+        rank (int): The rank of the process.
+        use_cuda (bool, optional): Whether use GPU or not. Defaults to True.
+
     Returns:
-        torch.nn.module: The specified loss function.
+        dev: The device for the model.
     """
-    ACOUSTIC = cfg['equation'] == 'acoustic'
-    # The parameters needed to be inverted
-    loss_names = set(loss.values())
-    MULTI_LOSS = len(loss_names) > 1
-    if not MULTI_LOSS or ACOUSTIC:
-        print("Only one loss function is used.")
-        criterions = Loss(list(loss_names)[0]).loss(cfg)
+
+    use_cuda = use_cuda and torch.cuda.is_available()
+
+    if use_cuda:
+        # Get the local_rank on each node
+        torch.cuda.set_device(rank%torch.cuda.device_count())
+        dev = torch.cuda.current_device()
+
     else:
-        criterions = {k:Loss(v).loss(cfg) for k,v in loss.items()}
-        print(f"Multiple loss functions are used:\n {criterions}")
-    return criterions
+        dev = torch.device('cpu')
+
+    return dev
 
 def setup_device_by_rank(use_cuda=True, rank=0):
     """Setup the device for the model
@@ -62,38 +249,6 @@ def setup_device_by_rank(use_cuda=True, rank=0):
         dev = torch.device('cpu')
 
     return dev
-
-def setup_optimizer(model, cfg, idx_freq=0, implicit=False, *args, **kwargs):
-    """Setup the optimizer for the model
-
-    Args:
-        model (RNN): The model to be optimized.
-        cfg (dict): The configuration file.
-    """
-    lr = cfg['training']['lr']
-    opt = cfg['training']['optimizer']
-    epoch_decay = cfg['training']['lr_decay']
-    scale_decay = cfg['training']['scale_decay']
-    pars_need_by_eq = Parameters.valid_model_paras()[cfg['equation']]
-    pars_need_invert = [k for k, v in cfg['geom']['invlist'].items() if v]
-
-    # Setup the learning rate for each parameter
-    paras_for_optim = []
-
-    for para in pars_need_by_eq:
-        # Set the learning rate for each parameter
-        _lr = 0. if para not in pars_need_invert else lr[para]*scale_decay**idx_freq
-        paras_for_optim.append({'params': model.cell.get_parameters(para, implicit=implicit), 
-                                'lr':_lr})
-        eps = 1e-22 if not implicit else 1e-8
-
-    opt_module = importlib.import_module('seistorch.optimizer')
-    optimizers = getattr(opt_module, opt.capitalize())(paras_for_optim, eps=eps)
-
-    # Setup the learning rate scheduler
-    lr_scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizers, epoch_decay, last_epoch=- 1, verbose=False)
-
-    return optimizers, lr_scheduler
 
 def setup_split_configs(cfg_path: str, chunk_size, mode, *args, **kwargs):
     IO = SeisIO(load_cfg=False)
@@ -246,30 +401,6 @@ def setup_src_coords(coords, Npml, multiple=False):
         # kwargs['z'] -= Npml
 
     return WaveSource(**kwargs)
-
-def setup_wavelet(cfg):
-    """Setup the wavelet for the simulation.
-
-    Args:
-        cfg (_type_): The configuration file.
-
-    Returns:
-        torch.Tensor: Tensor containing the wavelet.
-    """
-    if not cfg["geom"]["wavelet"]:
-        print("Using wavelet func.")
-        x = ricker_wave(cfg['geom']['fm'], 
-                        cfg['geom']['dt'], 
-                        cfg['geom']['nt'], 
-                        cfg['geom']['wavelet_delay'], 
-                        inverse=cfg['geom']['wavelet_inverse'])
-    else:
-        print("Loading wavelet from file")
-        x = to_tensor(np.load(cfg["geom"]["wavelet"]))
-    # Save the wavelet
-    if 'ROOTPATH' in cfg.keys():
-        np.save(os.path.join(cfg['ROOTPATH'], "wavelet.npy"), x.cpu().numpy())
-    return x
 
 def split_geom_to_chunks(srcs, recs, chunk_num, overlap, shape):
 
