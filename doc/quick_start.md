@@ -12,6 +12,7 @@ We'll cover the following topics:
     - [batched and mpi-based tradtional fwi](fwi.md#2d-batched-classic-fwi)
     - [memory-saving fwi using boundary-saving](fwi.md#boundary-saving-based-automatic-differentiation)
     - [towed acquistion fwi with marmousi model](fwi.md#towed-streamer-data-generation-and-inversion)
+    - [inversion with multiples](fwi.md#inversion-with-multiples)
 
 3. [**Reverse time migration**](rtm.md): This topic introduce how to perform reverse time migration using seistorch.
 

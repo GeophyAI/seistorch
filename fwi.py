@@ -30,6 +30,7 @@ from seistorch.io import SeisIO
 from seistorch.log import SeisLog
 from seistorch.signal import SeisSignal
 from seistorch.model import build_model
+from seistorch.type import TensorList
 from seistorch.setup import *
 from seistorch.utils import (DictAction, to_tensor)
 
@@ -203,6 +204,7 @@ if __name__ == '__main__':
         """Rank0 will broadcast the data after filtering"""
         if MASTER:
             shots_this_iter = setup.setup_tasks()
+            seislog.print(f"loss: {criterions}")
             # full_band_data = seisio.fromfile(cfg['geom']['obsPath'])
             # full_band_data = setup.setup_file_system()
 
@@ -259,7 +261,7 @@ if __name__ == '__main__':
                 pbar = setup.setup_pbar(num_batches, f"E{local_epoch+1}/{epoch_per_scale} | F{idx_freq+1}/{num_scales}")
 
                 shots = next(shots_this_iter)#np.random.choice(np.arange(NSHOTS), BATCHSIZE, replace=False) if MINIBATCH else np.arange(NSHOTS)
-                
+
                 kwargs = {'loss': loss, 
                           'epoch': local_epoch, 
                           'grad3d': grad3d,
@@ -283,17 +285,23 @@ if __name__ == '__main__':
                         """Although it is a for loop """
                         """But only one shot here when traditional workflow is using"""
                         model.reset_geom(shots_this_rank, src_list, rec_list, cfg)
-                        syn = model(lp_wavelet)
-                        
+                        syn = model(lp_wavelet) # syn is a TensorList
                         # filter at each epoch
                         fobs = seissignal.filter(obs0[shots_this_rank], freqs=freq)
-                        obs = to_tensor(np.stack(fobs, axis=0)).to(syn.device)
+                        obs = TensorList(fobs.tolist()).to(syn.device)
+
+                        # FOR RTM
+                        syn = syn.stack()
+                        obs = obs.stack()
+                        #syn = torch.stack(syn.data, dim=0)# works for rtm
+                        #obs = torch.stack(obs.data, dim=0)# works for rtm
 
                         # filter at first
                         # obs = to_tensor(np.stack(filtered_data[shots_this_rank], axis=0)).to(syn.device)#.unsqueeze(0)
                         
                         if "datamask" in cfg["geom"].keys():
                             dmask = to_tensor(np.stack(datamask[shots_this_rank], axis=0)).to(syn.device)#.unsqueeze(0)
+                            #dmask = TensorList(datamask[shots_this_rank]).to(syn.device)
                             syn = syn * dmask
                             obs = obs * dmask
 
@@ -305,7 +313,7 @@ if __name__ == '__main__':
                         loss = criterions(syn, obs)
                         # adj = torch.autograd.grad(loss, syn, create_graph=True)[0]
                         # np.save(f"{ROOTPATH}/adj.npy", adj.detach().cpu().numpy())        
-
+                        #loss = loss.requires_grad_(True)
                         loss.backward()
 
                         return loss.item()

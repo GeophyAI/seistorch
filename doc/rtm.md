@@ -1,12 +1,12 @@
 # Reverse time migration
 
-This example locates at `examples/reverse_time_migration`, we use a towed acqusition system with marmousi model to perform rtm.
+This example locates at `examples/rtm/marmousi`, we use a towed acqusition system with marmousi model to perform rtm.
 
 - **Generate geometry and observed data**
 
     Change to the example folder:
     ```shell
-    cd examples/reverse_time_migration
+    cd examples/rtm/marmousi
     ```
 
     Perform forward modeling:

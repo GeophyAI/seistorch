@@ -151,10 +151,12 @@ class SeisShow:
         for d, ax, title in zip(datalist, axes.ravel(), titlelist):
             if d.ndim==3 and d.shape[2]==1: d = d[:,:,0]
             if not normalize: vmin, vmax=np.percentile(d, [2,98])
-            ax.imshow(d, vmin=vmin, vmax=vmax, extent=extent, **kwargs)
+            print(vmin, vmax)
+            ax.imshow(d, vmin=vmin, vmax=vmax, extent=extent, aspect="auto", **kwargs)
             ax.set_title(title)
             ax.set_xlabel("x (m)")
             ax.set_ylabel("t (s)")
+            plt.colorbar(ax.images[0], ax=ax)
 
         plt.tight_layout()
         plt.show()

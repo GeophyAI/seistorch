@@ -1,6 +1,6 @@
 # 2d forward modeling in acoustic case
 
-The code of this section locates at `examples/forward_modeling2d`. This example shows how to run forward modeling with your own model and geometry.
+The code of this section locates at `examples/forward_modeling/forward_modeling2d`. This example shows how to run forward modeling with your own model and geometry.
 
 -   First we need to change the directory into it.
 
@@ -37,7 +37,7 @@ The code of this section locates at `examples/forward_modeling2d`. This example 
 
 # 2d forward modeling in elastic case
 
-The code of this section locates at `examples/elastic_modeling2d`. This example shows how to run forward modeling using elastic wave equation.
+The code of this section locates at `examples/forward_modeling/elastic_modeling2d`. This example shows how to run forward modeling using elastic wave equation.
 
 -   Step1: Generate a two layer model and the corresponding sources-receivers pairs by typing:
 
@@ -67,7 +67,7 @@ The code of this section locates at `examples/elastic_modeling2d`. This example 
 
 # 3d forward modeling in acoustic case
 
-The code of this section locates at `examples/forward_modeling3d`. This example shows how to run forward modeling with your own model and geometry.
+The code of this section locates at `examples/forward_modeling/forward_modeling3d`. This example shows how to run forward modeling with your own model and geometry.
 
 - **Generate geometry and velocity model**
 

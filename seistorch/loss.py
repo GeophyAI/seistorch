@@ -91,10 +91,8 @@ class CosineSimilarity(torch.nn.Module):
             A tensor representing the similarity loss.
         """
         loss = 0.
-        _, nt, nr, nc = x.shape
-        for i in range(x.shape[0]):
-            _x = x[i]
-            _y = y[i]
+        for _x, _y in zip(x, y):
+            nt = _x.shape[0]
             # Reshape x and y to (time_samples, num_traces * num_channels)
             x_reshaped = _x.view(nt, -1)
             y_reshaped = _y.view(nt, -1)
@@ -313,13 +311,16 @@ class Phase(torch.nn.Module):
         for i in range(x.shape[0]):
             loss += self.phase_consistency(self.analytic(x[i]), self.analytic(y[i]))
         return loss
-
+   
 class ReverseTimeMigration(torch.autograd.Function):
     def __init__(ctx):
         """
         Initialize the parent class.
         """
         super(ReverseTimeMigration, ctx).__init__()
+
+    def __repr__(self) -> str:
+        return "Reverse Time Migration"
 
     @property
     def name(ctx,):
@@ -333,8 +334,11 @@ class ReverseTimeMigration(torch.autograd.Function):
             x (tensor): synthetic seismograms.
             y (tensor): observed seismograms.
         """
+
+        loss = torch.tensor(0.0, dtype=torch.float32, requires_grad=True)
         ctx.save_for_backward(x, y)
-        return torch.tensor(0.0, dtype=torch.float32, requires_grad=True)
+
+        return loss
     
     @staticmethod
     def backward(ctx, grad_output):

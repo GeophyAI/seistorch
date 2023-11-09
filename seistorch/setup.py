@@ -155,16 +155,21 @@ class SeisSetup:
         batchsize, num_batches = self.setup_batchsize()
         num_shots_actual = self.setup_num_shots()
 
-        if forward or (inversion and not use_minibatch):
+        if forward:
             tasks = np.arange(num_shots_actual)
 
-        if inversion and use_minibatch:
+        if inversion:
 
             scales = len(self.cfg['geom']['multiscale'])
             epoch_per_scale = self.cfg['training']['N_epochs']
             num_iters = epoch_per_scale * scales
             shot_index = np.arange(num_shots_actual)
-            tasks = iter([np.random.choice(shot_index, batchsize, replace=False) for _ in range(num_iters)])
+
+            if use_minibatch:
+                tasks = iter([np.random.choice(shot_index, batchsize, replace=False) for _ in range(num_iters)])
+
+            if not use_minibatch:
+                tasks = iter([shot_index for _ in range(num_iters)])
 
         return tasks
             

@@ -1,6 +1,6 @@
 # Boundary saving-based automatic differentiation
 
-The code of this section locates at `examples/advsbs_acoustic`. This exmaples shows a workflow of performing full waveform inversion based on pure automatic differentiation (PAD) and boundary saving-based automatic differentiation (BSAD). The BSAD method is used to reduce the GPU memory usage by reconstructing the wavefield with boundary saving strategy during loss backpropagation.
+The code of this section locates at `examples/check_features/ADvsBS`. This exmaples shows a workflow of performing full waveform inversion based on pure automatic differentiation (PAD) and boundary saving-based automatic differentiation (BSAD). The BSAD method is used to reduce the GPU memory usage by reconstructing the wavefield with boundary saving strategy during loss backpropagation.
 
 - **Generate model and geometry**
 
@@ -100,7 +100,7 @@ This chapter primarily focuses on how to perform Seistorch's Source Encoding Ful
 
 In elastic wave-equation based fwi, three model parameters are need for calculating lame parameters, i.e. ***vp***, ***vs*** and ***rho***. In this example, the ***rho*** is set to constant 2000. And the ratio between ***vp*** and ***vs*** is also a constant 1.73 except for the regions of sea with a depth of 500m. We only invert ***vp*** and ***vs*** in this example.
 
-Files of true models all begin with `true_`, while initial models are prefixed with `linear_`. They are all placed in `examples/marmousi_model`.
+Files of true models all begin with `true_`, while initial models are prefixed with `linear_`. They are all placed in `examples/models/marmousi_model`.
 
 - **Generate the acquisition**
 
@@ -152,7 +152,7 @@ Seistorch also provides batched computation (BC) functionality. The BC is only v
 
 When running `fwi.py` you can specify the number of batches into which all the shots will be distributed by setting the `num-batches` parameter. This allows you to control how the shots are grouped for processing. More details can be seen in [Running commands](running_commands.md).
 
-The source code of this section locates at `examples/batched_inversion`. Please follow the following steps.
+The source code of this section locates at `examples/check_features/batched_inversion`. Please follow the following steps.
 
 - **Generate geometry**
 
@@ -187,7 +187,7 @@ The source code of this section locates at `examples/batched_inversion`. Please 
 
 # Towed streamer data generation and inversion
 
-In this chapter, we provide an example to illustrate the generation and inversion of towed streamer data. The source codes are in `examples/towed_acquisition`.
+In this chapter, we provide an example to illustrate the generation and inversion of towed streamer data. The source codes are in `examples/inversion/towed/towed_2d`.
 
 In the seistorch, the sources and receivers are stored in a nested python list object (please refer to [data format section](#data_format.md)). It's flexiable for users to set a different number of receivers for different shots. 
 
@@ -239,4 +239,48 @@ In the seistorch, the sources and receivers are stored in a nested python list o
 
     The final inverted result is shown as follows:
     ![Inverted](figures/towed_acquisition/Inverted.png)
+
+
+# Inversion with multiples
+
+There is a bollean parameter named `geom`->`multiple` in configure file that can allow you modeling data with multiples. It simplely disables the top PML boundary for allowing waves propagating from boundaries.
+
+This example shows a comparsion between the inversions with and without multiples. The configures of this example locates at `examples/inversion/inversion_with_multiples`.
+
+- **Model and acquisition setting**
+
+    The receivers are fixed at the bottom of the sea (the figure has been shown  before in source encoding fwi). Typing the follow command in your terminal, it will genereate the geometry files for inversion.
+
+    ```shell
+    python generate_model_geometry_fixed.py
+    ```
+
+- **Run forward modeling**
+
+    You need to change directory to `with_multiples` and `without_multiples` and run the coresponding `.sh` file for generating the observed data with and without multiples.
+
+    ```shell
+    cd with_multiples 
+    sh forward_withmultiple.sh
+    cd without_multiples 
+    sh forward_nomultiple.sh
+    ```
+
+    Then run the script `show_shotgather.py`, we will see the shot gathers with multiples
+
+    ![ShotGather](figures/inversion_with_multiples/shot_gather_with_multiples.png)
+
+    and shot gathers without multiples.
+
+    ![ShotGather](figures/inversion_with_multiples/shot_gather_without_multiples.png)
+
+- **Run inversion**
+
+    Run the inversion scipt in the two directories, respectively. The inversion results are shown as follows.
+
+    ![Inverted](figures/inversion_with_multiples/Inverted.png)
+
+
+
+
 

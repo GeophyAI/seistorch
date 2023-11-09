@@ -6,7 +6,7 @@ In this topic, we will show several examples of how to combine the neural networ
 
 We discrete the models of subsurface into grids with either finite-difference or finite-element methods. In fact, we can use a neural network to replace it, then the inversion can be regarded as optimizing the weights of the neural network. Here, we implement this by using Sun's idea: Use a neural network that takes coordinates as input and outputs the corresponding model parameters to replace the original gridded discrete model.
 
-The implicit NN method has been fully incorporated into the seistorch. A parameter named `implicit` in cofingure file is used to turn on/off the implicit network. This example is at `examples/implicitNN`
+The implicit NN method has been fully incorporated into the seistorch. A parameter named `implicit` in cofingure file is used to turn on/off the implicit network. This example is at `examples/check_features/implicitNN`
 
 - **Generate acquisition system and modeling**
     In this example, we use a downsampled marmousi model with 4.6km*1.6km, since we need to trail and error several times for getting a good learning rate.

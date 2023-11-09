@@ -43,7 +43,8 @@ class SeisSignal:
 
         filter_mode = self.decide_filter_type(freqs)
         
-        self.logger.print(f"Data filtering (mode: {filter_mode}): frequency:{freqs}")
+        if self.logger is not None:
+            self.logger.print(f"Data filtering (mode: {filter_mode}): frequency:{freqs}")
 
         if freqs == "all":
             return d
