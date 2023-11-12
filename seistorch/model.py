@@ -1,13 +1,15 @@
 
 import importlib
 import traceback
+import warnings
 
 import numpy as np
 import torch
 from yaml import load
 
 from .cell import WaveCell
-from .check import ConfigureCheck
+from .default import ConfigureCheck
+from .compile import SeisCompile
 from .geom import WaveGeometryFreeForm
 from .rnn import WaveRNN
 from .utils import set_dtype, update_cfg, to_tensor
@@ -79,12 +81,12 @@ def build_model(config_path,
     # Import the forward and backward functions with the specified equation
     forward_func = getattr(module, "_time_step", None)
     backward_func = getattr(module, "_time_step_backward", None)
-    main_torch_version = int(torch.__version__.split('.')[0])
-    #COMPILE = True if main_torch_version > 1 else False
-    COMPILE = False
-    if COMPILE:
-        forward_func = torch.compile(forward_func)
-        backward_func = torch.compile(backward_func)
+
+    # Compile the forward and backward functions
+    compile = SeisCompile(logger=logger)
+    forward_func = compile.compile(forward_func)
+    backward_func = compile.compile(backward_func)
+
     forward_func.ACOUSTIC2nd = True if cfg['equation'] == "acoustic" else False
     # Build Cell
     cell = WaveCell(geom, forward_func, backward_func)

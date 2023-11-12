@@ -11,7 +11,7 @@ class Adam(torch.optim.Adam):
     def name(self,):
         return "adam"
 
-    def __init__(self, params, eps=1e-8, ):
+    def __init__(self, params, eps=1e-8, **kwargs):
         super(Adam, self).__init__(params, eps=eps)
 
 class Steepestdescent(Optimizer):
@@ -72,74 +72,74 @@ class Steepestdescent(Optimizer):
 
             has_sparse_grad = self._init_group(group, params_with_grad, d_p_list)
 
-            gd(params_with_grad,
-               d_p_list,
-               lr=group['lr'],
-               grad_clamp=group['grad_clamp'],
-               maximize=group['maximize'],
-               has_sparse_grad=has_sparse_grad)
+            self.gd(params_with_grad,
+                    d_p_list,
+                    lr=group['lr'],
+                    grad_clamp=group['grad_clamp'],
+                    maximize=group['maximize'],
+                    has_sparse_grad=has_sparse_grad)
 
             # update momentum_buffers in state
             for p in params_with_grad:
                 state = self.state[p]
 
         return loss
+        
+    def gd(self, params: List[Tensor],
+        d_p_list: List[Tensor],
+        # kwonly args with defaults are not supported by functions compiled with torchscript issue #70627
+        # setting this as kwarg for now as functional API is compiled by torch/distributed/optim
+        has_sparse_grad: bool = None,
+        foreach: Optional[bool] = None,
+        *,
+        lr: float,
+        grad_clamp: bool,
+        maximize: bool):
+        r"""Functional API that performs SGD algorithm computation.
+
+        See :class:`~torch.optim.SGD` for details.
+        """
+
+        if foreach is None:
+            # why must we be explicit about an if statement for torch.jit.is_scripting here?
+            # because JIT can't handle Optionals nor fancy conditionals when scripting
+            if not torch.jit.is_scripting():
+                _, foreach = _default_to_fused_or_foreach(params, differentiable=False, use_fused=False)
+            else:
+                foreach = False
+
+        if foreach and torch.jit.is_scripting():
+            raise RuntimeError('torch.jit.script not supported with foreach optimizers')
+
+        if True:
+            func = self._single_tensor_gd
+
+        func(params,
+            d_p_list,
+            lr=lr,
+            grad_clamp=grad_clamp,
+            has_sparse_grad=has_sparse_grad,
+            maximize=maximize)
     
-def gd(params: List[Tensor],
-       d_p_list: List[Tensor],
-       # kwonly args with defaults are not supported by functions compiled with torchscript issue #70627
-       # setting this as kwarg for now as functional API is compiled by torch/distributed/optim
-       has_sparse_grad: bool = None,
-       foreach: Optional[bool] = None,
-       *,
-       lr: float,
-       grad_clamp: bool,
-       maximize: bool):
-    r"""Functional API that performs SGD algorithm computation.
+    def _single_tensor_gd(self, params: List[Tensor],
+                        d_p_list: List[Tensor],
+                        *,
+                        lr: float,
+                        grad_clamp: bool,
+                        maximize: bool,
+                        has_sparse_grad: bool):
 
-    See :class:`~torch.optim.SGD` for details.
-    """
+        for i, param in enumerate(params):
+            d_p = d_p_list[i] if not maximize else -d_p_list[i]
 
-    if foreach is None:
-        # why must we be explicit about an if statement for torch.jit.is_scripting here?
-        # because JIT can't handle Optionals nor fancy conditionals when scripting
-        if not torch.jit.is_scripting():
-            _, foreach = _default_to_fused_or_foreach(params, differentiable=False, use_fused=False)
-        else:
-            foreach = False
+            # We need to make sure that \delta m <= lr
+            if grad_clamp:
+                bound = torch.quantile(d_p, torch.Tensor([0.02, 0.98]).to(d_p.device).to(d_p.dtype))
+                d_p = torch.clamp(d_p, min=bound[0], max=bound[1])
 
-    if foreach and torch.jit.is_scripting():
-        raise RuntimeError('torch.jit.script not supported with foreach optimizers')
-
-    if True:
-        func = _single_tensor_gd
-
-    func(params,
-         d_p_list,
-         lr=lr,
-         grad_clamp=grad_clamp,
-         has_sparse_grad=has_sparse_grad,
-         maximize=maximize)
-    
-def _single_tensor_gd(params: List[Tensor],
-                      d_p_list: List[Tensor],
-                      *,
-                      lr: float,
-                      grad_clamp: bool,
-                      maximize: bool,
-                      has_sparse_grad: bool):
-
-    for i, param in enumerate(params):
-        d_p = d_p_list[i] if not maximize else -d_p_list[i]
-
-        # We need to make sure that \delta m <= lr
-        if grad_clamp:
-            bound = torch.quantile(d_p, torch.Tensor([0.02, 0.98]).to(d_p.device).to(d_p.dtype))
-            d_p = torch.clamp(d_p, min=bound[0], max=bound[1])
-
-        max_value_of_grad = torch.max(torch.abs(d_p.data)).cpu()
-        alpha = lr / max_value_of_grad
-        param.add_(d_p, alpha=-alpha)
+            max_value_of_grad = torch.max(torch.abs(d_p.data)).cpu()
+            alpha = lr / max_value_of_grad
+            param.add_(d_p, alpha=-alpha)
 
 class Cg(Optimizer):
 
@@ -147,8 +147,8 @@ class Cg(Optimizer):
     def name(self,):
         return "ncg"
     
-    def __init__(self, params, lr=1.0, beta_type='PR', gradient_clamp=True, **kwargs):
-        defaults = dict(lr=lr, beta_type=beta_type, gradient_clamp=gradient_clamp)
+    def __init__(self, params, lr=1.0, beta_type='PR', grad_clamp=True, **kwargs):
+        defaults = dict(lr=lr, beta_type=beta_type, grad_clamp=grad_clamp)
         super(Cg, self).__init__(params, defaults)
 
     # def __setstate__(self, state):
@@ -171,7 +171,7 @@ class Cg(Optimizer):
 
                 # grad = p.grad.data
                 # Clamp the gradient
-                if group['gradient_clamp']:
+                if group['grad_clamp']:
                     grad_temp = p.grad.data
                     bound = torch.quantile(grad_temp, torch.Tensor([0.02, 0.98]).to(grad_temp.device).to(grad_temp.dtype))
                     grad = torch.clamp(grad_temp, min=bound[0], max=bound[1])
@@ -202,7 +202,7 @@ class Cg(Optimizer):
                 direction = -grad + beta * direction
 
                 # Clamp the direction
-                # if group['gradient_clamp']:
+                # if group['grad_clamp']:
                 #     bound = torch.quantile(direction, torch.Tensor([0.02, 0.98]).to(direction.device).to(direction.dtype))
                 #     direction = torch.clamp(direction, min=bound[0], max=bound[1])
 

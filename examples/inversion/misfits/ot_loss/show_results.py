@@ -5,8 +5,8 @@ npml = 50
 epoch = 49
 true = np.load('./velocity_model/true.npy')
 init = np.load('./velocity_model/init.npy')
-inverted = np.load(f'./results_l2/paravpF00E{epoch:02d}.npy')[npml:-npml, npml:-npml]
-grad = np.load(f'./results_l2/gradvpF00E{epoch:02d}.npy')[npml:-npml, npml:-npml]
+inverted = np.load(f'./results_w1d/paravpF00E{epoch:02d}.npy')[npml:-npml, npml:-npml]
+grad = np.load(f'./results_w1d/gradvpF00E{epoch:02d}.npy')[npml:-npml, npml:-npml]
 
 fig, axes=plt.subplots(1,4,figsize=(12,3))
 vmin,vmax=true.min(),true.max()
@@ -21,7 +21,8 @@ axes[2].set_title("Inverted")
 trace = 100
 axes[3].plot(true[:,trace],label="True")
 axes[3].plot(init[:,trace],label="Initial")
-axes[3].plot(inverted[:,trace],label="Inverted")
+axes[3].plot(inverted[:,trace],label="Inverted Vertical Profile")
+axes[3].plot(inverted[trace,:],label="Inverted Horizontal Profile")
 axes[3].legend()
 
 plt.tight_layout()

@@ -2,7 +2,7 @@ import os, pickle, sys
 import numpy as np
 import matplotlib.pyplot as plt
 
-sys.path.append("../..")
+sys.path.append("../../../..")
 from seistorch.show import SeisShow
 from scipy.ndimage import gaussian_filter1d
 

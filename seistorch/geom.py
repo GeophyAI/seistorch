@@ -1,6 +1,6 @@
 import os
 from typing import Tuple
-
+import importlib
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
@@ -10,14 +10,22 @@ from .eqconfigure import Parameters
 from .utils import to_tensor
 from .siren import Siren
 from .io import SeisIO
+from .random import random_fill
 
 class WaveGeometry(torch.nn.Module):
-    def __init__(self, domain_shape: Tuple, h: float, abs_N: int = 20, equation: str = "acoustic", ndim: int = 2, multiple: bool = False):
+    def __init__(self, 
+                 domain_shape: Tuple, 
+                 h: float, 
+                 abs_N: int = 20, 
+                 equation: str = "acoustic", 
+                 ndim: int = 2, 
+                 multiple: bool = False):
+        
         super().__init__()
 
         self.domain_shape = domain_shape
 
-        self.multiple = multiple
+        # self.multiple = multiple
 
         self.ndim = ndim
 
@@ -25,9 +33,36 @@ class WaveGeometry(torch.nn.Module):
 
         self.register_buffer("abs_N", to_tensor(abs_N, dtype=torch.uint8))
 
-        # INIT boundary coefficients
-        generate_pml_coefficients = getattr(self, f"generate_pml_coefficients_{ndim}d")
-        generate_pml_coefficients(abs_N)
+        # default boundary type is pml
+        use_pml=False
+        use_random=False
+
+        if abs_N==0:
+            self.register_buffer("_d", to_tensor(0.))
+
+        if 'boundary' not in self.kwargs['geom'].keys() and abs_N > 0:
+            use_pml = True
+
+        if 'boundary' in self.kwargs['geom'].keys():
+            btype = self.kwargs['geom']['boundary']['type']
+            bwidth = self.kwargs['geom']['boundary']['width']
+
+            use_pml =  btype == 'pml' and bwidth > 0
+            use_random = btype == 'random' and bwidth > 0
+            
+        if use_pml:
+            module = importlib.import_module("seistorch.pml")
+            coes_func = getattr(module, f"generate_pml_coefficients_{ndim}d", None)
+            d = coes_func(domain_shape, abs_N, multiple=multiple)
+            self.register_buffer("_d", d)
+            if self.logger is not None:
+                self.logger.print(f"Using PML with width={abs_N}.")
+
+        if use_random:
+            self.register_buffer("_d", to_tensor(0.))
+            if self.logger is not None:
+                self.logger.print(f"Using random boundary with width={abs_N}.")
+
 
     def state_reconstruction_args(self):
         return {"h": self.h.item(),
@@ -52,77 +87,6 @@ class WaveGeometry(torch.nn.Module):
     @property
     def d(self,):
         return self._d
-
-    def _corners(self, abs_N, d, dx, dy, multiple=False):
-        Nx, Ny = self.domain_shape
-        for j in range(Ny):
-            for i in range(Nx):
-                # Left-Top
-                if not multiple:
-                    if i < abs_N+1 and j< abs_N+1:
-                        if i < j: d[i,j] = dy[i,j]
-                        else: d[i,j] = dx[i,j]
-                # Left-Bottom
-                if i > (Nx-abs_N-2) and j < abs_N+1:
-                    if i + j < Nx: d[i,j] = dx[i,j]
-                    else: d[i,j] = dy[i,j]
-                # Right-Bottom
-                if i > (Nx-abs_N-2) and j > (Ny-abs_N-2):
-                    if i - j > Nx-Ny: d[i,j] = dy[i,j]
-                    else: d[i,j] = dx[i,j]
-                # Right-Top
-                if not multiple:
-                    if i < abs_N+1 and j> (Ny-abs_N-2):
-                        if i + j < Ny: d[i,j] = dy[i,j]
-                        else: d[i,j] = dx[i,j]
-
-    def generate_pml_coefficients_2d(self, N=50, B=100.):
-        Nx, Ny = self.domain_shape
-
-        R = 10**(-((np.log10(N)-1)/np.log10(2))-3)
-        #d0 = -(order+1)*cp/(2*abs_N)*np.log(R) # Origin
-        R = 1e-6; order = 2; cp = 1000.# Mao shibo Master
-        d0 = (1.5*cp/N)*np.log10(R**-1)
-        d_vals = d0 * torch.linspace(0.0, 1.0, N + 1) ** order
-        d_vals = torch.flip(d_vals, [0])
-
-        d_x = torch.zeros(Ny, Nx)
-        d_y = torch.zeros(Ny, Nx)
-        
-        if N > 0:
-            d_x[0:N + 1, :] = d_vals.repeat(Nx, 1).transpose(0, 1)
-            d_x[(Ny - N - 1):Ny, :] = torch.flip(d_vals, [0]).repeat(Nx, 1).transpose(0, 1)
-            if not self.multiple:
-                d_y[:, 0:N + 1] = d_vals.repeat(Ny, 1)
-            d_y[:, (Nx - N - 1):Nx] = torch.flip(d_vals, [0]).repeat(Ny, 1)
-
-        self.register_buffer("_d", torch.sqrt(d_x ** 2 + d_y ** 2).transpose(0, 1))
-        self._corners(N, self._d, d_x.T, d_y.T, self.multiple)
-        # np.save("/home/wangsw/inversion/2d/layer/results/l2/pml.npy", self._d.cpu().detach().numpy())
-
-    def generate_pml_coefficients_3d(self, N=50, B=100.):
-        nz, ny, nx = self.domain_shape
-        # Cosine coefficients for pml
-        idx = (torch.ones(N + 1) * (N+1)  - torch.linspace(0.0, (N+1), N + 1))/(2*(N+1))
-        b_vals = torch.cos(torch.pi*idx)
-        b_vals = torch.ones_like(b_vals) * B * (torch.ones_like(b_vals) - b_vals)
-
-        b_x = torch.zeros((nz, ny, nx))
-        b_y = torch.zeros((nz, ny, nx))
-        b_z = torch.zeros((nz, ny, nx))
-
-        b_x[:,0:N+1,:] = b_vals.repeat(nx, 1).transpose(0, 1)
-        b_x[:,(ny - N - 1):ny,:] = torch.flip(b_vals, [0]).repeat(nx, 1).transpose(0, 1)
-
-        b_y[:,:,0:N + 1] = b_vals.repeat(ny, 1)
-        b_y[:,:,(nx - N - 1):nx] = torch.flip(b_vals, [0]).repeat(ny, 1)
-
-        b_z[0:N + 1, :, :] = b_vals.view(-1, 1, 1).repeat(1, ny, nx)
-        b_z[(nz - N - 1):nz + 1, :, :] = torch.flip(b_vals, [0]).view(-1, 1, 1).repeat(1, ny, nx)
-
-        #pml_coefficients = torch.sqrt(b_x ** 2 + b_y ** 2 + b_z ** 2)
-
-        self.register_buffer("_d", torch.sqrt(b_x ** 2 + b_y ** 2 + b_z ** 2))
 
 class WaveGeometryFreeForm(WaveGeometry):
     def __init__(self, mode='forward', logger=None, **kwargs):
@@ -186,7 +150,8 @@ class WaveGeometryFreeForm(WaveGeometry):
 
             # add the model to the graph
             mname, mpath = para, modelPath[para]
-            self.logger.print(f"Loading model '{mpath}', invert = {invlist[mname]}")
+            if self.logger is not None:
+                self.logger.print(f"Loading model '{mpath}', invert = {invlist[mname]}")
             if invlist[mname]:
                 self.pars_need_invert.append(mname)
             # add the model to a list for later use
@@ -224,7 +189,7 @@ class WaveGeometryFreeForm(WaveGeometry):
             anti_value[0:self.padding+12] = 1500.
             setattr(self, par, anti_value)
 
-    def step(self, seabed):
+    def step(self, seabed=None):
         """
             Doing this step for each iteration.
         """
@@ -233,36 +198,23 @@ class WaveGeometryFreeForm(WaveGeometry):
         # the model to the implicit neural network.
         # e.g: vp = self.siren['vp'](coords); 
         # e.g: vs = self.siren['vs'](coords);
-        if self.use_implicit:
-            self.step_implicit(seabed)
+        # if self.use_implicit:
+        #     self.step_implicit(seabed)
+
+        # TODO: random boundary
+        # 10.1190/geo2014-0542.1
+        # use_random = self.kwargs['geom']['boundary']['type'] == 'random'
+        # if use_random:
+        #     for para in self.model_parameters:
+        #         var = self.__getattr__(para)
+        #         var.data = random_fill(var, self.padding, 400., var.max().item(), self.multiple)
+        pass
 
     def anti_normalization(self, model, mean=3000., std=1000.):
         return model * std + mean
     
     def __repr__(self):
         return f"Paramters of {self.model_parameters} have been defined."
-        
-    def pad_model_with_random_values(self, model, N):
-        nz, nx = model.shape
-
-        # min_val = np.min(model)
-        # max_val = np.max(model)
-        min_val = 400
-        max_val = np.min(model)
-
-        padded_model = np.zeros((nz + 2 * N, nx + 2 * N))
-
-        # Set the inner values
-        padded_model[N:N+nz, N:N+nx] = model
-
-        # Set the boundary values
-        for i in range(N):
-            padded_model[i, :] = np.random.uniform(min_val, max_val, (nx + 2 * N))  # 
-            padded_model[-i-1, :] = np.random.uniform(min_val, max_val, (nx + 2 * N))  # 
-            padded_model[:, i] = np.random.uniform(min_val, max_val, (nz + 2 * N))  # 
-            padded_model[:, -i-1] = np.random.uniform(min_val, max_val, (nz + 2 * N))  # 
-
-        return padded_model
     
     def tensor_to_img(self, key, array, padding=0, vmin=None, vmax=None, cmap="seismic"):
         cmap = plt.get_cmap(cmap)
@@ -285,13 +237,6 @@ class WaveGeometryFreeForm(WaveGeometry):
         img = torch.from_numpy(img).permute(2, 0, 1)#.unsqueeze(0)
 
         return img
-    
-    def set_zero_boundaries(self, tensor, pad=50):
-        tensor[..., :pad, :] = 0
-        tensor[..., -pad:, :] = 0
-        tensor[..., :, :pad] = 0
-        tensor[..., :, -pad:] = 0
-        return tensor
 
     def get_mgrid_from_vel(self, shape):
         '''Generates a flattened grid of (x,y,...) coordinates in a range of -1 to 1.
@@ -335,14 +280,6 @@ class WaveGeometryFreeForm(WaveGeometry):
 
         for para in self.siren["vp"].parameters():
             para.grad.data.clamp_(min=min_val, max=max_val)
-
-    def reset_random_boundary(self,):
-        for para in self.model_parameters:
-            var = self.__getattr__(para).detach()
-            if var.requires_grad:
-                cut_var = var.cpu().detach().numpy()[self.padding:-self.padding, self.padding:-self.padding]
-                pad_var = self.pad_model_with_random_values(cut_var, self.padding)
-                var.copy_(to_tensor(pad_var).to(var.device))
 
     def save_model(self, path: str, paras: str, freq_idx=1, epoch=1, writer=None, max_epoch=1000):
         """Save the data of model parameters and their gradients(if they have).

@@ -54,7 +54,8 @@ class SeisRecord:
 
     def setup(self, mode):
 
-        # self.logger.print(f"Detect filetype is {self.filetype}.")
+        if self.logger is not None:
+            self.logger.print(f"Detect filetype is {self.filetype}.")
 
         _setup_ = getattr(self, f"setup_{mode}")
         _setup_()

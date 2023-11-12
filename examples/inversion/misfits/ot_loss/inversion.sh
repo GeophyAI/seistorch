@@ -4,9 +4,9 @@ export LD_LIBRARY_PATH=/home/wangsw/anaconda3/lib:$LD_LIBRARY_PATH && \
 mpirun -f hosts \
 python ../../../../fwi.py forward.yml \
 --opt steepestdescent \
---loss vp=l2 \
+--loss vp=w1d \
 --num-batches 1 \
 --lr vp=20.0 \
 --mode inversion \
---save-path ./results_l2 \
+--save-path ./results_w1d \
 --use-cuda

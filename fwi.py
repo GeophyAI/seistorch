@@ -34,6 +34,7 @@ from seistorch.type import TensorList
 from seistorch.setup import *
 from seistorch.utils import (DictAction, to_tensor)
 
+from ot.utils import proj_simplex
 
 parser = argparse.ArgumentParser()
 parser.add_argument('config', type=str, 
@@ -149,6 +150,7 @@ if __name__ == '__main__':
                 with torch.no_grad():
                     shots = tasks
                     model.reset_geom(shots, src_list, rec_list, cfg)
+                    # model.cell.geom.step() # random boundary
                     y = model(x)
                     #record = y.cpu().detach().numpy()
                     record = y.numpy()
@@ -308,12 +310,15 @@ if __name__ == '__main__':
                         #if shot==10:
                         #name_postfix = 'init' if epoch==0 else ''
                         name_postfix = ''
-                        # np.save(f"{ROOTPATH}/obs{name_postfix}.npy", obs.cpu().detach().numpy())
-                        # np.save(f"{ROOTPATH}/syn{name_postfix}.npy", syn.cpu().detach().numpy())
+                        np.save(f"{ROOTPATH}/obs{name_postfix}.npy", obs.cpu().detach().numpy())
+                        np.save(f"{ROOTPATH}/syn{name_postfix}.npy", syn.cpu().detach().numpy())
                         loss = criterions(syn, obs)
                         # adj = torch.autograd.grad(loss, syn, create_graph=True)[0]
                         # np.save(f"{ROOTPATH}/adj.npy", adj.detach().cpu().numpy())        
-                        #loss = loss.requires_grad_(True)
+                        
+                        # For random boundary
+                        model.cell.geom.step()
+
                         loss.backward()
 
                         return loss.item()
@@ -355,11 +360,17 @@ if __name__ == '__main__':
 
                 if args.grad_cut and isinstance(SEABED, torch.Tensor):
                     model.cell.geom.gradient_cut(SEABED, cfg['geom']['pml']['N'])        
-
+                    
                 #torch.nn.utils.clip_grad_norm_(model.cell.parameters(), 1e-2)
                 # Update the model parameters and learning rate
                 optimizers.step()
                 lr_scheduler.step()
+                model.cell.geom.step()
+                # Proj simplex
+                # if True:
+                #     for idx, para in enumerate(model.cell.geom.pars_need_invert):
+                #         var = model.cell.geom.__getattr__(para)
+                #         var.data = proj_simplex(var)
 
             if WRITTER:
                 # Save vel and grad

@@ -64,6 +64,8 @@ parser.add_argument('--grad-smooth', action='store_true',
                     help='Smooth the gradient or not')
 parser.add_argument('--grad-cut', action='store_true',
                     help='Cut the boundaries of gradient or not')
+parser.add_argument('--disable-grad-clamp', action='store_true',
+                    help='Clamp the gradient using quantile or not')
 parser.add_argument('--mode', choices=['inversion'], default='inversion',
                     help='forward modeling, inversion or reverse time migration mode')
 parser.add_argument('--source-encoding', action='store_true', default=True,
@@ -181,7 +183,7 @@ if __name__ == '__main__':
         if local_epoch==0:
             freq = cfg['geom']['multiscale'][idx_freq]
             # reset the optimizer
-            optimizers, lr_scheduler = setup.setup_optimizer(model, idx_freq, IMPLICIT)
+            optimizers, lr_scheduler = setup.setup_optimizer(model, idx_freq, IMPLICIT, not args.disable_grad_clamp)
             
             # Filter both record and ricker
             lp_rec = seissignal.filter(full_band_data, freqs=freq)
@@ -229,6 +231,8 @@ if __name__ == '__main__':
             # Reset sources of super shot gathers
             model.reset_sources(sources)
             coding_syn = model(coding_wav)
+            # model.cell.geom.step()
+
             # loss = criterion(coding_syn, coding_obs, model.cell.geom.vp)
             # (f"{ROOTPATH}/syn.npy", coding_syn.cpu().detach().numpy())
             # np.save(f"{ROOTPATH}/obs.npy", coding_obs.cpu().detach().numpy())
@@ -284,6 +288,7 @@ if __name__ == '__main__':
         # Update the parameters
         optimizers.step()
         lr_scheduler.step()
+        model.cell.geom.step()
 
         # Saving checkpoint
         # torch.save({'epoch': local_epoch, 

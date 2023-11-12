@@ -6,6 +6,9 @@ import torch
 import torch.nn.functional as F
 from seistorch.signal import differentiable_trvaletime_difference as dtd
 from geomloss import SamplesLoss
+from seistorch.signal import hilbert
+from ot.lp import wasserstein_1d
+import ot
 
 try:
     from torchvision.models import vgg19
@@ -217,6 +220,83 @@ class Envelope(torch.nn.Module):
         for i in range(x.shape[0]):
             loss += self.envelope_loss(x[i], y[i])
         # loss = self.envelope_loss(x, y)
+        return loss
+
+class InstantaneousPhase(torch.nn.Module):
+    """Yuan et. al, <The exponentiated phase measurement, 
+    and objective-function hybridization for adjoint waveform tomography>
+    10.1093/gji/ggaa063
+    """
+
+    def __init__(self):
+        """
+        Initialize the parent class.
+        """
+        super(InstantaneousPhase, self).__init__()
+
+    @property
+    def name(self,):
+        return "ip"
+    
+    def instantaneous_phase(self, d):
+        """
+        Compute the instantaneous phase of the input data tensor.
+
+        Args:
+            data (torch.Tensor): The input data tensor.
+
+        Returns:
+            torch.Tensor: The instantaneous phase of the input data tensor.
+        """
+        # Compute the Hilbert transform along the time axis
+        hilbert_transform = hilbert(d).real
+        
+        # Compute the instantaneous phase
+        #instantaneous_phase = torch.arctan(hilbert_transform.real/(d+1e-16))
+        instantaneous_phase = torch.arctan2(hilbert_transform, d+1e-16)
+        return instantaneous_phase
+    
+    def instantaneous_phase_diff(self, x, y):
+        """
+        Compute the instantaneous phase difference between x and y.
+
+        Args:
+            x (torch.Tensor): The first input tensor.
+            y (torch.Tensor): The second input tensor.
+
+        Returns:
+            torch.Tensor: The computed instantaneous phase difference.
+        """
+        phi_x = self.instantaneous_phase(x)
+        phi_y = self.instantaneous_phase(y)
+
+        # Compute the phase difference
+        phase_difference = phi_x - phi_y
+
+        # Wrap the phase difference to [-pi, pi]
+        phase_difference = torch.remainder(phase_difference + torch.pi, 2 * torch.pi) - torch.pi
+
+        return phase_difference
+    
+    def instantaneous_phase_diff2(self, x, y):
+
+        hx = hilbert(x).real
+        hy = hilbert(y).real
+
+        numerator = x*hy-y*hx
+        denominator = x*y+hx*hy
+
+        # phase_difference = torch.arctan2(numerator, denominator+1e-16)
+        phase_difference = torch.atan(numerator/(denominator+1e-16))
+        return phase_difference
+    
+    def forward(self, x, y):
+        loss = 0.
+        for _x, _y in zip(x, y):
+            # 3.5 Instantaneous phase: measurement challenges: Equation 12
+            # loss += torch.mean(torch.square(self.instantaneous_phase_diff2(_x, _y)))
+            # 3.3 Instantaneous phase: Equation 9~10
+            loss += torch.mean(torch.square(self.instantaneous_phase_diff(_x, _y)))
         return loss
 
 class Phase(torch.nn.Module):
@@ -442,7 +522,85 @@ class Traveltime(torch.nn.Module):
     def forward(self, x, y):
         loss, _ = self.compute_loss(x, y)
         return loss
+
+class Wasserstein1d(torch.nn.Module):
+
+    def __init__(self):
+        super(Wasserstein1d, self).__init__()
+
+    @property
+    def name(self,):
+        return "w1d"
     
+    def forward(self, x, y):
+        """Compute the Wasserstein distance between two tensors.
+
+        Args:
+            x (tensor): The first input tensor with shape (nb, nt, nr, nc).
+            y (tensor): The second input tensor with shape (nb, nt, nr, nc).
+
+        Returns:
+            tensor: The computed Wasserstein distance with shape (nb, 1, nr, nc).
+        """
+        nt, nr, nc = x[0].shape
+        # Enforce non-negative
+        x = x**2
+        y = y**2
+        # Enforce sum to one on the support
+        # Method 1: normalize use the sum value
+        # wx = torch.sum(x, dim=0, keepdim=True)[0]
+        # wy = torch.sum(y, dim=0, keepdim=True)[0]
+        # x = x / wx
+        # y = y / wy
+        # Compute the Wasserstein distance
+        loss = 0
+        t = torch.linspace(0, nt-1, nt, dtype=x[0].dtype).to(x.device)*0.001#[None,:]
+        # t /= t.max()
+        # loss matrix and normalization
+
+        for _x, _y in zip(x, y):
+
+            # Ensure nt last
+            # _x = _x.permute(1, 2, 0).view(-1, nt).contiguous()
+            # _y = _y.permute(1, 2, 0).view(-1, nt).contiguous()
+            # loss += wasserstein_1d(t, t, _x, _y, p=2).mean()
+            for r in range(nr):
+                for c in range(nc):
+            #         # px = torch.cumsum(_x[:, r, c], dim=0)
+            #         # py = torch.cumsum(_y[:, r, c], dim=0)
+                    px = _x[:, r, c]
+                    py = _y[:, r, c]
+
+                    # normalize
+
+
+                    if torch.sum(px)==0 or torch.sum(py)==0:
+                        loss +=0.
+                    else:
+                        # px = px / torch.sum(px)
+                        # py = py / torch.sum(py)
+
+                        loss += ot.wasserstein_1d(t, t, px, py, p=2)
+
+                        # euclidean
+
+                        # M = ot.dist(py.view((nt, 1)), py.view((nt, 1)), 'euclidean')
+                        # M /= M.max() * 0.1
+
+                        # d_emd = ot.emd2(px, py.view(nt, 1), M)
+
+                        # sqeuclidean
+                        # M2 = ot.dist(py.reshape((nt, 1)), py.reshape((nt, 1)), 'sqeuclidean')
+                        # M2 /= M2.max() * 0.1
+
+                        # d_emd = ot.emd2(px, py.view(nt, 1), M2)
+
+                        # loss += d_emd[0]
+
+            #             # loss += wasserstein_1d(t, t, px, py, p=1)
+
+        return loss
+
 class ImplicitLoss(torch.nn.Module):
 
     def __init__(self):
