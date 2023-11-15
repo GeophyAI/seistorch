@@ -40,9 +40,9 @@ class SeisSignal:
             return signal.sosfilt(sos, data, axis=axis)
 
     def filter(self, d, freqs, axis=0, threads=1, **kwargs):
-
-        filter_mode = self.decide_filter_type(freqs)
         
+        filter_mode = self.decide_filter_type(freqs)
+
         if self.logger is not None:
             self.logger.print(f"Data filtering (mode: {filter_mode}): frequency:{freqs}")
 
@@ -238,6 +238,18 @@ def hilbert(data):
     #hilbert_data = hilbert_data#[:nt]
 
     return hilbert_data
+
+def square(d):
+    return d**2
+
+def abs(d):
+    return torch.abs(d)
+
+def integrate(d, dim=0):
+    return torch.cumsum(d, dim=dim)
+
+def envelope(d):
+    return torch.abs(hilbert(d))
 
 def pick_first_arrivals(d, *args, **kwargs):
     _, ntraces, nchannels = d.shape

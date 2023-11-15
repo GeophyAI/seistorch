@@ -103,8 +103,8 @@ def _time_step_backward(*args):
                 + torch.mul(vp.pow(2), _laplacian(h1, h)))
                 )
     
-    # with torch.no_grad():
-    #     y = restore_boundaries(y, h_bd)
+    with torch.no_grad():
+        y = restore_boundaries(y, h_bd)
     
     y = src_func(y, src_values, 1)
 

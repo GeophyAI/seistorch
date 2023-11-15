@@ -33,7 +33,7 @@ for depth in range(water_grid, nz):
     vel1[depth] = 1500 + (depth-water_grid) * 10.
     vel2[depth] = 1500 + (depth-water_grid) * 15.
 
-fig, axes= plt.subplots(3, 1, figsize=(8, 8))
+fig, axes= plt.subplots(3, 1, figsize=(6, 6))
 vmin=1500
 vmax=max(vel1.max(), vel2.max())
 kwargs = dict(cmap='seismic', vmin=vmin, vmax=vmax, aspect="auto", extent=[0, nx*dh, nz*dh, 0])
@@ -58,6 +58,7 @@ axes[2].legend()
 
 plt.tight_layout()
 plt.show()
+fig.savefig("velocity_model.png", bbox_inches="tight", dpi=600)
 
 model_save_path = r"./velocity_model"
 os.makedirs(model_save_path, exist_ok=True)

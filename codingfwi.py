@@ -238,7 +238,7 @@ if __name__ == '__main__':
             # np.save(f"{ROOTPATH}/obs.npy", coding_obs.cpu().detach().numpy())
             if not MULTI_LOSS:
                 # One loss function for all parameters
-                loss = criterions(coding_syn, coding_obs.unsqueeze(0))
+                loss = criterions(coding_syn.stack(), coding_obs.unsqueeze(0))
                 # adj = torch.autograd.grad(loss, coding_syn)[0]
                 # np.save(f"{ROOTPATH}/adj.npy", adj.detach().cpu().numpy())
                 loss.backward() #retain_graph=True

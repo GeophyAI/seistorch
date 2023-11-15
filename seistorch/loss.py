@@ -6,7 +6,7 @@ import torch
 import torch.nn.functional as F
 from seistorch.signal import differentiable_trvaletime_difference as dtd
 from geomloss import SamplesLoss
-from seistorch.signal import hilbert
+from seistorch.signal import hilbert, abs, square, integrate, envelope
 from ot.lp import wasserstein_1d
 import ot
 
@@ -45,31 +45,6 @@ class Loss:
                 return loss_class()
         raise ValueError(f"Cannot find loss named {self.loss_name}")
 
-
-class L1(torch.nn.Module):
-    def __init__(self, ):
-        super(L1, self).__init__()
-
-    @property
-    def name(self,):
-        return "l1"
-    
-    def forward(self, x, y):
-        return torch.nn.L1Loss()(x, y)
-    
-class L2(torch.nn.Module):
-    def __init__(self, ):
-        super(L2, self).__init__()
-
-    @property
-    def name(self,):
-        return "l2"
-    
-    def forward(self, x, y):
-        loss = 0.
-        for _x, _y in zip(x, y):
-            loss += torch.nn.MSELoss()(_x, _y)
-        return loss
 
 class CosineSimilarity(torch.nn.Module):
     """The cosine similarity (Normalized cross correlation) loss function.
@@ -112,98 +87,100 @@ class Envelope(torch.nn.Module):
     two input tensors (e.g., predicted and observed seismograms).
     """
 
-    def __init__(self):
+    def __init__(self, reduction='sum', criterion='l2'):
         """
         Initialize the parent class.
         """
         super(Envelope, self).__init__()
+        self.loss = {'l1':torch.nn.L1Loss(reduction=reduction), 
+                     'l2':torch.nn.MSELoss(reduction=reduction)}[criterion]
 
     @property
     def name(self,):
         return "envelope"
 
     # @torch.no_grad()
-    def analytic(self, data):
-        """
-        Compute the Hilbert transform of the input data tensor.
+    # def analytic(self, data):
+    #     """
+    #     Compute the Hilbert transform of the input data tensor.
 
-        Args:
-            data (torch.Tensor): The input data tensor.
+    #     Args:
+    #         data (torch.Tensor): The input data tensor.
 
-        Returns:
-            torch.Tensor: The Hilbert transform of the input data tensor.
-        """
+    #     Returns:
+    #         torch.Tensor: The Hilbert transform of the input data tensor.
+    #     """
 
-        nt, _, _ = data.shape
-        # nfft = 2 ** (nt - 1).bit_length()
-        nfft = nt # the scipy implementation uses this
+    #     nt, _, _ = data.shape
+    #     # nfft = 2 ** (nt - 1).bit_length()
+    #     nfft = nt # the scipy implementation uses this
 
-        # Compute the FFT
-        data_fft = torch.fft.fft(data, n=nfft, dim=0)
+    #     # Compute the FFT
+    #     data_fft = torch.fft.fft(data, n=nfft, dim=0)
 
-        # Create the filter
-        # h = torch.zeros(nfft, device=data.device).unsqueeze(1).unsqueeze(2)
-        h = np.zeros(nfft, dtype=np.float32)
+    #     # Create the filter
+    #     # h = torch.zeros(nfft, device=data.device).unsqueeze(1).unsqueeze(2)
+    #     h = np.zeros(nfft, dtype=np.float32)
 
-        if nfft % 2 == 0:
-            h[0] = h[nfft // 2] = 1
-            h[1:nfft // 2] = 2
-        else:
-            h[0] = 1
-            h[1:(nfft + 1) // 2] = 2
+    #     if nfft % 2 == 0:
+    #         h[0] = h[nfft // 2] = 1
+    #         h[1:nfft // 2] = 2
+    #     else:
+    #         h[0] = 1
+    #         h[1:(nfft + 1) // 2] = 2
 
-        h = np.expand_dims(h, 1)
-        h = np.expand_dims(h, 2)
-        h = torch.from_numpy(h).to(data.device)
-        # h = h.requires_grad_(True)
-        # Apply the filter and compute the inverse FFT
-        hilbert_data = torch.fft.ifft(data_fft * h, dim=0)
+    #     h = np.expand_dims(h, 1)
+    #     h = np.expand_dims(h, 2)
+    #     h = torch.from_numpy(h).to(data.device)
+    #     # h = h.requires_grad_(True)
+    #     # Apply the filter and compute the inverse FFT
+    #     hilbert_data = torch.fft.ifft(data_fft * h, dim=0)
 
-        # Truncate the result to the original length
-        #hilbert_data = hilbert_data#[:nt]
+    #     # Truncate the result to the original length
+    #     #hilbert_data = hilbert_data#[:nt]
 
-        return hilbert_data
+    #     return hilbert_data
     
-    def envelope(self, seismograms):
-        """
-        Compute the envelope of the input seismograms tensor.
+    # def envelope(self, seismograms):
+    #     """
+    #     Compute the envelope of the input seismograms tensor.
 
-        Args:
-            seismograms (torch.Tensor): The input seismograms tensor.
+    #     Args:
+    #         seismograms (torch.Tensor): The input seismograms tensor.
 
-        Returns:
-            torch.Tensor: The envelope of the input seismograms tensor.
-        """
-        # Compute the Hilbert transform along the time axis
-        hilbert_transform = self.analytic(seismograms)
+    #     Returns:
+    #         torch.Tensor: The envelope of the input seismograms tensor.
+    #     """
+    #     # Compute the Hilbert transform along the time axis
+    #     hilbert_transform = self.analytic(seismograms)
         
-        # Compute the envelope
-        envelope = torch.abs(hilbert_transform)
+    #     # Compute the envelope
+    #     envelope = torch.abs(hilbert_transform)
 
-        # envelope = torch.sqrt(hilbert_transform.real**2 + hilbert_transform.imag**2)
+    #     # envelope = torch.sqrt(hilbert_transform.real**2 + hilbert_transform.imag**2)
 
-        return envelope
+    #     return envelope
 
-    def envelope_loss(self, pred_seismograms, obs_seismograms):
-        """
-        Compute the envelope-based mean squared error loss between pred_seismograms and obs_seismograms.
+    # def envelope_loss(self, pred_seismograms, obs_seismograms):
+    #     """
+    #     Compute the envelope-based mean squared error loss between pred_seismograms and obs_seismograms.
 
-        Args:
-            pred_seismograms (torch.Tensor): The predicted seismograms tensor.
-            obs_seismograms (torch.Tensor): The observed seismograms tensor.
+    #     Args:
+    #         pred_seismograms (torch.Tensor): The predicted seismograms tensor.
+    #         obs_seismograms (torch.Tensor): The observed seismograms tensor.
 
-        Returns:
-            torch.Tensor: The computed envelope-based mean squared error loss.
-        """
+    #     Returns:
+    #         torch.Tensor: The computed envelope-based mean squared error loss.
+    #     """
         
-        pred_envelope = self.envelope(pred_seismograms)
-        obs_envelope = self.envelope(obs_seismograms)
+    #     pred_envelope = self.envelope(pred_seismograms)**2
+    #     obs_envelope = self.envelope(obs_seismograms)**2
 
-        # pred_envelope = pred_envelope/(torch.norm(pred_envelope, p=2, dim=0)+1e-16)
-        # obs_envelope = obs_envelope/(torch.norm(obs_envelope, p=2, dim=0)+1e-16)
+    #     # pred_envelope = pred_envelope/(torch.norm(pred_envelope, p=2, dim=0)+1e-16)
+    #     # obs_envelope = obs_envelope/(torch.norm(obs_envelope, p=2, dim=0)+1e-16)
 
-        # loss = F.mse_loss(pred_envelope, obs_envelope, reduction="mean")
-        return torch.nn.MSELoss()(pred_envelope, obs_envelope)
+    #     # loss = F.mse_loss(pred_envelope, obs_envelope, reduction="mean")
+    #     return torch.nn.MSELoss(reduction='sum')(pred_envelope, obs_envelope)
 
     def forward(self, x, y):
         """
@@ -218,9 +195,103 @@ class Envelope(torch.nn.Module):
         """
         loss = 0
         for i in range(x.shape[0]):
-            loss += self.envelope_loss(x[i], y[i])
-        # loss = self.envelope_loss(x, y)
+            #loss += self.envelope_loss(x[i], y[i])
+            loss += self.loss(envelope(x[i])**2, envelope(y[i])**2)
         return loss
+
+class ImplicitLoss(torch.nn.Module):
+
+    def __init__(self):
+        super().__init__()
+        self.vgg = vgg19(pretrained=True).features.cuda()
+        # self.feature_extractor = torch.nn.Sequential(*list(vgg.features)[:35]).cuda()
+        #self.feature_extractor.eval()
+
+        # Define the downsampling layer
+        self.pool = torch.nn.AvgPool2d(kernel_size=(4, 4), stride=(2, 2))
+
+    @property
+    def name(self,):
+        return "implicit"
+
+    def get_features(self, image, model, layers=None):
+        if layers is None:
+            layers = {'0':'conv1_1',
+                      '5':'conv2_1',
+                      '10':'conv3_1',
+                      '19':'conv4_1',
+                      '21':'conv4_2', # content repr
+                      '28':'conv5_1',}
+
+        features = {}
+        x = image
+        for name, layer in model._modules.items():
+            x = layer(x)
+            if name in layers:
+                features[layers[name]] = x
+            
+        return features
+
+    def to_rgb(self, x):
+        x_mono = x.mean(dim=-1, keepdim=True)  # Take the mean along the channel dimension to get a single-channel image
+        
+        x_rgb = x_mono.repeat(1, 1, 1, 3)  # Repeat the single-channel image along the channel dimension to get a three-channel image
+        
+        x_rgb = x_rgb.permute(0, 3, 1, 2)
+        # Apply the pooling operation to downsample the data
+        x_rgb = self.pool(x_rgb)
+
+        return x_rgb
+
+    def gram_matrix(self, tensor):
+        _, d, h, w = tensor.size()
+        tensor = tensor.view(d, h*w)
+        return torch.mm(tensor, tensor.t()) #gram
+    
+    def forward(self, x, y):
+
+        # Normalize along the batch dimension
+        # x = x / torch.max(torch.abs(x), dim=0, keepdim=True).values
+        # y = y / torch.max(torch.abs(y), dim=0, keepdim=True).values
+
+        # Compute the feature maps
+        x = self.to_rgb(x)
+        y = self.to_rgb(y)
+
+        # get features
+        x_features = self.get_features(x, self.vgg)
+        y_features = self.get_features(y, self.vgg)
+
+        # calculate content loss
+        content_loss = torch.mean((x_features['conv4_2'] - y_features['conv4_2'])**2)
+        # calculate grams
+        style_grams = {layer:self.gram_matrix(y_features[layer]) for layer in y_features}
+
+        # weights for style layers 
+        style_weights = {'conv1_1':1.,
+                        'conv2_1':1.,
+                        'conv3_1':1.,
+                        'conv4_1':1.,
+                        'conv5_1':1.}
+		# calculate style loss
+        style_loss = 0
+
+        for layer in style_weights:
+            target_feature = x_features[layer]
+            _, d, h, w = target_feature.shape
+
+            # target gram
+            target_gram = self.gram_matrix(target_feature)
+
+            # style gram
+            style_gram = style_grams[layer]
+
+            # style loss for curr layer
+            layer_style_loss = style_weights[layer] * torch.mean((target_gram - style_gram)**2)
+
+            style_loss += layer_style_loss / (d * h * w)
+
+        return content_loss#+style_loss
 
 class InstantaneousPhase(torch.nn.Module):
     """Yuan et. al, <The exponentiated phase measurement, 
@@ -299,6 +370,85 @@ class InstantaneousPhase(torch.nn.Module):
             loss += torch.mean(torch.square(self.instantaneous_phase_diff(_x, _y)))
         return loss
 
+class Integration(torch.nn.Module):
+
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+
+    @property
+    def name(self,):
+        return "integration"
+    
+    def forward(self, x, y):
+        loss = 0.
+        for _x, _y in zip(x, y):
+            loss += torch.nn.MSELoss()(integrate(_x), integrate(_y))
+        return loss
+
+class L1(torch.nn.Module):
+    def __init__(self, ):
+        super(L1, self).__init__()
+
+    @property
+    def name(self,):
+        return "l1"
+    
+    def forward(self, x, y):
+        return torch.nn.L1Loss(reduction='sum')(x, y)
+    
+class L2(torch.nn.Module):
+    def __init__(self, ):
+        super(L2, self).__init__()
+
+    @property
+    def name(self,):
+        return "l2"
+    
+    def forward(self, x, y):
+        loss = 0.
+        for _x, _y in zip(x, y):
+            loss += torch.nn.MSELoss(reduction='sum')(_x, _y)
+        return loss
+
+class NormalizedIntegrationMethod(torch.nn.Module):
+    """Donno et.al, doi: 10.3997/2214-4609.20130411
+    """
+    def __init__(self, criterion='l2', reduction='sum'):
+        super(NormalizedIntegrationMethod, self).__init__()
+        self.loss = {'l1':torch.nn.L1Loss(reduction=reduction), 
+                     'l2':torch.nn.MSELoss(reduction=reduction)}[criterion]
+
+    @property
+    def name(self,):
+        return "nim"
+    
+    def forward(self, x, y):
+        # ensure non-negative eq. (1.2)
+        x = square(x) 
+        y = square(y)
+
+        # weights of each trace
+        wx = torch.sum(x, dim=1, keepdim=True)[0]
+        wy = torch.sum(y, dim=1, keepdim=True)[0]
+
+        # intergration # eq. (1.2)
+        x = integrate(x) 
+        y = integrate(y)
+
+        # ensure equals to one at the end
+        # the denominator in equation (1.2) is wrong
+        # x = x/wx
+        # y = y/wy
+        # the denominator should be the maximum value of the trace
+        # so that the value at the end is one
+        x = x / x.max() 
+        y = y / y.max()
+
+
+        # compute the loss
+        loss = self.loss(x, y)
+        return loss
+    
 class Phase(torch.nn.Module):
     """
     A custom PyTorch module that computes the phase consistency loss between
@@ -524,7 +674,9 @@ class Traveltime(torch.nn.Module):
         return loss
 
 class Wasserstein1d(torch.nn.Module):
-
+    # TODO
+    # Implement this by hand(refer to 
+    # /root/miniconda3/lib/python3.8/site-packages/ot/lp/solver_1d.py)
     def __init__(self):
         super(Wasserstein1d, self).__init__()
 
@@ -566,8 +718,8 @@ class Wasserstein1d(torch.nn.Module):
             # loss += wasserstein_1d(t, t, _x, _y, p=2).mean()
             for r in range(nr):
                 for c in range(nc):
-            #         # px = torch.cumsum(_x[:, r, c], dim=0)
-            #         # py = torch.cumsum(_y[:, r, c], dim=0)
+                    # px = torch.cumsum(_x[:, r, c], dim=0)
+                    # py = torch.cumsum(_y[:, r, c], dim=0)
                     px = _x[:, r, c]
                     py = _y[:, r, c]
 
@@ -577,11 +729,12 @@ class Wasserstein1d(torch.nn.Module):
                     if torch.sum(px)==0 or torch.sum(py)==0:
                         loss +=0.
                     else:
+
                         # px = px / torch.sum(px)
                         # py = py / torch.sum(py)
-
-                        loss += ot.wasserstein_1d(t, t, px, py, p=2)
-
+                        #loss += ot.wasserstein_1d(px, py, p=2, require_sort=False)
+                        loss += ot.wasserstein_1d(t, t, px, py, p=2, require_sort=True)
+                        #loss += ot.emd2_1d(t, t, px, py, p=2)
                         # euclidean
 
                         # M = ot.dist(py.view((nt, 1)), py.view((nt, 1)), 'euclidean')
@@ -600,97 +753,3 @@ class Wasserstein1d(torch.nn.Module):
             #             # loss += wasserstein_1d(t, t, px, py, p=1)
 
         return loss
-
-class ImplicitLoss(torch.nn.Module):
-
-    def __init__(self):
-        super().__init__()
-        self.vgg = vgg19(pretrained=True).features.cuda()
-        # self.feature_extractor = torch.nn.Sequential(*list(vgg.features)[:35]).cuda()
-        #self.feature_extractor.eval()
-
-        # Define the downsampling layer
-        self.pool = torch.nn.AvgPool2d(kernel_size=(4, 4), stride=(2, 2))
-
-    @property
-    def name(self,):
-        return "implicit"
-
-    def get_features(self, image, model, layers=None):
-        if layers is None:
-            layers = {'0':'conv1_1',
-                      '5':'conv2_1',
-                      '10':'conv3_1',
-                      '19':'conv4_1',
-                      '21':'conv4_2', # content repr
-                      '28':'conv5_1',}
-
-        features = {}
-        x = image
-        for name, layer in model._modules.items():
-            x = layer(x)
-            if name in layers:
-                features[layers[name]] = x
-            
-        return features
-
-    def to_rgb(self, x):
-        x_mono = x.mean(dim=-1, keepdim=True)  # Take the mean along the channel dimension to get a single-channel image
-        
-        x_rgb = x_mono.repeat(1, 1, 1, 3)  # Repeat the single-channel image along the channel dimension to get a three-channel image
-        
-        x_rgb = x_rgb.permute(0, 3, 1, 2)
-        # Apply the pooling operation to downsample the data
-        x_rgb = self.pool(x_rgb)
-
-        return x_rgb
-
-    def gram_matrix(self, tensor):
-        _, d, h, w = tensor.size()
-        tensor = tensor.view(d, h*w)
-        return torch.mm(tensor, tensor.t()) #gram
-    
-    def forward(self, x, y):
-
-        # Normalize along the batch dimension
-        # x = x / torch.max(torch.abs(x), dim=0, keepdim=True).values
-        # y = y / torch.max(torch.abs(y), dim=0, keepdim=True).values
-
-        # Compute the feature maps
-        x = self.to_rgb(x)
-        y = self.to_rgb(y)
-
-        # get features
-        x_features = self.get_features(x, self.vgg)
-        y_features = self.get_features(y, self.vgg)
-
-        # calculate content loss
-        content_loss = torch.mean((x_features['conv4_2'] - y_features['conv4_2'])**2)
-        # calculate grams
-        style_grams = {layer:self.gram_matrix(y_features[layer]) for layer in y_features}
-
-        # weights for style layers 
-        style_weights = {'conv1_1':1.,
-                        'conv2_1':1.,
-                        'conv3_1':1.,
-                        'conv4_1':1.,
-                        'conv5_1':1.}
-		# calculate style loss
-        style_loss = 0
-
-        for layer in style_weights:
-            target_feature = x_features[layer]
-            _, d, h, w = target_feature.shape
-
-            # target gram
-            target_gram = self.gram_matrix(target_feature)
-
-            # style gram
-            style_gram = style_grams[layer]
-
-            # style loss for curr layer
-            layer_style_loss = style_weights[layer] * torch.mean((target_gram - style_gram)**2)
-
-            style_loss += layer_style_loss / (d * h * w)
-
-        return content_loss#+style_loss

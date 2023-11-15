@@ -234,6 +234,7 @@ if __name__ == '__main__':
                 """Filter the data at every scale"""
                 freq = MULTISCALES[idx_freq]
                 if MASTER:
+                    seislog.print(f"Current scale: {freq} Hz")
                     # Filter both record and ricker
                     #filtered_data = seissignal.filter(full_band_data, freqs=freq)
                     # Pickle the filtered data
@@ -310,11 +311,11 @@ if __name__ == '__main__':
                         #if shot==10:
                         #name_postfix = 'init' if epoch==0 else ''
                         name_postfix = ''
-                        np.save(f"{ROOTPATH}/obs{name_postfix}.npy", obs.cpu().detach().numpy())
-                        np.save(f"{ROOTPATH}/syn{name_postfix}.npy", syn.cpu().detach().numpy())
+                        #np.save(f"{ROOTPATH}/obs{name_postfix}.npy", obs.cpu().detach().numpy())
+                        #np.save(f"{ROOTPATH}/syn{name_postfix}.npy", syn.cpu().detach().numpy())
                         loss = criterions(syn, obs)
-                        # adj = torch.autograd.grad(loss, syn, create_graph=True)[0]
-                        # np.save(f"{ROOTPATH}/adj.npy", adj.detach().cpu().numpy())        
+                        #adj = torch.autograd.grad(loss, syn, create_graph=True)[0]
+                        #np.save(f"{ROOTPATH}/adj.npy", adj.detach().cpu().numpy())        
                         
                         # For random boundary
                         model.cell.geom.step()

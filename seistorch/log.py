@@ -40,5 +40,6 @@ class SeisLog(logging.Logger):
 
     def print(self, msg):
         if self.rank==0: 
-            self.logger.info(msg) 
+            self.logger.info(msg)
+        # self.logger.info(f"rank{self.rank} "+msg)
 

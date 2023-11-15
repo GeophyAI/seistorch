@@ -77,6 +77,14 @@ class TensorList(list):
         else:
             raise ValueError("Multiplication is only defined between two instances of TensorList with the same length.")
 
+    def __pow__(self, exponent):
+        
+        for i in range(len(self.data)):
+            if isinstance(self.data[i], torch.Tensor):
+                self.data[i] = self.data[i]**exponent
+
+        return self
+
     def __str__(self):
         return str(self.data)
 

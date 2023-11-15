@@ -34,7 +34,7 @@ for i in range(100):
 # specified in a grid coordinate system, not in real-world distance coordinates. 
 # This distinction is essential for accurate simulation and interpretation of results.
  
-src_x = np.linspace(10, 120, 10)
+src_x = np.linspace(4, nx-4, 10)
 src_z = np.ones_like(src_x)
 
 sources = [[src_x, src_z] for src_x, src_z in zip(src_x.tolist(), src_z.tolist())]
@@ -43,7 +43,7 @@ sources = [[src_x, src_z] for src_x, src_z in zip(src_x.tolist(), src_z.tolist()
 #            [0, 1, ..., 255], [5, 5, ..., 5],    
 #            [0, 1, ..., 255], [5, 5, ..., 5],
 #            ],
-receiver_locx = np.arange(0, 120, 4)
+receiver_locx = np.arange(0, nx, 4)
 receiver_locz = np.ones_like(receiver_locx)*5
 
 # The receivers are fixed at the bottom of the model (z=5)

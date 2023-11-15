@@ -21,17 +21,22 @@ class SeisShow:
         nt, nr = obs.shape
         show_data = np.zeros_like(obs)
         for i in range(0, nr, interval*2):
-            range_obs = np.arange(i, i+interval)
-            range_syn = np.arange(i+interval, i+2*interval)
+            range_obs = np.arange(i, min(i+interval, nr))
+            range_syn = np.arange(i+interval, min(i+2*interval, nr))
             show_data[:,range_obs] = obs[:,range_obs]
             show_data[:,range_syn] = syn[:,range_syn]
 
         if trace_normalize:
             show_data /= np.max(np.abs(show_data), axis=0, keepdims=True)
 
-        fig, ax = plt.subplots(1,1,figsize=(10,6))
+        fig, ax = plt.subplots(1,1,figsize=(8,4))
         vmin, vmax=np.percentile(show_data, [2,98])
-        ax.imshow(show_data, vmin=vmin, vmax=vmax, extent=(0, nr*dx, nt*dt, 0), **kwargs)
+        ax.imshow(show_data, 
+                  vmin=vmin, 
+                  vmax=vmax, 
+                  extent=(0, nr*dx, nt*dt, 0), 
+                  aspect="auto",
+                  **kwargs)
                 # ax.text(0.00, 0.95, "obs", 
                 # transform=ax.transAxes, 
                 # color='w', fontsize=14, 

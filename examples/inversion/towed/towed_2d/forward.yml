@@ -50,7 +50,7 @@ geom:
 
   receivers: ./geometry/receivers.pkl
 
-  seabed: ../models/marmousi_model/seabed.npy
+  seabed: ../../../models/marmousi_model/seabed.npy
 
   wavelet:
 

@@ -3,23 +3,22 @@ import torch
 class SeisCompile:
 
     def __init__(self, logger=None):
-        if logger is None:
-            self.logger = print
-        else:
-            self.logger = logger.print
+        self.logger = logger
 
     def compile(self, func, **kwargs):
 
-        self.logger(f"Trying to compile function <{func.__name__}>...")
+        if self.logger is not None:
+            self.logger.print(f"Trying to compile function <{func.__name__}>...")
 
         compile_ok = self.torch_version_ok() and self.gpu_ok()
 
         if not compile_ok:
             if self.logger is not None:
-                self.logger(f"Compile is not supported in this environment.")
+                self.logger.print(f"Compile is not supported in this environment.")
             return func
         
-        self.logger(f"Compiling function <{func.__name__}> successfully")
+        if self.logger is not None:
+            self.logger.print(f"Compiling function <{func.__name__}> successfully")
 
         return torch.compile(func, **kwargs)
             
@@ -34,9 +33,10 @@ class SeisCompile:
                 gpu_ok = True
 
         if not gpu_ok:
-            self.logger(
-                "GPU is not NVIDIA V100, A100, or H100."
-            )
+            if self.logger is not None:
+                self.logger.print(
+                    "GPU is not NVIDIA V100, A100, or H100."
+                )
             
         return gpu_ok
 
@@ -47,7 +47,7 @@ class SeisCompile:
 
         if not version_ok:
             if self.logger is not None:
-                self.logger(
+                self.logger.print(
                     "If you want to use compile, please upgrade your torch to 2.0 or higher."
                 )
 
