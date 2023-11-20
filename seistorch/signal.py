@@ -198,59 +198,6 @@ def generate_mask(fa_time, nt, nr, N):
 
     return mask
 
-def hilbert(data):
-    """
-    Compute the Hilbert transform of the input data tensor.
-
-    Args:
-        data (torch.Tensor): The input data tensor.
-
-    Returns:
-        torch.Tensor: The Hilbert transform of the input data tensor.
-    """
-
-    nt, _, _ = data.shape
-    # nfft = 2 ** (nt - 1).bit_length()
-    nfft = nt # the scipy implementation uses this
-
-    # Compute the FFT
-    data_fft = torch.fft.fft(data, n=nfft, dim=0)
-
-    # Create the filter
-    # h = torch.zeros(nfft, device=data.device).unsqueeze(1).unsqueeze(2)
-    h = np.zeros(nfft, dtype=np.float32)
-
-    if nfft % 2 == 0:
-        h[0] = h[nfft // 2] = 1
-        h[1:nfft // 2] = 2
-    else:
-        h[0] = 1
-        h[1:(nfft + 1) // 2] = 2
-
-    h = np.expand_dims(h, 1)
-    h = np.expand_dims(h, 2)
-    h = torch.from_numpy(h).to(data.device)
-    # h = h.requires_grad_(True)
-    # Apply the filter and compute the inverse FFT
-    hilbert_data = torch.fft.ifft(data_fft * h, dim=0)
-
-    # Truncate the result to the original length
-    #hilbert_data = hilbert_data#[:nt]
-
-    return hilbert_data
-
-def square(d):
-    return d**2
-
-def abs(d):
-    return torch.abs(d)
-
-def integrate(d, dim=0):
-    return torch.cumsum(d, dim=dim)
-
-def envelope(d):
-    return torch.abs(hilbert(d))
-
 def pick_first_arrivals(d, *args, **kwargs):
     _, ntraces, nchannels = d.shape
     fa_times = []

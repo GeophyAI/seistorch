@@ -6,9 +6,7 @@ import torch
 import torch.nn.functional as F
 from seistorch.signal import differentiable_trvaletime_difference as dtd
 from geomloss import SamplesLoss
-from seistorch.signal import hilbert, abs, square, integrate, envelope
-from ot.lp import wasserstein_1d
-import ot
+from seistorch.transform import *
 
 try:
     from torchvision.models import vgg19
@@ -98,89 +96,6 @@ class Envelope(torch.nn.Module):
     @property
     def name(self,):
         return "envelope"
-
-    # @torch.no_grad()
-    # def analytic(self, data):
-    #     """
-    #     Compute the Hilbert transform of the input data tensor.
-
-    #     Args:
-    #         data (torch.Tensor): The input data tensor.
-
-    #     Returns:
-    #         torch.Tensor: The Hilbert transform of the input data tensor.
-    #     """
-
-    #     nt, _, _ = data.shape
-    #     # nfft = 2 ** (nt - 1).bit_length()
-    #     nfft = nt # the scipy implementation uses this
-
-    #     # Compute the FFT
-    #     data_fft = torch.fft.fft(data, n=nfft, dim=0)
-
-    #     # Create the filter
-    #     # h = torch.zeros(nfft, device=data.device).unsqueeze(1).unsqueeze(2)
-    #     h = np.zeros(nfft, dtype=np.float32)
-
-    #     if nfft % 2 == 0:
-    #         h[0] = h[nfft // 2] = 1
-    #         h[1:nfft // 2] = 2
-    #     else:
-    #         h[0] = 1
-    #         h[1:(nfft + 1) // 2] = 2
-
-    #     h = np.expand_dims(h, 1)
-    #     h = np.expand_dims(h, 2)
-    #     h = torch.from_numpy(h).to(data.device)
-    #     # h = h.requires_grad_(True)
-    #     # Apply the filter and compute the inverse FFT
-    #     hilbert_data = torch.fft.ifft(data_fft * h, dim=0)
-
-    #     # Truncate the result to the original length
-    #     #hilbert_data = hilbert_data#[:nt]
-
-    #     return hilbert_data
-    
-    # def envelope(self, seismograms):
-    #     """
-    #     Compute the envelope of the input seismograms tensor.
-
-    #     Args:
-    #         seismograms (torch.Tensor): The input seismograms tensor.
-
-    #     Returns:
-    #         torch.Tensor: The envelope of the input seismograms tensor.
-    #     """
-    #     # Compute the Hilbert transform along the time axis
-    #     hilbert_transform = self.analytic(seismograms)
-        
-    #     # Compute the envelope
-    #     envelope = torch.abs(hilbert_transform)
-
-    #     # envelope = torch.sqrt(hilbert_transform.real**2 + hilbert_transform.imag**2)
-
-    #     return envelope
-
-    # def envelope_loss(self, pred_seismograms, obs_seismograms):
-    #     """
-    #     Compute the envelope-based mean squared error loss between pred_seismograms and obs_seismograms.
-
-    #     Args:
-    #         pred_seismograms (torch.Tensor): The predicted seismograms tensor.
-    #         obs_seismograms (torch.Tensor): The observed seismograms tensor.
-
-    #     Returns:
-    #         torch.Tensor: The computed envelope-based mean squared error loss.
-    #     """
-        
-    #     pred_envelope = self.envelope(pred_seismograms)**2
-    #     obs_envelope = self.envelope(obs_seismograms)**2
-
-    #     # pred_envelope = pred_envelope/(torch.norm(pred_envelope, p=2, dim=0)+1e-16)
-    #     # obs_envelope = obs_envelope/(torch.norm(obs_envelope, p=2, dim=0)+1e-16)
-
-    #     # loss = F.mse_loss(pred_envelope, obs_envelope, reduction="mean")
-    #     return torch.nn.MSELoss(reduction='sum')(pred_envelope, obs_envelope)
 
     def forward(self, x, y):
         """
@@ -674,9 +589,7 @@ class Traveltime(torch.nn.Module):
         return loss
 
 class Wasserstein1d(torch.nn.Module):
-    # TODO
-    # Implement this by hand(refer to 
-    # /root/miniconda3/lib/python3.8/site-packages/ot/lp/solver_1d.py)
+    # Source codes refer to ot.lp.solver_1d.wasserstein
     def __init__(self):
         super(Wasserstein1d, self).__init__()
 
@@ -684,6 +597,114 @@ class Wasserstein1d(torch.nn.Module):
     def name(self,):
         return "w1d"
     
+    def argsort(self, a, axis=-1):
+        sorted, indices = torch.sort(a, dim=axis)
+        return indices
+
+    def sort(self, a, axis=-1):
+        sorted0, indices = torch.sort(a, dim=axis)
+        return sorted0
+
+    def searchsorted(self, a, v, side='left'):
+        right = (side != 'left')
+        return torch.searchsorted(a, v, right=right)
+    
+    def take_along_axis(self, arr, indices, axis):
+        return torch.gather(arr, axis, indices)
+
+    def quantile_function(self, qs, cws, xs):
+        r""" Computes the quantile function of an empirical distribution
+
+        Parameters
+        ----------
+        qs: array-like, shape (n,)
+            Quantiles at which the quantile function is evaluated
+        cws: array-like, shape (m, ...)
+            cumulative weights of the 1D empirical distribution, if batched, must be similar to xs
+        xs: array-like, shape (n, ...)
+            locations of the 1D empirical distribution, batched against the `xs.ndim - 1` first dimensions
+
+        Returns
+        -------
+        q: array-like, shape (..., n)
+            The quantiles of the distribution
+        """
+        n = xs.shape[0]
+
+        cws = cws.contiguous()
+        qs = qs.contiguous()
+
+        idx = self.searchsorted(cws, qs)
+        return self.take_along_axis(xs, torch.clip(idx, 0, n - 1), axis=0)
+
+    def zero_pad(self, a, pad_width, value=0):
+        from torch.nn.functional import pad
+        # pad_width is an array of ndim tuples indicating how many 0 before and after
+        # we need to add. We first need to make it compliant with torch syntax, that
+        # starts with the last dim, then second last, etc.
+        how_pad = tuple(element for tupl in pad_width[::-1] for element in tupl)
+        return pad(a, how_pad, value=value)
+
+    def wasserstein_1d(self, t, u_weights=None, v_weights=None, p=1, require_sort=True):
+        r"""
+        This code is modified from ot.lp.solver_1d.wasserstein_1d
+
+        Computes the 1 dimensional OT loss [15] between two (batched) empirical
+        distributions
+
+        .. math:
+            OT_{loss} = \int_0^1 |cdf_u^{-1}(q) - cdf_v^{-1}(q)|^p dq
+
+        It is formally the p-Wasserstein distance raised to the power p.
+        We do so in a vectorized way by first building the individual quantile functions then integrating them.
+
+        This function should be preferred to `emd_1d` whenever the backend is
+        different to numpy, and when gradients over
+        either sample positions or weights are required.
+
+        Parameters
+        ----------
+        t: array-like, shape (n, ...)
+            locations of the first empirical distribution
+        t: array-like, shape (m, ...)
+            locations of the second empirical distribution
+        u_weights: array-like, shape (n, ...), optional
+            weights of the first empirical distribution, if None then uniform weights are used
+        v_weights: array-like, shape (m, ...), optional
+            weights of the second empirical distribution, if None then uniform weights are used
+        p: int, optional
+            order of the ground metric used, should be at least 1 (see [2, Chap. 2], default is 1
+        require_sort: bool, optional
+            sort the distributions atoms locations, if False we will consider they have been sorted prior to being passed to
+            the function, default is True
+
+        Returns
+        -------
+        cost: float/array-like, shape (...)
+            the batched EMD
+
+        References
+        ----------
+        .. [15] Peyré, G., & Cuturi, M. (2018). Computational Optimal Transport.
+
+        """
+
+        assert p >= 1, "The OT loss is only valid for p>=1, {p} was given".format(p=p)
+
+        u_cumweights = torch.cumsum(u_weights, 0)
+        v_cumweights = torch.cumsum(v_weights, 0)
+
+        qs = self.sort(torch.concatenate((u_cumweights, v_cumweights), 0), 0)
+        u_quantiles = self.quantile_function(qs, u_cumweights, t)
+        v_quantiles = self.quantile_function(qs, v_cumweights, t)
+        qs = self.zero_pad(qs, pad_width=[(1, 0)] + (qs.ndim - 1) * [(0, 0)])
+        delta = qs[1:, ...] - qs[:-1, ...]
+        diff_quantiles = torch.abs(u_quantiles - v_quantiles)
+
+        if p == 1:
+            return torch.sum(delta * diff_quantiles, axis=0)
+        return torch.sum(delta * torch.pow(diff_quantiles, p), axis=0)
+
     def forward(self, x, y):
         """Compute the Wasserstein distance between two tensors.
 
@@ -694,62 +715,34 @@ class Wasserstein1d(torch.nn.Module):
         Returns:
             tensor: The computed Wasserstein distance with shape (nb, 1, nr, nc).
         """
+                
         nt, nr, nc = x[0].shape
+
         # Enforce non-negative
-        x = x**2
-        y = y**2
+        x, y = both_nonnegative(x, y, type='linear')
+
         # Enforce sum to one on the support
-        # Method 1: normalize use the sum value
-        # wx = torch.sum(x, dim=0, keepdim=True)[0]
-        # wy = torch.sum(y, dim=0, keepdim=True)[0]
-        # x = x / wx
-        # y = y / wy
+        x = norm(x, dim=1, ntype='sumis1')
+        y = norm(y, dim=1, ntype='sumis1')
+
         # Compute the Wasserstein distance
         loss = 0
-        t = torch.linspace(0, nt-1, nt, dtype=x[0].dtype).to(x.device)*0.001#[None,:]
+        dt = 0.001
+        t = torch.linspace(0, nt-1, nt, dtype=x[0].dtype).to(x.device)*dt#[None,:]
         # t /= t.max()
         # loss matrix and normalization
 
         for _x, _y in zip(x, y):
 
+            # works
             # Ensure nt last
-            # _x = _x.permute(1, 2, 0).view(-1, nt).contiguous()
-            # _y = _y.permute(1, 2, 0).view(-1, nt).contiguous()
-            # loss += wasserstein_1d(t, t, _x, _y, p=2).mean()
-            for r in range(nr):
-                for c in range(nc):
-                    # px = torch.cumsum(_x[:, r, c], dim=0)
-                    # py = torch.cumsum(_y[:, r, c], dim=0)
-                    px = _x[:, r, c]
-                    py = _y[:, r, c]
+            _x = _x.permute(1, 2, 0).view(-1, nt).contiguous()
+            _y = _y.permute(1, 2, 0).view(-1, nt).contiguous()
 
-                    # normalize
-
-
-                    if torch.sum(px)==0 or torch.sum(py)==0:
-                        loss +=0.
-                    else:
-
-                        # px = px / torch.sum(px)
-                        # py = py / torch.sum(py)
-                        #loss += ot.wasserstein_1d(px, py, p=2, require_sort=False)
-                        loss += ot.wasserstein_1d(t, t, px, py, p=2, require_sort=True)
-                        #loss += ot.emd2_1d(t, t, px, py, p=2)
-                        # euclidean
-
-                        # M = ot.dist(py.view((nt, 1)), py.view((nt, 1)), 'euclidean')
-                        # M /= M.max() * 0.1
-
-                        # d_emd = ot.emd2(px, py.view(nt, 1), M)
-
-                        # sqeuclidean
-                        # M2 = ot.dist(py.reshape((nt, 1)), py.reshape((nt, 1)), 'sqeuclidean')
-                        # M2 /= M2.max() * 0.1
-
-                        # d_emd = ot.emd2(px, py.view(nt, 1), M2)
-
-                        # loss += d_emd[0]
-
-            #             # loss += wasserstein_1d(t, t, px, py, p=1)
+            for i in range(_x.shape[0]):
+                if torch.sum(_x[i])==0 or torch.sum(_y[i])==0:
+                                loss +=0.
+                else:
+                    loss += self.wasserstein_1d(t, _x[i], _y[i], p=2, require_sort=True)
 
         return loss

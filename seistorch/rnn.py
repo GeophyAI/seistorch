@@ -124,6 +124,9 @@ class WaveRNN(torch.nn.Module):
                                   is_last_frame=(i==x.size(1)-1), 
                                   omega=omega, 
                                   source=[self.cell.geom.source_type, super_source, x[..., tmpi].view(xi.size(1), -1)])
+            
+            if False:
+                np.save(f"./wavefield/wf{i:04d}.npy", wavefield[0].cpu().numpy())
 
             # Set the data to vars
             for name, data in zip(wavefield_names, wavefield):
