@@ -3,7 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 import sys
-sys.path.append("/root/seistorch/seistorch")
+sys.path.append("../../..")
 from seistorch.show import SeisShow
 
 def write_pkl(path: str, data: list):
@@ -28,6 +28,11 @@ nz, nx = 128, 256
 vel = np.ones((nz, nx), dtype=dtype)*1500
 vel[64:, :] = 2000
 
+rho = np.ones((nz, nx), dtype=dtype)*1000
+rho[64:, :] = 1000
+
+Q = np.ones((nz, nx), dtype=dtype)*100
+Q[64:, :] = 200
 # Generate the source and receiver list
 # Please note that in Seistorch, 
 # the coordinates of source points and receiver points are 
@@ -58,6 +63,8 @@ show.geometry(vel, sources, receivers, savepath="model_geometry.gif", dh=10, int
 vel_path = r"./velocity_model"
 os.makedirs(vel_path, exist_ok=True)
 np.save(os.path.join(vel_path, "vp.npy"), vel)
+np.save(os.path.join(vel_path, "rho.npy"), rho)
+np.save(os.path.join(vel_path, "Q.npy"), Q)
 
 # Save the source and receiver list
 save_path = r"./geometry"

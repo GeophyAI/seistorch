@@ -13,6 +13,7 @@ class ConfigureCheck:
 
         self.check_equation()
         self.check_source_receiver_type()
+        self.check_path()
         if self.args is not None:
             if self.args.grad_smooth:
                 self.check_smooth()
@@ -43,6 +44,14 @@ class ConfigureCheck:
             if not os.path.exists(modelPath[para]):
                 print(f"Cannot find model file '{modelPath[para]}' which is needed by equation {self.cfg['equation']}")
                 exit()
+
+    def check_path(self, ):
+        """Check the path of the config file.
+        """
+        geoms = ['sources', 'receivers']
+        for geom in geoms:
+            assert os.path.exists(self.cfg['geom'][geom]), \
+                f"Cannot find {geom} file '{self.cfg['geom'][geom]}'"
 
     def check_smooth(self, 
                      title="smooth", 

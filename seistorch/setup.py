@@ -8,7 +8,7 @@ import torch
 from seistorch.eqconfigure import Parameters
 from seistorch.loss import Loss
 from seistorch.io import SeisIO, SeisRecord
-from seistorch.utils import read_pkl, ricker_wave, to_tensor
+from seistorch.utils import read_pkl, ricker_wave, to_tensor, roll
 from seistorch.source import WaveSource
 from seistorch.probe import WaveIntensityProbe
 
@@ -75,6 +75,21 @@ class SeisSetup:
             dev = torch.device('cpu')
 
         return dev
+
+    def setup_fixed_receivers(self, rec_list):
+        fixed_receivers = all(rec_list[i]==rec_list[i+1] for i in range(len(rec_list)-1))
+        # If the receiver locations are not fixed, use the model grids as the full receiver locations
+        if not fixed_receivers: 
+            print(f"Inconsistent receiver location detected.")
+            receiver_counts = self.cfg['geom']['_oriNx']
+            rec_depth = rec_list[0][1][0]
+            full_rec_list = [[i for i in range(receiver_counts)], [rec_depth]*receiver_counts]
+            # TODO: Add a warning here
+            # The full receiver list should be the available receivers in rec_list.
+        else:
+            print(f"Receiver locations are fixed.")
+            full_rec_list = rec_list[0]
+        return fixed_receivers, full_rec_list
 
     def setup_file_system(self, ):
         self.logger.print("Setting up file system...")

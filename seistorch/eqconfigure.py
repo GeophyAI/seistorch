@@ -9,13 +9,12 @@ class Parameters:
                  "acoustic":     ["vp"],
                  "elastic":      ["vp", "vs", "rho"],
                  "acoustic1st":  ["vp", "rho"],
+                 "viscoacoustic":["vp", "rho", "Q"],
                  #"ttielastic":   ["vp", "vs", "rho", "epsilon", "gamma", "delta"],
                  "ttielastic":   ["c11", "c13", "c33", "c15", "c35", "c55", "rho"],
                 }
 
         return paras
-
-
 
 class Wavefield:
     """ 
@@ -71,6 +70,10 @@ class Shape():
     def numel(self,):
         cfg = self.cfg
         return cfg['geom']['Ny']* cfg['geom']['Nx']
+    
+    @property
+    def channels(self,):
+        return len(self.cfg['geom']['receiver_type'])
     
     def model2d(self,):
         cfg = self.cfg

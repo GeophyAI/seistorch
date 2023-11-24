@@ -103,6 +103,8 @@ class SeisRecord:
     def __setitem__(self, key, value):
         if isinstance(key, int) and isinstance(value, np.ndarray):
             self.write_shot(key, value, self.datapath)
+        else:
+            raise NotImplementedError("The key must be an integer and the value must be a numpy array.")
 
     def __getitem__(self, key):
 
@@ -113,7 +115,7 @@ class SeisRecord:
             
         if self.filetype == '.npy':
             return self.record[key]
-        
+
     def getitem_from_hdf5(self, key):
         with h5py.File(self.datapath, 'r') as f:
             if isinstance(key, list):

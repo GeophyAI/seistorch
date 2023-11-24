@@ -49,7 +49,6 @@ class TensorList(list):
 
     def tensor(self,):
         return self.data
-    
 
     def to(self, device):
         for i in range(len(self.data)):

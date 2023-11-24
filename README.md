@@ -40,20 +40,20 @@ Such as the misfits in Seistorch:
 
 4. `seistorch.loss.Traveltime`: [Luo & Schuster, Travel time misfit](https://library.seg.org/doi/10.1190/1.1443081).
 
-5. [Impicit neural network by Sun J. et al.](https://agupubs.onlinelibrary.wiley.com/doi/10.1029/2022JB025964).
+5. Impicit neural network by [Sun J. et al.](https://agupubs.onlinelibrary.wiley.com/doi/10.1029/2022JB025964).
 
-6. [Source encoding FWI by Krebs et al.](https://doi.org/10.1190/1.3230502).
+6. Source encoding FWI by [Krebs et al.](https://doi.org/10.1190/1.3230502).
 
-7. [Gradient-descent based source inversion by Felipe et al.](https://sbgf.org.br/mysbgf/eventos/expanded_abstracts/16th_CISBGf/session/FULL%20WAVEFORM%20INVERSION%20-%20FWI/Source%20wavelet%20estimation%20in%20FWI%20context.pdf).
+7. Gradient-descent based source inversion by [Felipe et al.](https://sbgf.org.br/mysbgf/eventos/expanded_abstracts/16th_CISBGf/session/FULL%20WAVEFORM%20INVERSION%20-%20FWI/Source%20wavelet%20estimation%20in%20FWI%20context.pdf).
 
-8. [Physical informed neural network by Rasht-Behesht et al.](https://onlinelibrary.wiley.com/doi/10.1029/2021JB023120).
+8. Physical informed neural network by [Rasht-Behesht et al.](https://onlinelibrary.wiley.com/doi/10.1029/2021JB023120).
 
-9. [Boundary saving strategy by Dussaud et al.](https://library.seg.org/doi/10.1190/1.3059336).
+9. Boundary saving strategy by [Dussaud et al.](https://library.seg.org/doi/10.1190/1.3059336).
 
 # TODO Recently
-1. [Random boundary by Shen & Clapp](https://library.seg.org/doi/10.1190/geo2014-0542.1).
+1. Random boundary by [Shen & Clapp](https://library.seg.org/doi/10.1190/geo2014-0542.1).
 
-2. [Source encoding for towed data by Felipe et al.](https://sbgf.org.br/mysbgf/eventos/expanded_abstracts/16th_CISBGf/session/FULL%20WAVEFORM%20INVERSION%20-%20FWI/Source%20wavelet%20estimation%20in%20FWI%20context.pdf)
+2. Source encoding for towed data by [Felipe et al.](https://sbgf.org.br/mysbgf/eventos/expanded_abstracts/16th_CISBGf/session/FULL%20WAVEFORM%20INVERSION%20-%20FWI/Source%20wavelet%20estimation%20in%20FWI%20context.pdf)
 
 # Citation
 

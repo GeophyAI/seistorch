@@ -113,7 +113,9 @@ if __name__ == '__main__':
     seislog.print(f"The results will be saving at '{ROOTPATH}'")
     seislog.print(f"BATCHSIZE: {args.batchsize}")
     ### Get source-x and source-y coordinate in grid cells
-    src_list, rec_list, full_rec_list, fixed_receivers = setup_src_rec(cfg)
+    src_list, rec_list = seisio.read_geom(cfg)
+    recs_are_fixed, full_rec_list = setup.setup_fixed_receivers(rec_list)
+
     #model = torch.compile(model) #, mode="max-autotune"
     # Send the model to the device(CPU/GPU)
     model.to(args.dev)
@@ -170,7 +172,7 @@ if __name__ == '__main__':
     NSHOTS = min(NSHOTS, full_band_data.shape[0])
     #lp_rec = np.zeros(shape.record3d, dtype=np.float32)
     #coding_obs = torch.zeros(shape.record2d, device=args.dev)
-    coding_obs = torch.zeros_like(to_tensor(full_band_data[0]), device=args.dev)
+    coding_obs = torch.zeros((shape.nt, len(full_rec_list[0]), shape.channels), device=args.dev)
     coding_wav = torch.zeros((BATCHSIZE, shape.nt), device=args.dev)
     loss = np.zeros((len(cfg['geom']['multiscale']), EPOCHS), np.float32)
     #arrival_mask = np.load(cfg['geom']['arrival_mask'], allow_pickle=True)
@@ -210,20 +212,19 @@ if __name__ == '__main__':
             #shot = 335
             src = setup_src_coords(src_list[shot], cfg['geom']['pml']['N'], cfg['geom']['multiple'])
             sources.append(src)
-            # For OBN data, the receivers are fixed and the receivers are the same for all shots
+            # For fixed acquisition data, the receivers are fixed and the receivers are the same for all shots
             # so we only need to setup the receivers once, and the data can be summed immediately
             # But for non-fixed receivers, we need to setup the receivers for each shot,
-            # reconstruct a pseudo-OBN data and then sum them up
+            # reconstruct a pseudo-fixed data and then sum them up
             
             # wave_temp, d_temp = roll(lp_wav, lp_rec[shot] * arrival_mask[shot])
             wave_temp, d_temp = roll(lp_wav, lp_rec[shot])
             coding_wav[i] = to_tensor(wave_temp).to(args.dev)
-            if fixed_receivers:
+            if recs_are_fixed:
                 coding_obs += to_tensor(d_temp).to(args.dev)
             else:
                 index = [int(x) for x in rec_list[shot][0]]
                 coding_obs[..., index,:] += to_tensor(d_temp).to(args.dev)
-
 
         """Calculate encoding gradient"""
         def closure():
@@ -238,6 +239,8 @@ if __name__ == '__main__':
             # np.save(f"{ROOTPATH}/obs.npy", coding_obs.cpu().detach().numpy())
             if not MULTI_LOSS:
                 # One loss function for all parameters
+                # np.save(f"{ROOTPATH}/syn.npy", coding_syn.stack().cpu().detach().numpy())
+                # np.save(f"{ROOTPATH}/obs.npy", coding_obs.unsqueeze(0).cpu().detach().numpy())
                 loss = criterions(coding_syn.stack(), coding_obs.unsqueeze(0))
                 # adj = torch.autograd.grad(loss, coding_syn)[0]
                 # np.save(f"{ROOTPATH}/adj.npy", adj.detach().cpu().numpy())

@@ -14,6 +14,25 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 print("Device: ", device)
 
 # %% Define necessary functions
+
+def ricker_wave(fm, dt, nt, delay = 80, dtype='tensor', inverse=False):
+    """
+        Ricker-like wave.
+    """
+    print(f"Wavelet inverse:{inverse}")
+    ricker = []
+    delay = delay * dt 
+    t = np.arange(0, nt*dt, dt)
+
+    c = np.pi * fm * (t - delay) #  delay
+    p = -1 if inverse else 1
+    ricker = p*(1-2*np.power(c, 2)) * np.exp(-np.power(c, 2))
+
+    if dtype == 'numpy':
+        return np.array(ricker).astype(np.float32)
+    else:
+        return torch.from_numpy(np.array(ricker).astype(np.float32))
+
 def to_tensor(d):
     return torch.from_numpy(d).float().to(device, dtype=torch.float32)
 # load the configure file
@@ -35,7 +54,7 @@ def load_wf(path, pmln, down_scale=4):
 def load_rec(path):
     return np.load(path, allow_pickle=True)
 
-def pde(x, z, t):
+def pde(x, z, t, vel=1.5):
     u = pinn(x, z, t)
     kwargs = {'create_graph': True, 'retain_graph': True}
     u_t = torch.autograd.grad(u, t, grad_outputs=torch.ones_like(u), **kwargs)[0]
@@ -46,7 +65,7 @@ def pde(x, z, t):
     u_zz = torch.autograd.grad(u_z, z, grad_outputs=torch.ones_like(u_z), **kwargs)[0]
 
     # 2D acoustic wave equation u_tt=c**2*(u_xx+u_zz)
-    u_pde = 1.5**2*(u_xx+u_zz) - u_tt
+    u_pde = vel**2*(u_xx+u_zz) - u_tt
     return u_pde
 
 # Define the PINN
@@ -72,18 +91,18 @@ class PINN(torch.nn.Module):
 # %% Define the path of the wavefields and record
 cfg = load_config('forward.yml')
 record = np.load(cfg['geom']['obsPath'], allow_pickle=True)
-wf_files = sorted(glob.glob('wavefields/*.npy'))
+wf_files = sorted(glob.glob('wavefield/*.npy'))
 
 #%% Configures for the PINN
 # Since the wavefield u in 2D is a function of (x, z, t), 
 # so the input dimension is 3, and the output dimension is 1.
-num_hidden_layers = 3
-neurons_per_layer = 50
+num_hidden_layers = 5
+neurons_per_layer = 20
 layers = [3] + [neurons_per_layer]*num_hidden_layers + [1]
 epochs = 200000
 lr=1e-4
 
-wf_scale = 4 # The downsample rate of the wavefields
+wf_scale = 8 # The downsample rate of the wavefields
 rec_scale = 10 # The downsample rate of the record
 
 # Data usage
@@ -91,7 +110,10 @@ use_u0 = True
 use_u1 = True
 use_rec = False
 use_pde = True
+use_wavelet = False
+use_vel = False
 
+# epoch = 50000 
 # Parameters in the forward modeling
 dt = cfg['geom']['dt'] # unit: sec
 dh = cfg['geom']['h']/1000 # unit: km
@@ -102,7 +124,8 @@ endt = dt*nt # unit: sec
 vel = np.load(cfg['geom']['truePath']['vp']) # The true velocity
 grid_nz, grid_nx = vel.shape # The grid size of the velocity model
 nz, nx = grid_nz*dh, grid_nx*dh # The physical size of the velocity model
-
+v = torch.rand(1).to(device) # The velocity model
+v.requires_grad = True
 # Parameters for training
 pde_samples = int(2e4)
 t0 = 0.4 # unit: sec, initial condition 1 at t=0.4s
@@ -172,6 +195,18 @@ xx_r = torch.tile(rec_x, (nt_pinn,)).reshape((-1,1))
 zz_r = torch.tile(rec_z, (nt_pinn,)).reshape((-1,1))
 tt_r = torch.linspace(0, endt, nt_pinn, device=device).unsqueeze(1).repeat(1, num_recs).reshape((-1,1))
 
+# coordinates of the source
+srcs = load_pkl(cfg['geom']['sources'])[0]
+wavelet = ricker_wave(cfg['geom']['fm'], dt, cfg['geom']['nt'], delay=cfg['geom']['wavelet_delay'], dtype='tensor')
+wavelet = wavelet.to(device)
+xx_w = torch.tensor(srcs[0], device=device, dtype=torch.float32).repeat(cfg['geom']['nt']).reshape((-1,1))
+zz_w = torch.tensor(srcs[1], device=device, dtype=torch.float32).repeat(cfg['geom']['nt']).reshape((-1,1))
+tt_w = torch.linspace(0, endt, cfg['geom']['nt'], device=device).unsqueeze(1).repeat(1, 1).reshape((-1,1))
+
+plt.plot(tt_w.cpu().numpy(), wavelet.cpu().numpy())
+plt.title('Source wavelet')
+plt.show()
+
 # collocate points in the domain for pde loss
 points = lhs(3, pde_samples)
 x_data, z_data, t_data = [], [], []
@@ -196,6 +231,11 @@ if use_rec:
     z_data.append(zz_r.clone())
     t_data.append(tt_r.clone())
 
+if use_wavelet:
+    x_data.append(xx_w.clone())
+    z_data.append(zz_w.clone())
+    t_data.append(tt_w.clone())
+
 x_pde = torch.concatenate(x_data)
 z_pde = torch.concatenate(z_data)
 t_pde = torch.concatenate(t_data)
@@ -205,7 +245,8 @@ t_pde.requires_grad = True
 
 # %% Transfer the data and model to the device
 pinn = PINN(layers)
-optimizer = torch.optim.Adam(pinn.parameters(),lr=lr,amsgrad=False)
+opt_nn = torch.optim.Adam(pinn.parameters(),lr=lr,amsgrad=False)
+opt_vel = torch.optim.Adam([v], lr=0.01, amsgrad=False)
 pinn.to('cuda')
 u0 = torch.from_numpy(u0.flatten()).float().to('cuda')
 u1 = torch.from_numpy(u1.flatten()).float().to('cuda')
@@ -216,13 +257,15 @@ pde_zero = torch.zeros(x_pde.shape[0], 1).to('cuda')
 # %% Train the PINN
 for i in tqdm.trange(epochs):
 
-  optimizer.zero_grad()
+  opt_nn.zero_grad()
+  opt_vel.zero_grad()
 
   # Initial condition 1
   if use_u0:
     u0_pred = pinn(xx_u, zz_u, tt0)
     loss_u0 = F.mse_loss(u0_pred, u0.unsqueeze(1))
   else:
+    u0_pred = torch.zeros_like(u0)
     loss_u0 = 0.
 
   # Initial condition 2
@@ -230,6 +273,7 @@ for i in tqdm.trange(epochs):
     u1_pred = pinn(xx_u, zz_u, tt1)
     loss_u1 = F.mse_loss(u1_pred, u1.unsqueeze(1))
   else:
+    u1_pred = torch.zeros_like(u1)
     loss_u1 = 0.
 
   # loss of the initial condition
@@ -242,20 +286,32 @@ for i in tqdm.trange(epochs):
   else:
     loss_rec = 0.
 
+  # loss of the wavelet
+  if use_wavelet:
+    wavelet_pred = pinn(xx_w, zz_w, tt_w)
+    loss_wavelet = F.mse_loss(wavelet_pred, -wavelet.unsqueeze(1))
+  else:
+    loss_wavelet = 0.
+
   # loss of the pde
   if use_pde:
-    u_pde = pde(x_pde, z_pde, t_pde)
+    u_pde = pde(x_pde, z_pde, t_pde, vel=v)
     loss_pde = F.mse_loss(u_pde, pde_zero)
   else:
     loss_pde = 0.
   
   # total loss
-  loss = loss_ini + 1e-4*loss_pde + loss_rec
+  loss = loss_ini + 1e-4*loss_pde + loss_rec + loss_wavelet
 
   loss.backward()
-  optimizer.step()
+  opt_nn.step()
+  opt_vel.step()
+
+  if v<0:
+    v.data = torch.zeros_like(v.data)
+
   if i%1000==0:
-    print(f"Epoch {i} | Loss {loss.item():.6f} | Loss_ini {loss_ini.item():.6f} | Loss_pde {loss_pde.item():.6f}")
+    print(f"Epoch {i} |v: {v} | Loss {loss:.6f} | Loss_ini {loss_ini:.6f} | Loss_pde {loss_pde:.6f}")
     with torch.no_grad():
       utest_pred = pinn(xx_u, zz_u, tt_test)
     utest_pred = utest_pred.detach().cpu().numpy().reshape(shape_train)
@@ -275,6 +331,7 @@ for i in tqdm.trange(epochs):
 
 # %% Predict the wavefield
 dh = 10
+rec_pred = []
 grid1m_x = int(nx/(dh/1000))
 grid1m_z = int(nz/(dh/1000))
 xx, zz = np.meshgrid(np.linspace(0,nx,grid1m_x),np.linspace(0,nz,grid1m_z))
@@ -300,3 +357,13 @@ for t in range(nt):
             ax.axis('off')
         plt.tight_layout()
         plt.show()
+
+rec_pred = np.array(rec_pred)
+plt.figure(figsize=(3, 4))
+plt.imshow(rec_pred, cmap='seismic', aspect='auto')
+plt.title('Predicted record')
+plt.show()
+plt.plot(rec_pred[:, 50])
+plt.plot(rec[:, 50])
+plt.show()
+# %%
