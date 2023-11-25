@@ -12,9 +12,9 @@ training:
 
   implicit:
     use: true
-    type: siren
-    in_features: 2
-    out_features: 1
+    type: encoder
+    in_features: 10
+    out_features:
     hidden_features: 20
     hidden_layers: 4
     pretrained:
@@ -26,7 +26,7 @@ training:
   batch_size: 5
 
   # Number of training epochs
-  N_epochs: 5000
+  N_epochs: 2000
 
   # Optimizer learning rate
   lr: 0.001

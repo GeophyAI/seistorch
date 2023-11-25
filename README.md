@@ -53,7 +53,7 @@ Such as the misfits in Seistorch:
 # TODO Recently
 1. Random boundary by [Shen & Clapp](https://library.seg.org/doi/10.1190/geo2014-0542.1).
 
-2. Source encoding for towed data by [Felipe et al.](https://sbgf.org.br/mysbgf/eventos/expanded_abstracts/16th_CISBGf/session/FULL%20WAVEFORM%20INVERSION%20-%20FWI/Source%20wavelet%20estimation%20in%20FWI%20context.pdf)
+2. PINNs.
 
 # Citation
 

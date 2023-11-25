@@ -8,7 +8,7 @@ from scipy.ndimage import gaussian_filter
 
 from .eqconfigure import Parameters
 from .utils import to_tensor
-from .networks import Siren
+from .networks import Siren, Encoder
 from .io import SeisIO
 from .random import random_fill
 
@@ -119,28 +119,35 @@ class WaveGeometryFreeForm(WaveGeometry):
         # Initialize the model parameters if not using implicit neural network
         self._init_model(kwargs['VEL_PATH'], kwargs['geom']['invlist'])
         # Initialize the implicit neural network if using implicit neural network
-        if self.use_implicit: self._init_siren()
-
-    def _init_siren(self,):
-        # inn stands for implicit neural network
-        self.siren = dict()
+        self.nntype = kwargs['training']['implicit']['type']
         
-        # Method 1: represent each model with a implicit neural network
+        if self.use_implicit: 
+            self._init_nn()
+
+    def _init_nn(self,):
+
+        in_features=self.kwargs['training']['implicit']['in_features']
+        out_features=self.kwargs['training']['implicit']['out_features']
+        #out_features=torch.prod(torch.tensor(self.domain_shape)).item()
+        hidden_features=self.kwargs['training']['implicit']['hidden_features']
+        hidden_layers=self.kwargs['training']['implicit']['hidden_layers']
+        self.nn = dict()
+
+        nn = {'siren': Siren, 
+              'encoder': Encoder}
 
         for par in self.pars_need_invert:
-            self.siren[par] = Siren(in_features=self.ndim, 
-                                    out_features=1, 
-                                    hidden_features=128,
-                                    hidden_layers=4, 
-                                    outermost_linear=True, 
-                                    domain_shape=self.domain_shape, 
-                                    pretrained=self.kwargs['training']['implicit']['pretrained'],
-                                    dh=self.dh)
-            # send the siren to the target device
-            self.siren[par].to(self.device)
+            self.nn[par] = nn[self.nntype](in_features=in_features,
+                                           out_features=out_features,
+                                           hidden_features=hidden_features,
+                                           hidden_layers=hidden_layers,
+                                           outermost_linear=True,
+                                           domain_shape=self.domain_shape,
+                                           pretrained=self.kwargs['training']['implicit']['pretrained'],
+                                           dh=self.dh)
+            self.nn[par].to(self.device)
 
-        # Method 2: represent all the models with a single implicit neural network
-        #output_features = len(self.pars_need_invert)
+        self.rand_vec = torch.randn(in_features, device=self.device)
 
 
     def _init_model(self, modelPath: dict, invlist: dict):
@@ -172,15 +179,22 @@ class WaveGeometryFreeForm(WaveGeometry):
                 self.__setattr__(mname, self.seismp.add_parameter(mpath, invert))
 
     def step_implicit(self, mask):
+        vmin, vmax = self.kwargs['training']['implicit']['vmin'], self.kwargs['training']['implicit']['vmax']
         for par in self.pars_need_invert:
-            coords = self.siren[par].coords.to(self.device) # x, y coordinates
-            par_value = self.siren[par](coords)[0]
-            if mask is not None:
-                mask = torch.nn.functional.pad(mask, (self.padding,)*4, mode='constant', value=0)
+            if self.nntype=='siren':
+                coords = self.nn[par].coords.to(self.device) # x, y coordinates
+                par_value = self.nn[par](coords)[0]
+
+            elif self.nntype=='encoder':
+                par_value = self.nn[par](self.rand_vec)
+            #if mask is not None:
+                #mask = torch.nn.functional.pad(mask, (self.padding,)*4, mode='constant', value=0)
             # an-ti normalization for getting the true values
-            anti_value = self.anti_normalization(par_value)
+            # anti_value = self.anti_normalization(par_value)
+            anti_value = vmin+(vmax-vmin)*par_value
             #anti_value *= mask
-            anti_value[0:self.padding+12] = 1500.
+            # anti_value[0:self.padding+24] = 1500.
+            anti_value.clamp_(min=0, max=vmax)
             setattr(self, par, anti_value)
 
     def step(self, seabed=None):
@@ -204,7 +218,7 @@ class WaveGeometryFreeForm(WaveGeometry):
         #         var.data = random_fill(var, self.padding, 400., var.max().item(), self.multiple)
         # pass
 
-    def anti_normalization(self, model, mean=3000., std=1000.):
+    def anti_normalization(self, model, mean=4000., std=1000.):
         return model * std + mean
     
     def __repr__(self):

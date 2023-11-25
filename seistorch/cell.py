@@ -25,7 +25,7 @@ class WaveCell(torch.nn.Module):
 
     def get_parameters(self, key=None, recursive=True, implicit=False):
         if implicit:
-            for param in self.geom.siren[key].parameters():
+            for param in self.geom.nn[key].parameters():
                 yield param
         else:
             yield getattr(self.geom, key)

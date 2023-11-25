@@ -83,7 +83,7 @@ if __name__ == '__main__':
     torch.set_num_threads(args.num_threads)
     # Build model
     cfg, model = build_model(args.config, device=args.dev, mode=args.mode, source_encoding=args.source_encoding, commands=args, logger=seislog)
-    
+    # model = torch.compile(model)
     seisio = SeisIO(cfg)
     setup = SeisSetup(cfg, args, seislog)
     # Set random seed
