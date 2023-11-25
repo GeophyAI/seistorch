@@ -1,5 +1,5 @@
 export LD_LIBRARY_PATH=/home/wangsw/anaconda3/lib:$LD_LIBRARY_PATH && \
-python ../../codingfwi.py config/implicit_nopretrain.yml \
+python ../../../codingfwi.py config/implicit_nopretrain.yml \
 --gpuid 0 \
 --opt adam \
 --loss vp=l2 \

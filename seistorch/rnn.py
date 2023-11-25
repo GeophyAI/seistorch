@@ -81,7 +81,6 @@ class WaveRNN(torch.nn.Module):
         # Init hidden states
         batchsize = 1 if self.source_encoding else len(self.sources)
         hidden_state_shape = (batchsize,) + self.cell.geom.domain_shape
-        print(hidden_state_shape)
         wavefield_names = Wavefield(self.cell.geom.equation).wavefields
         # Set wavefields
         for name in wavefield_names:

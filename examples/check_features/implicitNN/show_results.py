@@ -3,12 +3,12 @@ import matplotlib.pyplot as plt
 
 npml = 50
 expand = 50
-true = np.load('../models/marmousi_model_half/true_vp.npy')[:,expand:-expand]
-init = np.load('../models/marmousi_model_half/linear_vp.npy')[:,expand:-expand]
+true = np.load('../../models/marmousi_model/true_vp.npy')[:,expand:-expand]
+init = np.load('../../models/marmousi_model/linear_vp.npy')[:,expand:-expand]
 # inverted = np.load('./results_explicit/paravpF00E99.npy')[npml:-npml, npml+expand:-npml-expand]
-inverted = np.load('./results_implicit_l2/paravpF00E499.npy')[npml:-npml, npml+expand:-npml-expand]
+inverted = np.load('./results_implicit_np/paravpF00E140.npy')[npml:-npml, npml+expand:-npml-expand]
 
-loss = np.load("./results_implicit_l2/loss.npy")
+loss = np.load("./results_implicit_np/loss.npy")
 plt.plot(loss.flatten())
 plt.legend()
 plt.show()

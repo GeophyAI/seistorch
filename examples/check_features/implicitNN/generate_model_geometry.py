@@ -13,11 +13,11 @@ def write_pkl(path: str, data: list):
 # specified in a grid coordinate system, not in real-world distance coordinates. 
 # This distinction is essential for accurate simulation and interpretation of results.
 
-vel = np.load("../models/marmousi_model_half/true_vp.npy")
+vel = np.load("../../models/marmousi_model/true_vp.npy")
 # The depth of the sea is 24*20=480m
 seabed = np.ones_like(vel)
 seabed[0:12] = 0
-np.save("../models/marmousi_model_half/seabed.npy", seabed)
+np.save("../../models/marmousi_model/seabed.npy", seabed)
 nz, nx =  vel.shape
 expand = 25
 # The model is expanded by 50 grid points 

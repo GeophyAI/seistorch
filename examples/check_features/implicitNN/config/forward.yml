@@ -40,7 +40,7 @@ geom:
 
   # Wave speed model from disk_file for forward modeling
   truePath:
-    vp: ../models/marmousi_model_half/true_vp.npy
+    vp: ../../models/marmousi_model/true_vp.npy
     vs:
     rho:
     Q: 
@@ -71,7 +71,7 @@ geom:
 
   # Inital Wave speed model from disk_file
   initPath: 
-    vp: ../models/marmousi_model_half/linear_vp.npy
+    vp: ../../models/marmousi_model/linear_vp.npy
     vs:
     rho:
     Q:

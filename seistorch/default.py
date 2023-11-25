@@ -6,6 +6,8 @@ class ConfigureCheck:
     def __init__(self, cfg, mode="forward", args=None):
         self.cfg = cfg
         self.mode = mode
+        self.inverion = self.mode == "inversion"
+        self.forward = self.mode == "forward"
         self.args = args
         self.__setup__()
 
@@ -42,7 +44,7 @@ class ConfigureCheck:
                 exit()
             # check the existence of the model file
             if not os.path.exists(modelPath[para]):
-                print(f"Cannot find model file '{modelPath[para]}' which is needed by equation {self.cfg['equation']}")
+                print(f"Cannot find model file '{modelPath[para]}' which is needed by equation <{self.cfg['equation']}>")
                 exit()
 
     def check_path(self, ):
