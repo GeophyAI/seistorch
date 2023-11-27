@@ -15,7 +15,7 @@ training:
     type: siren
     in_features: 2
     out_features: 1
-    hidden_features: 20
+    hidden_features: 128
     hidden_layers: 4
     pretrained:
     vmin: 1000.
@@ -26,7 +26,7 @@ training:
   batch_size: 5
 
   # Number of training epochs
-  N_epochs: 5000
+  N_epochs: 8888
 
   # Optimizer learning rate
   lr: 0.001
@@ -41,6 +41,8 @@ training:
   filter_ord: 3
 
 geom:
+
+  unit: 1
 
   # The observer data
   obsPath: ./observed.npy
@@ -99,7 +101,7 @@ geom:
   dt: 0.001
 
   # Time samples
-  nt: 2000
+  nt: 4000
 
   # Main frequency of ricker wave
   fm: 8.0

@@ -173,7 +173,8 @@ size_u = u0.size
 
 # coordinates of the wavefields
 xx_u, zz_u = torch.meshgrid(torch.linspace(0,nx,gridz_u,device=device),
-                            torch.linspace(0,nz,gridx_u,device=device))
+                            torch.linspace(0,nz,gridx_u,device=device), 
+                            indexing='ij')
 xx_u = xx_u.reshape((-1,1))
 zz_u = zz_u.reshape((-1,1))
 

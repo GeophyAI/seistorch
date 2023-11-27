@@ -8,7 +8,7 @@ from scipy.ndimage import gaussian_filter
 
 from .eqconfigure import Parameters
 from .utils import to_tensor
-from .networks import Siren, Encoder
+from .networks import Siren, Encoder, CNN
 from .io import SeisIO
 from .random import random_fill
 
@@ -54,6 +54,7 @@ class WaveGeometry(torch.nn.Module):
             module = importlib.import_module("seistorch.pml")
             coes_func = getattr(module, f"generate_pml_coefficients_{ndim}d", None)
             d = coes_func(domain_shape, abs_N, multiple=multiple)
+            np.save("d.npy", d.cpu().numpy())
             self.register_buffer("_d", d)
             if self.logger is not None:
                 self.logger.print(f"Using PML with width={abs_N}.")
@@ -93,9 +94,14 @@ class WaveGeometryFreeForm(WaveGeometry):
 
         self.mode = mode
         self.autodiff = True
-        h = kwargs['geom']['h']
+        self.kwargs = kwargs
+        if 'unit' not in self.kwargs['geom'].keys():
+            self.unit = 1.0
+        else:
+            self.unit = self.kwargs['geom']['unit']
+        h = kwargs['geom']['h']*self.unit
         abs_N = kwargs['geom']['pml']['N']
-        self.dh = kwargs['geom']['h']
+        self.dh = kwargs['geom']['h']*self.unit
         self.padding = kwargs['geom']['pml']['N']
         self.domain_shape = kwargs['domain_shape']
         self.dt = kwargs['geom']['dt']
@@ -106,7 +112,6 @@ class WaveGeometryFreeForm(WaveGeometry):
         self.multiple = kwargs['geom']['multiple']
         self.model_parameters = []
         self.inversion = False
-        self.kwargs = kwargs
         self.logger = logger
 
         self.seismp = ModelProcess(kwargs)
@@ -119,7 +124,10 @@ class WaveGeometryFreeForm(WaveGeometry):
         # Initialize the model parameters if not using implicit neural network
         self._init_model(kwargs['VEL_PATH'], kwargs['geom']['invlist'])
         # Initialize the implicit neural network if using implicit neural network
-        self.nntype = kwargs['training']['implicit']['type']
+        if 'type' not in kwargs['training']['implicit'].keys():
+            self.nntype='siren'
+        else:
+            self.nntype = kwargs['training']['implicit']['type']
         
         if self.use_implicit: 
             self._init_nn()
@@ -132,9 +140,16 @@ class WaveGeometryFreeForm(WaveGeometry):
         hidden_features=self.kwargs['training']['implicit']['hidden_features']
         hidden_layers=self.kwargs['training']['implicit']['hidden_layers']
         self.nn = dict()
+        # for siren
+        # self.coords = self.get_mgrid_from_vel(self.domain_shape)
+        if self.logger is not None:
+            self.logger.print("Initilizing the implicit neural network ...")
+            self.logger.print(f"nntype: {self.nntype}")
+            self.logger.print(f"NN configures: {self.kwargs['training']['implicit']}")
 
         nn = {'siren': Siren, 
-              'encoder': Encoder}
+              'encoder': Encoder,
+              'cnn': CNN}
 
         for par in self.pars_need_invert:
             self.nn[par] = nn[self.nntype](in_features=in_features,
@@ -147,8 +162,7 @@ class WaveGeometryFreeForm(WaveGeometry):
                                            dh=self.dh)
             self.nn[par].to(self.device)
 
-        self.rand_vec = torch.randn(in_features, device=self.device)
-
+        self.rand_vec = 2*torch.randn(in_features, device=self.device)-1
 
     def _init_model(self, modelPath: dict, invlist: dict):
         """Initilize the model parameters
@@ -172,30 +186,50 @@ class WaveGeometryFreeForm(WaveGeometry):
             # load the ground truth model for calculating the model error
             true_model_path = self.kwargs['geom']['truePath'][mname]
             if true_model_path is not None and os.path.exists(true_model_path):
-                self.true_models[mname]=self.seisio.fromfile(true_model_path)
+                self.true_models[mname]=self.seisio.fromfile(true_model_path)*self.unit
             # load the initial model for the inversion
             if not self.use_implicit:
                 invert = False if self.mode=='forward' else invlist[mname]
+                # self.__setattr__(mname, self.seismp.add_parameter(mpath, invert)*self.unit)
                 self.__setattr__(mname, self.seismp.add_parameter(mpath, invert))
+                getattr(self, mname).to(self.device)
 
     def step_implicit(self, mask):
         vmin, vmax = self.kwargs['training']['implicit']['vmin'], self.kwargs['training']['implicit']['vmax']
         for par in self.pars_need_invert:
             if self.nntype=='siren':
                 coords = self.nn[par].coords.to(self.device) # x, y coordinates
+                # coords = self.coords.to(self.device) # x, y coordinates
                 par_value = self.nn[par](coords)[0]
-
             elif self.nntype=='encoder':
+                par_value = self.nn[par](self.rand_vec)
+            elif self.nntype=='cnn':
                 par_value = self.nn[par](self.rand_vec)
             #if mask is not None:
                 #mask = torch.nn.functional.pad(mask, (self.padding,)*4, mode='constant', value=0)
             # an-ti normalization for getting the true values
-            # anti_value = self.anti_normalization(par_value)
-            anti_value = vmin+(vmax-vmin)*par_value
+            # par_value = par_value.abs()
+
+            # par_value.clamp_(min=0, max=vmax)
+            # using std and mean
+            anti_value = self.anti_normalization(par_value)*self.unit
+            # using vmin and vmax
+            # anti_value = (vmin+(vmax-vmin)*par_value)*self.unit
+            # anti_value = par_value # no anti normalization
             #anti_value *= mask
-            # anti_value[0:self.padding+24] = 1500.
-            anti_value.clamp_(min=0, max=vmax)
+            anti_value[0:self.padding+24] = 1500.*self.unit
             setattr(self, par, anti_value)
+
+    # def get_mgrid_from_vel(self, shape):
+    #     '''Generates a flattened grid of (x,y,...) coordinates in a range of -1 to 1.
+    #     sidelen: int
+    #     dim: int'''
+    #     nz, nx = shape
+    #     xtensor = torch.linspace(-1, 1, steps=nx)
+    #     ztensor = torch.linspace(-1, 1, steps=nz)
+    #     mgrid = torch.stack(torch.meshgrid(ztensor, xtensor, indexing='ij'), dim=-1)
+    #     mgrid = mgrid.reshape(-1, 2)
+    #     return mgrid.to(self.device)
 
     def step(self, seabed=None):
         """
@@ -246,17 +280,6 @@ class WaveGeometryFreeForm(WaveGeometry):
 
         return img
 
-    def get_mgrid_from_vel(self, shape):
-        '''Generates a flattened grid of (x,y,...) coordinates in a range of -1 to 1.
-        sidelen: int
-        dim: int'''
-        nz, nx = shape
-        xtensor = torch.linspace(-1, 1, steps=nx)
-        ztensor = torch.linspace(-1, 1, steps=nz)
-        mgrid = torch.stack(torch.meshgrid(ztensor, xtensor, indexing='ij'), dim=-1)
-        mgrid = mgrid.reshape(-1, 2)
-        return mgrid.to(self.device)
-
     def gradient_smooth(self, ):
 
         for para in self.model_parameters:
@@ -273,6 +296,15 @@ class WaveGeometryFreeForm(WaveGeometry):
     def padding_list(self,):
         top = 0 if self.multiple else self.padding
         return (top, self.padding, self.padding, self.padding)
+
+    # @property
+    # def unit(self,):
+    #     # if 'unit' in self.kwargs['geom'].keys():
+    #     #     self.unit = 1
+    #     # else:
+    #     #     self.unit = 0.001
+    #     self.unit=0.001
+    #     return self.unit
 
     def gradient_cut(self, mask=None, padding=50):
         top = 0 if self.multiple else padding

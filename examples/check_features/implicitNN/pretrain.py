@@ -3,23 +3,38 @@ import matplotlib.pyplot as plt
 import torch
 
 import sys
-sys.path.append("../..")
+sys.path.append("../../..")
 
-from seistorch.siren import Siren
+from seistorch.networks import Siren, CNN, Encoder
 from seistorch.model import build_model
 
-config_file = r"./config/implicit.yml"
+nntype = 'encoder'
+
+config_file = f"./config/{nntype}.yml"
 PMLN = 50
-siren = Siren(in_features=2, out_features=1, hidden_features=128,
-                           hidden_layers=4, outermost_linear=True)
-siren.cuda()
+unit = 0.001
+# siren = Siren(in_features=2, out_features=1, hidden_features=128,
+#                            hidden_layers=4, outermost_linear=True)
+# siren.cuda()
 cfg, model = build_model(config_file, device="cuda:0", mode="inversion")
-init_model = np.load("../models/marmousi_model_half/linear_vp.npy")
-init_model = np.pad(init_model, ((PMLN,PMLN),(PMLN,PMLN)), 'edge')#/1000.
+init_model = np.load("../../models/marmousi_model/linear_vp.npy")
+init_model = np.pad(init_model, ((PMLN,PMLN),(PMLN,PMLN)), 'edge')*unit
+# init_model = np.ones_like(init_model)*1500.
+kwargs_nn = {"in_features":cfg['training']['implicit']['in_features'],
+                "out_features":cfg['training']['implicit']['out_features'],
+                "hidden_features":cfg['training']['implicit']['hidden_features'],
+                "hidden_layers":cfg['training']['implicit']['hidden_layers'],
+                "outermost_linear":True,
+                "domain_shape":init_model.shape}
+
+
+nn = {"siren":Siren, "cnn":CNN, "encoder":Encoder}[nntype](**kwargs_nn).to("cuda:0")
+print(f"Number of parameters: {sum(p.numel() for p in nn.parameters())}")
 # Normalization using std and mean
-mean = 3000
-std = 1000
+mean = 3000*unit
+std = 1000*unit
 target_model = (init_model - mean) / std
+# target_model = init_model
 print(f"Mean: {init_model.mean()}, Std: {init_model.std()}")
 """Initial model"""
 plt.imshow(init_model)
@@ -27,15 +42,19 @@ plt.title("Initial Model")
 plt.show()
 """Pretrain the model"""
 target_model = torch.from_numpy(target_model).float().cuda()
-target_model = target_model.reshape(-1, 1)
+# target_model = target_model.reshape(-1, 1)
 
-optim = torch.optim.Adam(lr=1e-4, params=siren.parameters())
-total_steps = 300 # Since the whole image is our dataset, this just means 500 gradient descent steps.
+optim = torch.optim.Adam(lr=1e-4, params=nn.parameters())
+total_steps = 501 # Since the whole image is our dataset, this just means 500 gradient descent steps.
 steps_til_summary = 25
 shape = model.cell.geom.domain_shape
+rand_vector = torch.rand(cfg['training']['implicit']['in_features']).float().cuda()
 for step in range(total_steps):
-    model_output, coords = siren(model.cell.geom.coords)
-    #model_output = model_output*3000+1000.
+    if nntype == 'siren':
+        model_output, _ = nn(nn.coords.to("cuda:0"))
+    else:
+        model_output = nn(rand_vector)
+    # model_output = model_output*3000+1000.
     loss = ((model_output - target_model)**2).mean()
     model_output = model_output*std+mean
     if not step % steps_til_summary:
@@ -59,5 +78,5 @@ for step in range(total_steps):
 """Save the pretrain model"""
 import os
 os.makedirs("./pretrained", exist_ok=True)
-torch.save(siren.state_dict(), "./pretrained/linear_vp_z12.5m_x12.5m_expand.pt")
+torch.save(nn.state_dict(), f"./pretrained/{nntype}.pt")
 print("Model saved!")

@@ -54,7 +54,7 @@ geom:
 
   wavelet:
 
-  multiple: false
+  multiple: true
 
   boundary_saving: true
 
@@ -95,7 +95,7 @@ geom:
   nt: 1500
 
   # Main frequency of ricker wave
-  fm: 5.0
+  fm: 10.0
 
   # Spatial grid step size
   h: 10.0

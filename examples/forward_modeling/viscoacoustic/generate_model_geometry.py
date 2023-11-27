@@ -24,23 +24,23 @@ show = SeisShow()
 # |                             |
 # |-----------------------------|
 dtype = np.float32
-nz, nx = 128, 256
+nz, nx = 128, 128
 vel = np.ones((nz, nx), dtype=dtype)*1500
-vel[64:, :] = 2000
+# vel[64:, :] = 2000
 
 rho = np.ones((nz, nx), dtype=dtype)*1000
-rho[64:, :] = 1000
+# rho[64:, :] = 1000
 
 Q = np.ones((nz, nx), dtype=dtype)*100
-Q[64:, :] = 200
+# Q[64:, :] = 200
 # Generate the source and receiver list
 # Please note that in Seistorch, 
 # the coordinates of source points and receiver points are 
 # specified in a grid coordinate system, not in real-world distance coordinates. 
 # This distinction is essential for accurate simulation and interpretation of results.
- 
-src_x = np.linspace(10, 250, 5)
-src_z = np.ones_like(src_x)
+
+src_x = np.linspace(32, 32, 1)
+src_z = np.ones_like(src_x)*32
 
 sources = [[src_x, src_z] for src_x, src_z in zip(src_x.tolist(), src_z.tolist())]
 
@@ -48,7 +48,7 @@ sources = [[src_x, src_z] for src_x, src_z in zip(src_x.tolist(), src_z.tolist()
 #            [0, 1, ..., 255], [5, 5, ..., 5],    
 #            [0, 1, ..., 255], [5, 5, ..., 5],
 #            ],
-receiver_locx = np.arange(0, 256, 4)
+receiver_locx = np.arange(0, 128, 1)
 receiver_locz = np.ones_like(receiver_locx)*5
 
 # The receivers are fixed at the bottom of the model (z=5)

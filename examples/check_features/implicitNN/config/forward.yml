@@ -95,7 +95,7 @@ geom:
   dt: 0.001
 
   # Time samples
-  nt: 2000
+  nt: 4000
 
   # Main frequency of ricker wave
   fm: 8.0

@@ -12,11 +12,11 @@ training:
 
   implicit:
     use: true
-    type: encoder
-    in_features: 3
-    out_features:
-    hidden_features: 128
-    hidden_layers: 4
+    type: cnn
+    in_features: 8
+    out_features: 
+    hidden_features: 8
+    hidden_layers:
     pretrained:
     vmin: 1000.
     vmax: 5500.
@@ -26,7 +26,7 @@ training:
   batch_size: 5
 
   # Number of training epochs
-  N_epochs: 4000
+  N_epochs: 2000
 
   # Optimizer learning rate
   lr: 0.001
@@ -41,8 +41,6 @@ training:
   filter_ord: 3
 
 geom:
-
-  unit: 1
 
   # The observer data
   obsPath: ./observed.npy
@@ -62,6 +60,8 @@ geom:
   seabed: ../../models/marmousi_model/seabed.npy
 
   wavelet:
+
+  unit: 0.001
 
   multiple: false
 

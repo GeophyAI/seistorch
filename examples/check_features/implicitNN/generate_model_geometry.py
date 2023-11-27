@@ -15,14 +15,11 @@ def write_pkl(path: str, data: list):
 
 vel = np.load("../../models/marmousi_model/true_vp.npy")
 # The depth of the sea is 24*20=480m
-seabed = np.ones_like(vel)
-seabed[0:12] = 0
-np.save("../../models/marmousi_model/seabed.npy", seabed)
 nz, nx =  vel.shape
-expand = 25
+expand = 50
 # The model is expanded by 50 grid points 
 # in left and right direction for better illuminating.
-src_x = np.arange(expand, nx-expand, 10)
+src_x = np.arange(expand, nx-expand, 5)
 src_z = np.ones_like(src_x)
 
 sources = [[src_x, src_z] for src_x, src_z in zip(src_x.tolist(), src_z.tolist())]

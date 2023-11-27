@@ -14,8 +14,12 @@ def diff_using_roll(input, dim=-1, forward=True, padding_value=0):
         Returns:
             torch.Tensor: The forward difference of the input tensor.
         """
+        # x[:,0] = padding_value
         diff = x - torch.roll(x, shifts=1, dims=dim)
-        diff[..., 0] = padding_value  # pad with specified value
+        if dim == 1:
+            diff[:, 0] = padding_value
+        elif dim == 2:
+            diff[..., 0] = padding_value  # pad with specified value
         return diff
 
     def backward_diff(x, dim=-1, padding_value=0):
@@ -30,8 +34,12 @@ def diff_using_roll(input, dim=-1, forward=True, padding_value=0):
         Returns:
             torch.Tensor: The backward difference of the input tensor.
         """
+        # x[...,-1] = padding_value
         diff = torch.roll(x, shifts=-1, dims=dim) - x
-        diff[..., -1] = padding_value  # pad with specified value
+        if dim == 1:
+            diff[:, -1] = padding_value
+        elif dim == 2:
+            diff[..., -1] = padding_value  # pad with specified value
         return diff
 
     if forward:

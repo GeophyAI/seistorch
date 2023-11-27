@@ -291,7 +291,7 @@ if __name__ == '__main__':
         # Update the parameters
         optimizers.step()
         lr_scheduler.step()
-        model.cell.geom.step()
+        # model.cell.geom.step() ???
 
         # Saving checkpoint
         # torch.save({'epoch': local_epoch, 
