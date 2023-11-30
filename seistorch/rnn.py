@@ -125,7 +125,7 @@ class WaveRNN(torch.nn.Module):
                                   omega=omega, 
                                   source=[self.cell.geom.source_type, super_source, x[..., tmpi].view(xi.size(1), -1)])
             
-            if True:
+            if False:
                 np.save(f"./wavefield/wf{i:04d}.npy", wavefield[2].cpu().numpy())
 
             # Set the data to vars

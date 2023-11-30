@@ -5,19 +5,19 @@ import torch
 import sys
 sys.path.append("../../..")
 
-from seistorch.networks import Siren, CNN, Encoder
+from seistorch.networks import Siren, CNN, Encoder, SirenScale
 from seistorch.model import build_model
 
-nntype = 'encoder'
+nntype = 'siren'
 
-config_file = f"./config/{nntype}.yml"
+config_file = f"./config/siren.yml"
 PMLN = 50
-unit = 0.001
+unit = 1
 # siren = Siren(in_features=2, out_features=1, hidden_features=128,
 #                            hidden_layers=4, outermost_linear=True)
 # siren.cuda()
 cfg, model = build_model(config_file, device="cuda:0", mode="inversion")
-init_model = np.load("../../models/marmousi_model/linear_vp.npy")
+init_model = np.load("../../models/marmousi_model/true_vp.npy")
 init_model = np.pad(init_model, ((PMLN,PMLN),(PMLN,PMLN)), 'edge')*unit
 # init_model = np.ones_like(init_model)*1500.
 kwargs_nn = {"in_features":cfg['training']['implicit']['in_features'],
@@ -28,7 +28,10 @@ kwargs_nn = {"in_features":cfg['training']['implicit']['in_features'],
                 "domain_shape":init_model.shape}
 
 
-nn = {"siren":Siren, "cnn":CNN, "encoder":Encoder}[nntype](**kwargs_nn).to("cuda:0")
+nn = {"siren":Siren, 
+      "cnn":CNN, 
+      "siren_scale":SirenScale,
+      "encoder":Encoder}[nntype](**kwargs_nn).to("cuda:0")
 print(f"Number of parameters: {sum(p.numel() for p in nn.parameters())}")
 # Normalization using std and mean
 mean = 3000*unit
@@ -45,10 +48,11 @@ target_model = torch.from_numpy(target_model).float().cuda()
 # target_model = target_model.reshape(-1, 1)
 
 optim = torch.optim.Adam(lr=1e-4, params=nn.parameters())
-total_steps = 501 # Since the whole image is our dataset, this just means 500 gradient descent steps.
+total_steps = 1001 # Since the whole image is our dataset, this just means 500 gradient descent steps.
 steps_til_summary = 25
 shape = model.cell.geom.domain_shape
-rand_vector = torch.rand(cfg['training']['implicit']['in_features']).float().cuda()
+rand_vector = torch.Tensor([0.9,0,-0.9]).to("cuda:0")
+print(rand_vector)
 for step in range(total_steps):
     if nntype == 'siren':
         model_output, _ = nn(nn.coords.to("cuda:0"))

@@ -3,8 +3,9 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 import sys
-sys.path.append("../../../")
+sys.path.append("../../..")
 from seistorch.show import SeisShow
+from par2ani import get_thomsen_parameters
 
 def write_pkl(path: str, data: list):
     # Open the file in binary mode and write the list using pickle
@@ -26,6 +27,9 @@ show = SeisShow()
 dtype = np.float32
 nz, nx = 256, 256
 vel = np.ones((nz, nx), dtype=dtype)*1500
+vs = np.ones((nz, nx), dtype=dtype)*1500/1.732
+rho = np.ones((nz, nx), dtype=dtype)*1000
+Q = np.ones((nz, nx), dtype=dtype)*100
 
 # Generate the source and receiver list
 # Please note that in Seistorch, 
@@ -33,7 +37,7 @@ vel = np.ones((nz, nx), dtype=dtype)*1500
 # specified in a grid coordinate system, not in real-world distance coordinates. 
 # This distinction is essential for accurate simulation and interpretation of results.
  
-src_x = np.linspace(128, 128, 1)
+src_x = np.linspace(128, 129, 1)
 src_z = np.ones_like(src_x)*128
 
 sources = [[src_x, src_z] for src_x, src_z in zip(src_x.tolist(), src_z.tolist())]
@@ -57,6 +61,18 @@ show.geometry(vel, sources, receivers, savepath="model_geometry.gif", dh=10, int
 vel_path = r"./velocity_model"
 os.makedirs(vel_path, exist_ok=True)
 np.save(os.path.join(vel_path, "vp.npy"), vel)
+np.save(os.path.join(vel_path, "vs.npy"), vs)
+np.save(os.path.join(vel_path, "rho.npy"), rho)
+np.save(os.path.join(vel_path, "Q.npy"), Q)
+
+c11, c13, c33, c15, c35, c55 = get_thomsen_parameters(vel, vs, rho, 0.1, 0, 0.08, _theta=45.)
+np.save(os.path.join(vel_path, "c11.npy"),c11)
+np.save(os.path.join(vel_path, "c13.npy"),c13)
+np.save(os.path.join(vel_path, "c33.npy"),c33)
+np.save(os.path.join(vel_path, "c15.npy"),c15)
+np.save(os.path.join(vel_path, "c35.npy"),c35)
+np.save(os.path.join(vel_path, "c55.npy"),c55)
+
 
 # Save the source and receiver list
 save_path = r"./geometry"

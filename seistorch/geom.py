@@ -8,7 +8,7 @@ from scipy.ndimage import gaussian_filter
 
 from .eqconfigure import Parameters
 from .utils import to_tensor
-from .networks import Siren, Encoder, CNN
+from .networks import Siren, Encoder, CNN, SirenScale
 from .io import SeisIO
 from .random import random_fill
 
@@ -54,7 +54,6 @@ class WaveGeometry(torch.nn.Module):
             module = importlib.import_module("seistorch.pml")
             coes_func = getattr(module, f"generate_pml_coefficients_{ndim}d", None)
             d = coes_func(domain_shape, abs_N, multiple=multiple)
-            np.save("d.npy", d.cpu().numpy())
             self.register_buffer("_d", d)
             if self.logger is not None:
                 self.logger.print(f"Using PML with width={abs_N}.")
@@ -149,7 +148,8 @@ class WaveGeometryFreeForm(WaveGeometry):
 
         nn = {'siren': Siren, 
               'encoder': Encoder,
-              'cnn': CNN}
+              'cnn': CNN, 
+              'sirenscale': SirenScale}
 
         for par in self.pars_need_invert:
             self.nn[par] = nn[self.nntype](in_features=in_features,
@@ -159,10 +159,12 @@ class WaveGeometryFreeForm(WaveGeometry):
                                            outermost_linear=True,
                                            domain_shape=self.domain_shape,
                                            pretrained=self.kwargs['training']['implicit']['pretrained'],
+                                           scale=(10,20),
                                            dh=self.dh)
             self.nn[par].to(self.device)
 
-        self.rand_vec = 2*torch.randn(in_features, device=self.device)-1
+        #self.rand_vec = 2*torch.randn(in_features, device=self.device)-1
+        self.rand_vec = torch.Tensor([0.9,0.0,-0.9]).float().to(self.device)
 
     def _init_model(self, modelPath: dict, invlist: dict):
         """Initilize the model parameters
@@ -190,14 +192,19 @@ class WaveGeometryFreeForm(WaveGeometry):
             # load the initial model for the inversion
             if not self.use_implicit:
                 invert = False if self.mode=='forward' else invlist[mname]
-                # self.__setattr__(mname, self.seismp.add_parameter(mpath, invert)*self.unit)
-                self.__setattr__(mname, self.seismp.add_parameter(mpath, invert))
-                getattr(self, mname).to(self.device)
+                self.__setattr__(mname, self.seismp.add_parameter(mpath, invert, self.unit))
+                
+                if self.logger is not None:
+                    self.logger.print(f"The max value of {mname} is {getattr(self, mname).max().item()}")
+                    self.logger.print(f"The min value of {mname} is {getattr(self, mname).min().item()}")
+                
+                # self.__setattr__(mname, self.seismp.add_parameter(mpath, invert))
+                # getattr(self, mname).to(self.device)
 
     def step_implicit(self, mask):
         vmin, vmax = self.kwargs['training']['implicit']['vmin'], self.kwargs['training']['implicit']['vmax']
         for par in self.pars_need_invert:
-            if self.nntype=='siren':
+            if self.nntype in ['siren', 'sirenscale']:
                 coords = self.nn[par].coords.to(self.device) # x, y coordinates
                 # coords = self.coords.to(self.device) # x, y coordinates
                 par_value = self.nn[par](coords)[0]
@@ -212,12 +219,12 @@ class WaveGeometryFreeForm(WaveGeometry):
 
             # par_value.clamp_(min=0, max=vmax)
             # using std and mean
-            anti_value = self.anti_normalization(par_value)*self.unit
+            anti_value = self.anti_normalization(par_value, 3000., 1000.)*self.unit
             # using vmin and vmax
             # anti_value = (vmin+(vmax-vmin)*par_value)*self.unit
             # anti_value = par_value # no anti normalization
             #anti_value *= mask
-            anti_value[0:self.padding+24] = 1500.*self.unit
+            # anti_value[0:self.padding+24] = 1500.*self.unit
             setattr(self, par, anti_value)
 
     # def get_mgrid_from_vel(self, shape):
@@ -379,7 +386,7 @@ class ModelProcess:
         self.io = SeisIO(cfg)
 
     # Add the torch paramter
-    def add_parameter(self, path: str, requires_grad=False):
+    def add_parameter(self, path: str, requires_grad=False, unit=1):
         """Read the model paramter and setting the attribute 'requires_grad'.
 
         Args:
@@ -389,7 +396,7 @@ class ModelProcess:
         Returns:
             _type_: torch.nn.Tensor
         """
-        d = self.io.fromfile(path)
+        d = self.io.fromfile(path)*unit
         model = self.pad(d, mode="edge")
         return torch.nn.Parameter(to_tensor(model), requires_grad=requires_grad)
 

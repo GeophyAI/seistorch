@@ -16,7 +16,7 @@ training:
     in_features: 2
     out_features: 1
     hidden_features: 128
-    hidden_layers: 4
+    hidden_layers: 6
     pretrained:
     vmin: 1000.
     vmax: 5500.
@@ -35,14 +35,14 @@ training:
   scale_decay: 0.85
 
   # decay the lr by each of epochs
-  lr_decay: 1
+  lr_decay: 0.9995
 
   # Filter order
   filter_ord: 3
 
 geom:
 
-  unit: 1
+  unit: 0.001
 
   # The observer data
   obsPath: ./observed.npy
@@ -65,7 +65,7 @@ geom:
 
   multiple: false
 
-  boundary_saving: true
+  boundary_saving: false
 
   wavelet_delay: 256
 

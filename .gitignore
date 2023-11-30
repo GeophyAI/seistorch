@@ -1,4 +1,6 @@
 .vscode
+results*
+*.pt
 *.pyc
 *.pkl
 __pycache__

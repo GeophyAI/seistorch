@@ -6,60 +6,51 @@ name: forward_modeling
 # Data type to use for tensors, either float32 or float64
 dtype: float32
 
-equation: acoustic
+equation: viscoacoustic
 
 training:
 
   implicit:
-    use: true
-    type: encoder
-    in_features: 3
-    out_features:
-    hidden_features: 128
-    hidden_layers: 4
-    pretrained: ./pretrained/encoder.pt
-    vmin: 1000.
-    vmax: 5500.
+    use: false
+    pretrained:
 
-  minibatch: true
+  minibatch:
 
-  batch_size: 5
+  batch_size:
 
   # Number of training epochs
-  N_epochs: 4000
+  N_epochs:
 
   # Optimizer learning rate
-  lr: 0.001
+  lr:
 
   # Decay the learning rate by each of multi-scale
-  scale_decay: 0.85
+  scale_decay:
 
   # decay the lr by each of epochs
-  lr_decay: 1
+  lr_decay:
 
   # Filter order
-  filter_ord: 3
+  filter_ord:
 
 geom:
 
-  unit: 1
-
   # The observer data
-  obsPath: ./observed.npy
+  obsPath: ./shot_gather.npy
 
   # Wave speed model from disk_file for forward modeling
   truePath:
-    vp: ../../models/marmousi_model/true_vp.npy
+    vp: ./velocity_model/vp.npy
     vs:
-    rho:
-    Q: 
+    rho: ./velocity_model/rho.npy
+    Q: ./velocity_model/Q.npy
     #/mnt/data/wangsw/inversion/marmousi_10m/data//velocity/q_const.npy
 
   sources: ./geometry/sources.pkl
 
   receivers: ./geometry/receivers.pkl
 
-  seabed: ../../models/marmousi_model/seabed.npy
+  seabed:
 
   wavelet:
 
@@ -73,41 +64,41 @@ geom:
   #./geometry/ricker_lowcut5hz.npy
 
   source_type:
-    - h1
+    - p
 
   receiver_type:
-    - h1
+    - p
 
   # Inital Wave speed model from disk_file
   initPath: 
-    vp: ../../models/marmousi_model/true_vp.npy
+    vp:
     vs:
     rho:
     Q:
 
   invlist:
-    vp: true
+    vp:
     vs:
     rho:
-    q:
+    Q:
 
   # Save the results of FWI
   inv_savePath:
 
   multiscale:
-    - all
+    - 0.0
 
   # Time Sampling step
   dt: 0.001
 
   # Time samples
-  nt: 4000
+  nt: 1000
 
   # Main frequency of ricker wave
-  fm: 8.0
+  fm: 10.0
 
   # Spatial grid step size
-  h: 20.0
+  h: 10.0
 
   # Total Shots
   Nshots: 999

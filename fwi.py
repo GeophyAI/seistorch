@@ -162,6 +162,7 @@ if __name__ == '__main__':
         """Save the modeled data, which stored in rank0 <record>"""
         if MASTER:
             pbar.close()
+            record.write()
             # fp = np.memmap(cfg['geom']['obsPath'], dtype=np.ndarray, mode='r')
             # for i in range(record.shape[0]):
                 # print(i, fp[i].shape, record[i].shape)

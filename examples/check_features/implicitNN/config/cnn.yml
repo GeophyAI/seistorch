@@ -61,7 +61,7 @@ geom:
 
   wavelet:
 
-  unit: 0.001
+  unit: 1
 
   multiple: false
 

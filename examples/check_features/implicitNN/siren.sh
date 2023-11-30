@@ -4,8 +4,8 @@ python ../../../codingfwi.py config/siren.yml \
 --opt adam \
 --loss vp=l2 \
 --mode inversion \
---batchsize 5 \
---lr vp=0.0001 \
+--batchsize 10 \
+--lr vp=0.00005 \
 --save-path ./results_implicit_siren \
 --checkpoint ./none \
 --use-cuda \

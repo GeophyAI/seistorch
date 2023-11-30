@@ -12,12 +12,12 @@ training:
 
   implicit:
     use: true
-    type: encoder
-    in_features: 3
-    out_features:
-    hidden_features: 128
+    type: sirenscale
+    in_features: 2
+    out_features: 1
+    hidden_features: 32
     hidden_layers: 4
-    pretrained: ./pretrained/encoder.pt
+    pretrained:
     vmin: 1000.
     vmax: 5500.
 
@@ -26,7 +26,7 @@ training:
   batch_size: 5
 
   # Number of training epochs
-  N_epochs: 4000
+  N_epochs: 8888
 
   # Optimizer learning rate
   lr: 0.001

@@ -8,6 +8,7 @@ from obspy import Stream, Trace
 from yaml import load, dump
 from yaml import CLoader as Loader
 import h5py
+from tensorboard.backend.event_processing.event_accumulator import EventAccumulator
 
 
 class SeisRecord:
@@ -88,8 +89,14 @@ class SeisRecord:
                 f[f'shot_{shot_no}'][...] = data
 
         if self.filetype == '.npy':
+            # save the data if all shots are finished
             self.record[shot_no] = data
-            np.save(datapath, self.record)
+            # np.save(datapath, self.record)
+
+    def write(self,):
+        # for npy file, save the data if all shots are finished
+        if self.filetype == '.npy':
+            np.save(self.datapath, self.record)
 
     @property
     def shape(self, ):
@@ -359,6 +366,15 @@ class SeisIO:
                 file.seek(0)
                 data = np.fromfile(file, dtype="float32")
                 return data
+
+    def read_history(self, path):
+        tb = EventAccumulator(path, size_guidance={'scalars': 0})
+        tb.Reload()
+        tb_steps = tb.Scalars('model_error/vp')
+        tb_steps = [i.step for i in tb_steps]
+        tb_loss = tb.Scalars('model_error/vp')
+        tb_loss = [i.value for i in tb_loss]
+        return tb_steps, tb_loss
 
     def to_file(self, path: str=None, data: np.ndarray=None):
         """Write the data to a file.

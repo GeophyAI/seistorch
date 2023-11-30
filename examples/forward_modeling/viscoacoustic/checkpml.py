@@ -20,11 +20,11 @@ import matplotlib.pyplot as plt
 # plt.plot(wf[0][:,64])
 # plt.show()
 
-wf = np.load("./wavefield/wf0650.npy")
-plt.imshow(wf[0])
+wf = np.load("./wavefield/wf1050.npy")[0,:-50,50:-50]
+plt.imshow(wf)
 plt.show()
 
-plt.plot(wf[0][:,64])
+plt.plot(wf[:,64])
 plt.show()
 # rec = np.load("shot_gather.npy", allow_pickle=True)
 # plt.imshow(rec[0], aspect="auto")

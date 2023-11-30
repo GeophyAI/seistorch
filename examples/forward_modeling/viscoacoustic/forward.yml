@@ -6,7 +6,7 @@ name: forward_modeling
 # Data type to use for tensors, either float32 or float64
 dtype: float32
 
-equation: viscoacoustic
+equation: acoustic
 
 training:
 
@@ -64,10 +64,10 @@ geom:
   #./geometry/ricker_lowcut5hz.npy
 
   source_type:
-    - p
+    - h1
 
   receiver_type:
-    - p
+    - h1
 
   # Inital Wave speed model from disk_file
   initPath: 
