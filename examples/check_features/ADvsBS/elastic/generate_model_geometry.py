@@ -19,9 +19,9 @@ def write_pkl(path: str, data: list):
 # |                             |
 # |-----------------------------|
 dtype = np.float32
-nz, nx = 128, 256
+nz, nx = 64, 129
 true_vp = np.ones((nz, nx), dtype=dtype)*1500
-true_vp[64:, :] = 2000
+true_vp[32:, :] = 2000
 
 true_vs = true_vp/1.73
 rho = np.ones_like(true_vp)*2000
@@ -38,7 +38,7 @@ init_vs = init_vp/1.73
 # specified in a grid coordinate system, not in real-world distance coordinates. 
 # This distinction is essential for accurate simulation and interpretation of results.
  
-src_x = np.linspace(10, 250, 10)
+src_x = np.linspace(64, 65, 1)
 src_z = np.ones_like(src_x)
 
 sources = [[src_x, src_z] for src_x, src_z in zip(src_x.tolist(), src_z.tolist())]
@@ -47,7 +47,7 @@ sources = [[src_x, src_z] for src_x, src_z in zip(src_x.tolist(), src_z.tolist()
 #            [0, 1, ..., 255], [5, 5, ..., 5],    
 #            [0, 1, ..., 255], [5, 5, ..., 5],
 #            ],
-receiver_locx = np.arange(0, 256, 4)
+receiver_locx = np.arange(0, 129, 1)
 receiver_locz = np.ones_like(receiver_locx)*5
 
 # The receivers are fixed at the bottom of the model (z=5)

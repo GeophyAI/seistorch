@@ -1,5 +1,7 @@
 import torch
+import numpy as np
 from seistorch.utils import to_tensor
+from typing import Any
 HANDLED_FUNCTIONS = {}
 
 class TensorList(list):
@@ -87,4 +89,74 @@ class TensorList(list):
     def __str__(self):
         return str(self.data)
 
+
+class Coordinate:
+
+    def __init__(self, x, y, z):
+        self._x = x
+        self._y = y
+        self._z = z
+
+    @property
+    def x(self) -> Any:
+        return self._x
+    
+    @property
+    def y(self) -> Any:
+        return self._y
+    
+    @property
+    def z(self) -> Any:
+        return self._z
+
+    def __str__(self):
+        return 'x: {}, y: {}, z: {}'.format(self.x, self.y, self.z)
+    
+    def __eq__(self, __value: object) -> bool:
+        if isinstance(__value, Coordinate):
+            return self.x == __value.x and self.y == __value.y and self.z == __value.z
+        else:
+            return False
+        
+    def __hash__(self) -> int:
+        return hash((self.x, self.y, self.z))
+
+class Trace:
+
+    def __init__(self, src: Coordinate, rec: Coordinate, idx_in_segy: int = None):
+        self._src = src
+        self._rec = rec
+        self._idx_in_segy = idx_in_segy
+
+    @property
+    def src(self):
+        return (self._src.x, self._src.y, self._src.z)
+    
+    @property
+    def rec(self):
+        return (self._rec.x, self._rec.y, self._rec.z)
+    
+    @property
+    def idx_in_segy(self):
+        return self._idx_in_segy
+    
+class CommonShotGather:
+
+    def __init__(self, src: Coordinate, recs: list, data: np.ndarray):
+        self._src = np.asarray(src)
+        self._recs = np.asarray(recs)
+        self._data = data
+
+    @property
+    def src(self):
+        return self._src
+    
+    @property
+    def recs(self):
+        return self._recs
+    
+    @property
+    def data(self):
+        return self._data
+    
     

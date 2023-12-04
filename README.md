@@ -2,11 +2,11 @@
 
 Seistorch is a seismic inversion framework designed for researchers in the field of geophysics and seismic imaging. This open-source Python library empowers users to perform state-of-the-art Full-Waveform Inversion (FWI) based on pytorch's automatic differentiation.
 
-- **Key features**:
+- **Key features** :
 
     1. **Python-Powered**: Seistorch is developed entirely in Python, ensuring ease of use and compatibility with various Python environments.
 
-    2. **Automatic Differentiation with PyTorch**: The package leverages the automatic differentiation capabilities of PyTorch to efficiently compute gradients, a fundamental aspect of FWI.
+    2. **PyTorch backend**: The package leverages the automatic differentiation capabilities of PyTorch to efficiently compute gradients, a fundamental aspect of FWI.
 
     3. **Parallel Computing using multiple nodes and GPUs**: Seistorch is equipped with a powerful feature that allows for parallel computing using multiple nodes and multiple GPUs. This capability can significantly accelerate your Full-Waveform Inversion (FWI) and forward modeling tasks. To utilize this feature effectively, please follow the guidelines in Getting Started.
 
@@ -48,12 +48,26 @@ Such as the misfits in Seistorch:
 
 8. Physical informed neural network by [Rasht-Behesht et al.](https://onlinelibrary.wiley.com/doi/10.1029/2021JB023120).
 
-9. Boundary saving strategy by [Dussaud et al.](https://library.seg.org/doi/10.1190/1.3059336).
+9. Boundary saving strategy by [Dussaud et al.](https://library.seg.org/doi/10.1190/1.3059336) and [Wang et al.](https://ieeexplore.ieee.org/document/10256076).
+
+10. Integrating deep neural networks with full-waveform inversion by [Zhu et al.](https://doi.org/10.1190%2FGEO2020-0933.1).
+
+11. AD-based acoustic inversion [Sun et al.](https://doi.org/10.1190/geo2019-0138.1).
+
+12. AD-based elastic inversion [Wang W.L. et al.](https://doi.org/10.1190/geo2020-0542.1).
+
+etc.
 
 # TODO Recently
-1. Random boundary by [Shen & Clapp](https://library.seg.org/doi/10.1190/geo2014-0542.1).
+1. Random boundary by [Shen & Clapp](https://doi/10.1190/geo2014-0542.1).
 
-2. PINNs.
+2. A zoo of PINNs.
+
+3. Gradient sampling.
+
+4. FWIGAN.
+
+5. Torched-based finite element method.
 
 # Citation
 

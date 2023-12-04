@@ -3,7 +3,11 @@ import os
 import pickle
 import torch
 import numpy as np
-from .type import TensorList
+
+from typing import Any
+import segyio
+
+from .type import *
 from obspy import Stream, Trace
 from yaml import load, dump
 from yaml import CLoader as Loader
@@ -453,3 +457,89 @@ class SeisIO:
             buffer.tofile(file)
             data.tofile(file)
             buffer.tofile(file)
+
+class SegyReader:
+
+    def __init__(self, path):
+        self.path = path
+        self.analysis()
+        self.map2csg()
+
+    def _open(self):
+        self.f = segyio.open(self.path, ignore_geometry=True)
+        self.f.mmap()
+
+    def _close(self):
+        self.f.close()
+
+    @property
+    def dt(self):
+        """Get the sample interval in ms"""
+        self._open()
+        dt = segyio.dt(self.f) / 1000
+        self._close()
+        return dt
+
+    @property
+    def tracecount(self):
+        """Get the number of traces in the segy file"""
+        self._open()
+        num_traces = self.f.tracecount
+        self._close()
+        return num_traces
+    
+    @property
+    def shotcount(self):
+        """Get the number of shots in the segy file"""
+        return len(self.dmap)
+
+    def analysis(self):
+        """Get the information of each trace in the segy file"""
+        self._open()
+        self.trace_info = []
+        for i,h in enumerate(self.f.header):
+            # Get the source coordinate
+            srcX = h[segyio.TraceField.SourceX]
+            srcY = h[segyio.TraceField.SourceY]
+            srcZ = h[segyio.TraceField.SourceDepth]
+            # Get the receiver coordinate
+            recX = h[segyio.TraceField.GroupX]
+            recY = h[segyio.TraceField.GroupY]
+            recZ = h[segyio.TraceField.GroupWaterDepth]
+            trace = Trace(Coordinate(srcX, srcY, srcZ), Coordinate(recX, recY, recZ), i)
+            self.trace_info.append(trace)
+        self._close()
+
+    def map2csg(self):
+        """Map the traces to common shot gathers"""
+        self.dmap = dict()
+        for i,t in enumerate(self.trace_info):
+            # Get the receiver coordinate
+            if t.src in self.dmap:
+                self.dmap[t.src]['idx_in_segy'].append(t.idx_in_segy)
+                self.dmap[t.src]['recs'].append(t.rec)
+            else:
+                self.dmap[t.src] = dict()
+                self.dmap[t.src]['idx_in_segy'] = []
+                self.dmap[t.src]['recs'] = []
+        return self.dmap
+    
+    def get_shot(self, shot_no):
+        """Get the data of shot gather by shot_no"""
+        if shot_no >= len(self.dmap):
+            raise ValueError('shot_no should be less than {}'.format(len(self.dmap)))
+        if shot_no < 0:
+            shot_no = len(self.dmap) + shot_no
+        self._open()
+        key = list(self.dmap.keys())[shot_no]
+        idx_in_segy = self.dmap[key]['idx_in_segy']
+        data = []
+        for i in idx_in_segy:
+            data.append(self.f.trace.raw[i])
+        self._close()
+        data = np.array(data).T
+
+        cog = CommonShotGather(key, self.dmap[key]['recs'], data)
+
+        return cog
+
