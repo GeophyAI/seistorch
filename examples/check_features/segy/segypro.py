@@ -74,10 +74,11 @@ class CommonShotGather:
     
 class SegyReader:
 
-    def __init__(self, path):
+    def __init__(self, path, analysis=False):
         self.path = path
-        self.analysis()
-        self.map2csg()
+        if analysis:
+            self._analysis()
+            self.map2csg()
 
     def _open(self):
         self.f = segyio.open(self.path, ignore_geometry=True)
@@ -107,7 +108,19 @@ class SegyReader:
         """Get the number of shots in the segy file"""
         return len(self.dmap)
 
-    def analysis(self):
+    def get_source_receiver_coordinates(self, ):
+        self._open()
+        source_coordinates = np.column_stack((self.f.attributes(segyio.TraceField.SourceX),
+                                              self.f.attributes(segyio.TraceField.SourceY), 
+                                              self.f.attributes(segyio.TraceField.SourceDepth)))
+
+        receiver_coordinates = np.column_stack((self.f.attributes(segyio.TraceField.GroupX),
+                                                self.f.attributes(segyio.TraceField.GroupY), 
+                                                self.f.attributes(segyio.TraceField.ReceiverGroupElevation)))
+        self._close()
+        return source_coordinates, receiver_coordinates        
+
+    def _analysis(self):
         """Get the information of each trace in the segy file"""
         self._open()
         self.trace_info = []
@@ -161,31 +174,34 @@ class SegyReader:
 filename = '/home/wangsw/wangsw/model/1997_2.5D_shots.segy'
 
 reader = SegyReader(filename)
-tracecount = reader.tracecount
-shotcount = reader.shotcount
-cog = reader.get_shot(200)
+# tracecount = reader.tracecount
+# shotcount = reader.shotcount
 
-fig, ax = plt.subplots(figsize=(5, 4))
-vmin, vmax = np.percentile(cog.data, [1, 99])
-ax.imshow(cog.data, cmap='seismic', vmin=vmin, vmax=vmax, aspect='auto')
-ax.set_title('Shot No.{}'.format(0))
-plt.show()
+srcs, recs = reader.get_source_receiver_coordinates()
+
+# cog = reader.get_shot(200)
+
+# fig, ax = plt.subplots(figsize=(5, 4))
+# vmin, vmax = np.percentile(cog.data, [1, 99])
+# ax.imshow(cog.data, cmap='seismic', vmin=vmin, vmax=vmax, aspect='auto')
+# ax.set_title('Shot No.{}'.format(0))
+# plt.show()
 
 
-print('tracecount = {}'.format(tracecount))
-print('shotcount = {}'.format(shotcount))
-print('dt = {} ms'.format(reader.dt))
+# print('tracecount = {}'.format(tracecount))
+# print('shotcount = {}'.format(shotcount))
+# print('dt = {} ms'.format(reader.dt))
 
-fig,ax=plt.subplots(figsize=(5, 4))
-ax.scatter(cog.recs[:, 0], cog.recs[:, 2], s=10, label='rec')
-ax.scatter(cog.src[0], cog.src[2], s=5, label='src')
-ax.legend()
-ax.set_xlabel('x')
-ax.set_ylabel('z')
-ax.set_title('Shot No.{}'.format(0))
-plt.show()
+# fig,ax=plt.subplots(figsize=(5, 4))
+# ax.scatter(cog.recs[:, 0], cog.recs[:, 2], s=10, label='rec')
+# ax.scatter(cog.src[0], cog.src[2], s=5, label='src')
+# ax.legend()
+# ax.set_xlabel('x')
+# ax.set_ylabel('z')
+# ax.set_title('Shot No.{}'.format(0))
+# plt.show()
 
-# dmap = get_resort_dict(filename)
+# # dmap = get_resort_dict(filename)
 # d = extract(filename, dmap)
 
 # shot_no = 50

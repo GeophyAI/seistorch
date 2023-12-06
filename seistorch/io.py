@@ -460,10 +460,10 @@ class SeisIO:
 
 class SegyReader:
 
-    def __init__(self, path):
+    def __init__(self, path, analysis=False):
         self.path = path
-        self.analysis()
-        self.map2csg()
+        self.trace_srcs, self.recs = self.get_source_receiver_coordinates()
+        self.dmap = self.map2csg()
 
     def _open(self):
         self.f = segyio.open(self.path, ignore_geometry=True)
@@ -488,41 +488,32 @@ class SegyReader:
         self._close()
         return num_traces
     
-    @property
-    def shotcount(self):
-        """Get the number of shots in the segy file"""
-        return len(self.dmap)
-
-    def analysis(self):
-        """Get the information of each trace in the segy file"""
+    def get_source_receiver_coordinates(self, ):
         self._open()
-        self.trace_info = []
-        for i,h in enumerate(self.f.header):
-            # Get the source coordinate
-            srcX = h[segyio.TraceField.SourceX]
-            srcY = h[segyio.TraceField.SourceY]
-            srcZ = h[segyio.TraceField.SourceDepth]
-            # Get the receiver coordinate
-            recX = h[segyio.TraceField.GroupX]
-            recY = h[segyio.TraceField.GroupY]
-            recZ = h[segyio.TraceField.GroupWaterDepth]
-            trace = Trace(Coordinate(srcX, srcY, srcZ), Coordinate(recX, recY, recZ), i)
-            self.trace_info.append(trace)
-        self._close()
+        source_coordinates = np.column_stack((self.f.attributes(segyio.TraceField.SourceX),
+                                              self.f.attributes(segyio.TraceField.SourceY), 
+                                              self.f.attributes(segyio.TraceField.SourceDepth)))
 
-    def map2csg(self):
-        """Map the traces to common shot gathers"""
-        self.dmap = dict()
-        for i,t in enumerate(self.trace_info):
-            # Get the receiver coordinate
-            if t.src in self.dmap:
-                self.dmap[t.src]['idx_in_segy'].append(t.idx_in_segy)
-                self.dmap[t.src]['recs'].append(t.rec)
-            else:
-                self.dmap[t.src] = dict()
-                self.dmap[t.src]['idx_in_segy'] = []
-                self.dmap[t.src]['recs'] = []
-        return self.dmap
+        receiver_coordinates = np.column_stack((self.f.attributes(segyio.TraceField.GroupX),
+                                                self.f.attributes(segyio.TraceField.GroupY), 
+                                                self.f.attributes(segyio.TraceField.ReceiverGroupElevation)))
+        self._close()
+        return source_coordinates, receiver_coordinates        
+
+    def map2csg(self, ):
+        """Sort the segy file by the coordinate of the source and receiver"""
+
+        self.unique_srcs, unique_indices, counts = np.unique(self.trace_srcs, axis=0, return_inverse=True, return_counts=True)
+
+        indices_grouped = np.split(np.argsort(unique_indices), np.cumsum(counts))[:-1]
+
+        recs_grouped = [self.recs[indices] for indices in indices_grouped]
+
+        dmap = dict(zip(map(tuple, self.unique_srcs), 
+                        [{'idx_in_segy': np.asarray(indices), 
+                          'recs': np.stack(recs_values, axis=-1)} for indices, recs_values in zip(indices_grouped, recs_grouped)]))
+
+        return dmap
     
     def get_shot(self, shot_no):
         """Get the data of shot gather by shot_no"""
@@ -531,15 +522,14 @@ class SegyReader:
         if shot_no < 0:
             shot_no = len(self.dmap) + shot_no
         self._open()
-        key = list(self.dmap.keys())[shot_no]
-        idx_in_segy = self.dmap[key]['idx_in_segy']
+        src = tuple(self.unique_srcs[shot_no])
+        rec = self.dmap[src]['recs']
+        idx_in_segy = self.dmap[src]['idx_in_segy']
+        idx_in_segy = sorted(idx_in_segy)
         data = []
         for i in idx_in_segy:
             data.append(self.f.trace.raw[i])
         self._close()
         data = np.array(data).T
-
-        cog = CommonShotGather(key, self.dmap[key]['recs'], data)
-
-        return cog
+        return src, rec, data
 
