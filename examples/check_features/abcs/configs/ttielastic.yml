@@ -1,0 +1,113 @@
+# Random seed for pytorch and all shuffle functions
+seed: 20230503
+
+name: forward_modeling
+
+# Data type to use for tensors, either float32 or float64
+dtype: float32
+
+equation: ttielastic
+
+training:
+
+  implicit:
+    use: false
+    pretrained:
+
+  minibatch:
+
+  batch_size:
+
+  # Number of training epochs
+  N_epochs:
+
+  # Optimizer learning rate
+  lr:
+
+  # Decay the learning rate by each of multi-scale
+  scale_decay:
+
+  # decay the lr by each of epochs
+  lr_decay:
+
+  # Filter order
+  filter_ord:
+
+geom:
+
+  # The observer data
+  obsPath: ./shot_gather.npy
+
+  # Wave speed model from disk_file for forward modeling
+  truePath:
+    rho: ./velocity_model/rho.npy
+    c11: ./velocity_model/c11.npy
+    c13: ./velocity_model/c13.npy
+    c33: ./velocity_model/c33.npy
+    c55: ./velocity_model/c55.npy
+    c15: ./velocity_model/c15.npy
+    c35: ./velocity_model/c35.npy
+    #/mnt/data/wangsw/inversion/marmousi_10m/data//velocity/q_const.npy
+
+  sources: ./geometry/sources.pkl
+
+  receivers: ./geometry/receivers.pkl
+
+  seabed:
+
+  wavelet:
+
+  multiple: false
+
+  boundary_saving: true
+
+  wavelet_delay: 256
+
+  wavelet_inverse: false
+  #./geometry/ricker_lowcut5hz.npy
+
+  source_type:
+    - vz
+
+  receiver_type:
+    - vz
+
+  # Inital Wave speed model from disk_file
+  initPath: 
+    vp:
+    vs:
+    rho:
+    Q:
+
+  invlist:
+    rho:
+    c11:
+    c13:
+    c33: 
+    c55:
+    c15:
+    c35:
+
+  # Save the results of FWI
+  inv_savePath:
+
+  multiscale:
+    - 0.0
+
+  # Time Sampling step
+  dt: 0.001
+
+  # Time samples
+  nt: 1000
+
+  # Main frequency of ricker wave
+  fm: 5.0
+
+  # Spatial grid step size
+  h: 10.0
+
+  # Total Shots
+  Nshots: 999
+
+  pml:
+    N: 50    # PML thickness in number of grid cells

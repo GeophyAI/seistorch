@@ -523,9 +523,11 @@ class SegyReader:
             shot_no = len(self.dmap) + shot_no
         self._open()
         src = tuple(self.unique_srcs[shot_no])
-        rec = self.dmap[src]['recs']
+        rec = self.dmap[src]['recs'].T
         idx_in_segy = self.dmap[src]['idx_in_segy']
-        idx_in_segy = sorted(idx_in_segy)
+        sorted_data = sorted(zip(idx_in_segy, rec), key=lambda x: x[0])
+        idx_in_segy, rec = zip(*sorted_data)
+        
         data = []
         for i in idx_in_segy:
             data.append(self.f.trace.raw[i])

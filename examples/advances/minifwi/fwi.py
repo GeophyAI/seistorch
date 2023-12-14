@@ -1,11 +1,13 @@
 import torch
 import numpy as np
+import jax
+import jax.numpy as jnp
 import matplotlib.pyplot as plt
-import lesio
-from utils import imshow, forward, ricker, showgeom, show_gathers
+from utils import imshow, showgeom, show_gathers, Propagator, ricker
+import timeit
 
-dev = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
+# torch.cuda.cudnn_enabled = False
+# torch.backends.cudnn.benchmark = True
 # configure
 model_scale = 2 # 1/2
 expand = 50
@@ -18,7 +20,7 @@ dh = 20 # m
 srcz = 0 # grid point
 recz = 0 # grid point
 # Training
-criterion = torch.nn.MSELoss()
+# criterion = torch.nn.MSELoss()
 lr = 10.
 epochs = 100
 
@@ -48,33 +50,24 @@ showgeom(vel, src_loc, rec_loc, figsize=(5, 4))
 print(f"The number of sources: {len(src_loc)}")
 print(f"The number of receivers: {len(rec_loc)}")
 
-# forward for observed data
-# To GPU
-vel = torch.from_numpy(vel).float().to(dev)
-with torch.no_grad():
-    rec_obs = forward(wave, vel, np.array(src_loc), domain, dt, dh, dev, recz=0)
-# Show gathers
-show_gathers(rec_obs.cpu().numpy(), figsize=(10, 10))
 
+wave_torch = Propagator(backend="torch")
+wave_jax= Propagator(backend="jax")
 
-# forward for initial data
-# To GPU
-init = torch.from_numpy(init).float().to(dev)
-init.requires_grad = True
-# Configures for training
-opt = torch.optim.Adam([init], lr=lr)
+# with torch
+# with torch.no_grad():
+#     dev = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+#     vel_torch = torch.from_numpy(vel).float().to(dev).unsqueeze(0)
+#     kwargs = dict(wave=wave, c=vel_torch, src_list=np.array(src_loc), domain=domain, dt=dt, h=dh, dev=dev, recz=0)
 
-def closure():
-    opt.zero_grad()
-    rand_size = 8
-    rand_shots = np.random.randint(0, len(src_loc), size=rand_size).tolist()
-    rec_syn = forward(wave, init, np.array(src_loc)[rand_shots], domain, dt, dh, dev, recz=0)
-    loss = criterion(rec_syn, rec_obs[rand_shots])
-    loss.backward()
-    return loss
+#     rec_obs = wave_torch.forward(**kwargs)
+#     show_gathers(rec_obs.cpu().numpy(), figsize=(8, 5))
+#     # tt = timeit.timeit(lambda: wave_torch.forward(**kwargs), number=10)
 
-for epoch in range(epochs):
-    loss = opt.step(closure)
-    print(f"Epoch: {epoch}, Loss: {loss}")
-    if epoch % 10 == 0:
-        imshow(init.cpu().detach().numpy(), vmin=1500, vmax=5500, cmap="seismic", figsize=(5, 3))
+# with jax
+dev = None
+vel_jax = jnp.array(vel)
+vel_jax = jnp.expand_dims(vel_jax, axis=0)
+kwargs = dict(wave=wave, c=vel_jax, src_list=src_loc, domain=domain, dt=dt, h=dh, dev=dev, recz=0)
+rec_obs = wave_jax.forward(**kwargs)
+show_gathers(rec_obs, figsize=(8, 5))

@@ -68,9 +68,11 @@ class SegyReader:
             shot_no = len(self.dmap) + shot_no
         self._open()
         src = tuple(self.unique_srcs[shot_no])
-        rec = self.dmap[src]['recs']
+        rec = self.dmap[src]['recs'].T
         idx_in_segy = self.dmap[src]['idx_in_segy']
-        idx_in_segy = sorted(idx_in_segy)
+        sorted_data = sorted(zip(idx_in_segy, rec), key=lambda x: x[0])
+        idx_in_segy, rec = zip(*sorted_data)
+        
         data = []
         for i in idx_in_segy:
             data.append(self.f.trace.raw[i])
@@ -83,12 +85,11 @@ filename = '/home/wangsw/wangsw/model/1997_2.5D_shots.segy'
 
 reader = SegyReader(filename)
 
-shot_no = 300
-print(reader.unique_srcs[shot_no])
+shot_no = 200
 
 src, rec, data = reader.get_shot(shot_no)
-print(rec)
 vmin, vmax = np.percentile(data, [1, 99])
 plt.imshow(data, cmap='seismic', vmin=vmin, vmax=vmax)
 plt.show()
-
+plt.plot(np.array(rec)[:,0], 'r*')
+plt.show()

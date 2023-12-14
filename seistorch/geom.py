@@ -54,6 +54,8 @@ class WaveGeometry(torch.nn.Module):
             module = importlib.import_module("seistorch.pml")
             coes_func = getattr(module, f"generate_pml_coefficients_{ndim}d", None)
             d = coes_func(domain_shape, abs_N, multiple=multiple)
+            np.save("pml.npy", d)
+
             self.register_buffer("_d", d)
             if self.logger is not None:
                 self.logger.print(f"Using PML with width={abs_N}.")
@@ -224,7 +226,7 @@ class WaveGeometryFreeForm(WaveGeometry):
             # anti_value = (vmin+(vmax-vmin)*par_value)*self.unit
             # anti_value = par_value # no anti normalization
             #anti_value *= mask
-            # anti_value[0:self.padding+24] = 1500.*self.unit
+            anti_value[0:self.padding+1] = 1500.*self.unit
             setattr(self, par, anti_value)
 
     # def get_mgrid_from_vel(self, shape):

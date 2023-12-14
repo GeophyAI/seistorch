@@ -126,7 +126,7 @@ class WaveRNN(torch.nn.Module):
                                   source=[self.cell.geom.source_type, super_source, x[..., tmpi].view(xi.size(1), -1)])
             
             if False:
-                np.save(f"./wavefield/wf{i:04d}.npy", wavefield[2].cpu().numpy())
+                np.save(f"./wavefield_acoustic/wf{i:04d}.npy", wavefield[0].cpu().numpy())
 
             # Set the data to vars
             for name, data in zip(wavefield_names, wavefield):

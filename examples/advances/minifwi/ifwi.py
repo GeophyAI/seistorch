@@ -2,7 +2,7 @@ import torch, tqdm, os
 import numpy as np
 import matplotlib.pyplot as plt
 import lesio
-from utils import imshow, forward, ricker, showgeom, show_gathers, generate_mesh
+from examples.advances.minifwi.utils_torch import imshow, forward, ricker, showgeom, show_gathers, generate_mesh
 from networks import Siren
 
 seed = 20231201

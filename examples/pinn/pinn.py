@@ -102,13 +102,13 @@ layers = [3] + [neurons_per_layer]*num_hidden_layers + [1]
 epochs = 200000
 lr=1e-4
 
-wf_scale = 8 # The downsample rate of the wavefields
+wf_scale = 4 # The downsample rate of the wavefields
 rec_scale = 10 # The downsample rate of the record
 
 # Data usage
-use_u0 = True
-use_u1 = True
-use_rec = False
+use_u0 = False
+use_u1 = False
+use_rec = True
 use_pde = True
 use_wavelet = False
 use_vel = False
@@ -131,7 +131,7 @@ pde_samples = int(2e4)
 t0 = 0.4 # unit: sec, initial condition 1 at t=0.4s
 t1 = 0.5 # unit: sec, initial condition 2 at t=0.5s
 t_test = 0.8 # unit: sec, test data at t=0.8s
-t_offset = 0. # The start time of PINN is 0. You can also set the start time to be t0.
+t_offset = t0 # The start time of PINN is 0. You can also set the start time to be t0.
 end_t_in_physical = endt # The end time of the physical world that you want to model
 end_t_in_pinn = end_t_in_physical - t_offset # The end time of the PINN world that you want to model
 

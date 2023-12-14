@@ -1,5 +1,7 @@
 .vscode
 results*
+grad*
+para*
 *.pt
 *.pyc
 *.pkl
@@ -7,3 +9,4 @@ __pycache__
 test
 plot.py
 study
+examples/representation

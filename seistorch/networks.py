@@ -120,6 +120,7 @@ class SirenScale(nn.Module):
                  dh=None):
         super().__init__()
         self.model_shape = domain_shape
+        scale = self.model_shape
         self.scaled_shape = tuple(int(x/s) for x,s in zip(self.model_shape, scale))
         self.net = []
         self.net.append(SineLayer(in_features, hidden_features, 
