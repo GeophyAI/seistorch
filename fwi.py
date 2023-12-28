@@ -150,9 +150,8 @@ if __name__ == '__main__':
                 with torch.no_grad():
                     shots = tasks
                     model.reset_geom(shots, src_list, rec_list, cfg)
-                    # model.cell.geom.step() # random boundary
+                    model.cell.geom.step() # random boundary
                     y = model(x)
-                    #record = y.cpu().detach().numpy()
                     record = y.numpy()
                 
                 comm.send((tasks, rank, record), dest=0, tag=1)
@@ -216,6 +215,7 @@ if __name__ == '__main__':
 
             loss = np.zeros((num_scales, epoch_per_scale, NSHOTS), np.float32)
 
+            # Grad3d/4d is too big for 3d inversion
             grad3d = np.lib.format.open_memmap(f"{ROOTPATH}/grad3d.npy", mode='w+', shape=(num_batches,)+shape.grad_worker, dtype=np.float32)
             grad2d = np.zeros(shape.grad_worker, np.float32)
 

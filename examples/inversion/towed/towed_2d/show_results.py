@@ -5,8 +5,8 @@ npml = 50
 expand = 50
 true = np.load('../../../models/marmousi_model/true_vp.npy')[:,expand:-expand]
 init = np.load('../../../models/marmousi_model/linear_vp.npy')[:,expand:-expand]
-inverted = np.load('./results/towed/paravpF02E49.npy')[npml:-npml, npml+expand:-npml-expand]
-grad = np.load('./results/towed/gradvpF02E49.npy')[npml:-npml, npml+expand:-npml-expand]
+inverted = np.load('./results/towed/paravpF00E19.npy')[npml:-npml, npml+expand:-npml-expand]
+grad = np.load('./results/towed/gradvpF00E19.npy')[npml:-npml, npml+expand:-npml-expand]
 
 fig, axes=plt.subplots(4,1,figsize=(8,12))
 vmin,vmax=true.min(),true.max()

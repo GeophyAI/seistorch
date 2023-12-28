@@ -1,6 +1,6 @@
 export LD_LIBRARY_PATH=/home/wangsw/anaconda3/lib:$LD_LIBRARY_PATH && \
 python ../../../../codingfwi.py inversion_pml.yml \
---gpuid 0 \
+--gpuid 1 \
 --opt adam \
 --loss vp=l2 \
 --mode inversion \

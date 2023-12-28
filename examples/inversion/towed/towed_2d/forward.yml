@@ -16,7 +16,7 @@ training:
 
   minibatch: true
 
-  batch_size: 10
+  batch_size: 12
 
   # Number of training epochs
   N_epochs: 50
@@ -98,7 +98,7 @@ geom:
   nt: 4000
 
   # Main frequency of ricker wave
-  fm: 5.0
+  fm: 8.0
 
   # Spatial grid step size
   h: 20.0

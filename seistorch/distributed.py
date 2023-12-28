@@ -7,6 +7,7 @@ rank = comm.Get_rank()
 size = comm.Get_size()
 
 def task_distribution_and_data_reception(shots, pbar, mode, num_batches=10, **kwargs):
+    """ONLY MASTER rank will use this function"""
     """This function is used to distribute tasks to workers and receive results from workers.
 
     Args:

@@ -10,7 +10,7 @@ from .eqconfigure import Parameters
 from .utils import to_tensor
 from .networks import Siren, Encoder, CNN, SirenScale
 from .io import SeisIO
-from .random import random_fill
+from .random import random_fill_2d
 
 class WaveGeometry(torch.nn.Module):
     def __init__(self, 
@@ -35,7 +35,7 @@ class WaveGeometry(torch.nn.Module):
 
         # default boundary type is pml
         use_pml=False
-        use_random=False
+        self.use_random=False
 
         if abs_N==0:
             self.register_buffer("_d", to_tensor(0.))
@@ -48,23 +48,22 @@ class WaveGeometry(torch.nn.Module):
             bwidth = self.kwargs['geom']['boundary']['width']
 
             use_pml =  btype == 'pml' and bwidth > 0
-            use_random = btype == 'random' and bwidth > 0
+            self.use_random = btype == 'random' and bwidth > 0
             
         if use_pml:
             module = importlib.import_module("seistorch.pml")
             coes_func = getattr(module, f"generate_pml_coefficients_{ndim}d", None)
             d = coes_func(domain_shape, abs_N, multiple=multiple)
-            np.save("pml.npy", d)
+            # np.save("pml.npy", d)
 
             self.register_buffer("_d", d)
             if self.logger is not None:
                 self.logger.print(f"Using PML with width={abs_N}.")
 
-        if use_random:
+        if self.use_random:
             self.register_buffer("_d", to_tensor(0.))
             if self.logger is not None:
                 self.logger.print(f"Using random boundary with width={abs_N}.")
-
 
     def state_reconstruction_args(self):
         return {"h": self.h.item(),
@@ -229,16 +228,22 @@ class WaveGeometryFreeForm(WaveGeometry):
             anti_value[0:self.padding+1] = 1500.*self.unit
             setattr(self, par, anti_value)
 
-    # def get_mgrid_from_vel(self, shape):
-    #     '''Generates a flattened grid of (x,y,...) coordinates in a range of -1 to 1.
-    #     sidelen: int
-    #     dim: int'''
-    #     nz, nx = shape
-    #     xtensor = torch.linspace(-1, 1, steps=nx)
-    #     ztensor = torch.linspace(-1, 1, steps=nz)
-    #     mgrid = torch.stack(torch.meshgrid(ztensor, xtensor, indexing='ij'), dim=-1)
-    #     mgrid = mgrid.reshape(-1, 2)
-    #     return mgrid.to(self.device)
+    def step_random_boundary(self,):
+        vmin, vmax = 600, 4600
+        effective_length = 30 # in grid
+        for par in self.model_parameters:
+            var = self.__getattr__(par)
+            # copy data from tensor to numpy
+            var_data = var.cpu().detach().numpy()
+            # var_data = var.clone().cpu().numpy()
+            # reset the random boundary
+            var_data = random_fill_2d(var_data, effective_length, self.padding, self.dh, self.dh, vmin, vmax)
+            # np.save("vel_rand.npy", var_data)
+            # copy data from numpy to tensor
+            # tensor = torch.nn.Parameter(var_data)
+            # setattr(self, par, tensor)
+
+            var.copy_(to_tensor(var_data).to(var.device))
 
     def step(self, seabed=None):
         """
@@ -249,9 +254,15 @@ class WaveGeometryFreeForm(WaveGeometry):
         # the model to the implicit neural network.
         # e.g: vp = self.siren['vp'](coords); 
         # e.g: vs = self.siren['vs'](coords);
+
         if self.use_implicit:
             self.step_implicit(seabed)
 
+        if self.use_random:
+            self.logger.print("Resetting the random boundary ...")
+            with torch.no_grad():
+                self.step_random_boundary()
+        
         # TODO: random boundary
         # 10.1190/geo2014-0542.1
         # use_random = self.kwargs['geom']['boundary']['type'] == 'random'

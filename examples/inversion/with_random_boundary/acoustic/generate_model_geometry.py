@@ -15,6 +15,9 @@ def write_pkl(path: str, data: list):
 
 vel = np.load("../../../models/marmousi_model/true_vp.npy")
 # The depth of the sea is 24*20=480m
+seabed = np.ones_like(vel)
+seabed[0:24] = 0
+np.save("../../../models/marmousi_model/seabed.npy", seabed)
 
 nz, nx =  vel.shape
 expand = 50

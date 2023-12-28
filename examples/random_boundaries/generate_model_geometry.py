@@ -24,9 +24,9 @@ show = SeisShow()
 # |                             |
 # |-----------------------------|
 dtype = np.float32
-nz, nx = 128, 256
-vel = np.ones((nz, nx), dtype=dtype)*1500
-vel[64:, :] = 2000
+nz, nx = 256, 256
+vel = np.ones((nz, nx), dtype=dtype)*3000
+# vel[64:, :] = 2000
 
 # Generate the source and receiver list
 # Please note that in Seistorch, 
@@ -35,7 +35,7 @@ vel[64:, :] = 2000
 # This distinction is essential for accurate simulation and interpretation of results.
  
 src_x = np.linspace(125, 126, 1)
-src_z = np.ones_like(src_x)
+src_z = np.ones_like(src_x)*126
 
 sources = [[src_x, src_z] for src_x, src_z in zip(src_x.tolist(), src_z.tolist())]
 

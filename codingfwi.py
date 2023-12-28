@@ -13,7 +13,7 @@ torch.backends.cudnn.benchmark = True
 # logging.basicConfig(level=logging.ERROR)
 import torch._dynamo.config as tdf
 import torch._inductor.config as tif
-tdf.log_level = logging.ERROR
+# tdf.log_level = logging.ERROR
 tif.debug = False
 
 import numpy as np
@@ -232,7 +232,10 @@ if __name__ == '__main__':
             # Reset sources of super shot gathers
             model.reset_sources(sources)
             coding_syn = model(coding_wav)
-            # model.cell.geom.step()
+
+            # The random boundary for bp should be
+            # different from forward modeling
+            model.cell.geom.step()
 
             # loss = criterion(coding_syn, coding_obs, model.cell.geom.vp)
             # (f"{ROOTPATH}/syn.npy", coding_syn.cpu().detach().numpy())

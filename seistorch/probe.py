@@ -42,10 +42,12 @@ class WaveProbe(torch.nn.Module):
 	
 	def forward3d(self, x):
 		#return x[:, self.x, self.z, self.y]
+		# print(x.shape, self.x.max(), self.z.max(), self.y.max())
+		# print(x[:, self.x, self.z, self.y].shape)
 		return x[:, self.x, self.z, self.y]
-
+ 
 		# Towed
-		#return torch.stack([x[i:i+1, self.x[i], self.z[i], self.y[i]] for i in range(self.batchsize)])
+		# return torch.stack([x[i:i+1, self.x[i], self.z[i], self.y[i]] for i in range(self.batchsize)])
 
 class WaveIntensityProbe(WaveProbe):
 	def __init__(self, **kwargs):

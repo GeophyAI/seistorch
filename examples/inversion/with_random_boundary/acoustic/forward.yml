@@ -54,7 +54,7 @@ geom:
 
   wavelet:
 
-  multiple: true
+  multiple: false
 
   boundary_saving: true
 

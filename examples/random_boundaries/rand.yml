@@ -14,33 +14,33 @@ training:
     use: false
     pretrained:
 
-  minibatch: true
+  minibatch:
 
-  batch_size: 20
+  batch_size:
 
   # Number of training epochs
-  N_epochs: 100
+  N_epochs:
 
   # Optimizer learning rate
-  lr: 0.001
+  lr:
 
   # Decay the learning rate by each of multi-scale
-  scale_decay: 0.85
+  scale_decay:
 
   # decay the lr by each of epochs
-  lr_decay: 0.995
+  lr_decay:
 
   # Filter order
-  filter_ord: 3
+  filter_ord:
 
 geom:
 
   # The observer data
-  obsPath: ./observed.npy
+  obsPath: ./shot_gather_rand.npy
 
   # Wave speed model from disk_file for forward modeling
   truePath:
-    vp: ../../../models/marmousi_model/true_vp.npy
+    vp: ./velocity_model/vp.npy
     vs:
     rho:
     Q: 
@@ -50,7 +50,7 @@ geom:
 
   receivers: ./geometry/receivers.pkl
 
-  seabed: ../../../models/marmousi_model/seabed.npy
+  seabed:
 
   wavelet:
 
@@ -71,13 +71,13 @@ geom:
 
   # Inital Wave speed model from disk_file
   initPath: 
-    vp: ../../../models/marmousi_model/linear_vp.npy
+    vp:
     vs:
     rho:
     Q:
 
   invlist:
-    vp: true
+    vp:
     vs:
     rho:
     q:
@@ -86,16 +86,13 @@ geom:
   inv_savePath:
 
   multiscale:
-    - 1.0
-    - 3.0
-    - 5.0
-    - all
+    - 0.0
 
   # Time Sampling step
   dt: 0.001
 
   # Time samples
-  nt: 4000
+  nt: 2500
 
   # Main frequency of ricker wave
   fm: 5.0
@@ -107,8 +104,8 @@ geom:
   Nshots: 999
 
   boundary:
-    type: pml
-    width: 50
+    type: random
+    width: 50 # not work jet
 
   pml:
     N: 50    # PML thickness in number of grid cells
