@@ -4,7 +4,7 @@ import inspect
 from .utils import to_tensor
 
 class WaveSource(torch.nn.Module):
-	def __init__(self, **kwargs):
+	def __init__(self, bidx=None, **kwargs):
 
 		super().__init__()
 		self._ndim = len(kwargs)
@@ -13,9 +13,11 @@ class WaveSource(torch.nn.Module):
 		for key, value in kwargs.items():
 			value = None if value is None else to_tensor(value, dtype=torch.int64)
 			self.register_buffer(key, value)
-
+   
+		self.bidx = bidx
 		self.forward = self.get_forward_func()
 		self._source_encoding=False
+  
 
 	@property
 	def ndim(self,):
@@ -73,8 +75,13 @@ class WaveSource(torch.nn.Module):
 	
 	def forward3d(self, Y, X, dt=1.0):
 		Y_new = Y.clone()
-		Y_new[..., self.x, self.z, self.y] += dt*X
+  
+		# for idx in range(self.x.size(0)):
+		# 	Y_new[idx:idx+1, self.x[idx], self.z[idx], self.y[idx]] += dt*X[0]
+		if not self.source_encoding:
+			for idx in range(self.x.size(0)):
+				Y_new[idx:idx+1, self.x[idx]:self.x[idx]+1, self.z[idx], self.y[idx]] += dt*X
+
+		#Y_new[self.bidx, self.x, self.z, self.y] = Y_new[self.bidx, self.x, self.z, self.y]+dt*X
+
 		return Y_new
-		# Memory leakage problem
-		# Y[..., self.x, self.z, self.y] += dt*X
-		# return Y

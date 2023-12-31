@@ -14,6 +14,8 @@ import pickle
 import socket
 import time
 
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '1' 
+
 import numpy as np
 import setproctitle
 import torch
@@ -133,7 +135,9 @@ if __name__ == '__main__':
             pbar = setup.setup_pbar(num_batches, cfg['equation'])
             shots = setup.setup_tasks()
             kwargs = {'record': record}
-
+            
+            #shots = np.array([180])
+        
             task_distribution_and_data_reception(shots, pbar, args.mode, num_batches, **kwargs)
 
         else:
@@ -202,8 +206,11 @@ if __name__ == '__main__':
 
         """Define the misfit function"""
         criterions = setup.setup_criteria()
-        """Only rank0 will read the full band data"""
-        """Rank0 will broadcast the data after filtering"""
+
+        # A GRAD with the same shape of the model
+        # is used for reduce all the gradients to the master node        
+        GRAD = np.zeros(shape.grad_worker, np.float32)
+
         if MASTER:
             shots_this_iter = setup.setup_tasks()
             seislog.print(f"loss: {criterions}")
@@ -216,12 +223,12 @@ if __name__ == '__main__':
             loss = np.zeros((num_scales, epoch_per_scale, NSHOTS), np.float32)
 
             # Grad3d/4d is too big for 3d inversion
-            grad3d = np.lib.format.open_memmap(f"{ROOTPATH}/grad3d.npy", mode='w+', shape=(num_batches,)+shape.grad_worker, dtype=np.float32)
-            grad2d = np.zeros(shape.grad_worker, np.float32)
+            # grad3d = np.lib.format.open_memmap(f"{ROOTPATH}/grad3d.npy", mode='w+', shape=(num_batches,)+shape.grad_worker, dtype=np.float32)
+            # grad2d = np.zeros(shape.grad_worker, np.float32)
 
         else:
             # The gradient of other ranks are 2D arrays.
-            grad2d = np.zeros(shape.grad_worker, np.float32)
+            #grad2d = np.zeros(shape.grad_worker, np.float32)
             obs0 = comm.bcast(None, root=0)      
 
 
@@ -229,6 +236,8 @@ if __name__ == '__main__':
         for epoch in range(epoch_per_scale*num_scales):
             
             idx_freq, local_epoch = divmod(epoch, epoch_per_scale)
+
+            GRAD.fill(0.)
 
             if local_epoch==0:
 
@@ -268,7 +277,7 @@ if __name__ == '__main__':
 
                 kwargs = {'loss': loss, 
                           'epoch': local_epoch, 
-                          'grad3d': grad3d,
+                          'grad3d': None,
                           'idx_freq': idx_freq, 
                           'ndim': NDIM, 
                           'ROOTPATH': ROOTPATH}
@@ -328,34 +337,41 @@ if __name__ == '__main__':
                     # Run the closure
                     loss = closure()
 
-                    GRAD = list()
-                    for mname in model.cell.geom.pars_need_invert:
-                        GRAD.append(model.cell.geom.__getattr__(mname).grad.cpu().detach().numpy())
-                    GRAD = np.array(GRAD)
+                    for idx, mname in enumerate(model.cell.geom.pars_need_invert):
+                        GRAD[idx][:]=model.cell.geom.__getattr__(mname).grad.cpu().detach().numpy()
+                    #GRAD = np.array(GRAD)
+                    #send_GRAD = None
                     # Send to the master node
-                    comm.send((tasks, rank, GRAD, loss), dest=0, tag=1)
+                    comm.send((tasks, rank, None, loss), dest=0, tag=1)
 
             comm.Barrier()
+
+            # SUM THE GRADIENTS FROM ALL RANKS
+            GRAD = comm.allreduce(GRAD, op=MPI.SUM)
 
             """"Assigning and Saving"""
             if MASTER:
                 pbar.close()
                 # Calculate the gradient of other ranks
-                if NDIM==3: grad3d.flush()
-                grad2d[:] = np.sum(grad3d, axis=0)
+                # GRAD = comm.reduce(GRAD, op=MPI.SUM, root=0)
+                # print(f"GRAD: {GRAD.shape}")
+                # print(f"GRAD: {GRAD.max()}, {GRAD.min()}")
+                
+                # if NDIM==3: grad3d.flush()
+                # grad2d[:] = np.sum(grad3d, axis=0)
                 np.save(f"{ROOTPATH}/loss.npy", loss)
-                # np.save(f"{ROOTPATH}/grad3d.npy", grad3d)
-                np.save(f"{ROOTPATH}/grad2d.npy", grad2d)
+                np.save(f"{ROOTPATH}/grad.npy", GRAD)
+                # np.save(f"{ROOTPATH}/grad2d.npy", grad2d)
                 # Clean the grad3d
-                grad3d[:] = 0.
+                #grad3d[:] = 0.
             # broadcast the gradient to other ranks
-            comm.Bcast(grad2d, root=0)
+            #comm.Bcast(grad2d, root=0)
 
             if not MASTER:
                 # Assign gradient of other ranks
                 for idx, para in enumerate(model.cell.geom.pars_need_invert):
                     var = model.cell.geom.__getattr__(para)
-                    var.grad.data = to_tensor(grad2d[idx]).to(args.dev)
+                    var.grad.data = to_tensor(GRAD[idx]).to(args.dev)
 
                 if args.grad_smooth:
                     model.cell.geom.gradient_smooth()

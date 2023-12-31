@@ -61,11 +61,13 @@ def task_distribution_and_data_reception(shots, pbar, mode, num_batches=10, **kw
                 record[shot] = results[0][idx]
             #record.flush()
         elif mode == 'inversion':
-            if ndim==3: 
-                grad3d[num_completed_tasks][:] = results[0]
-            else:
-                # grad3d[completed_task[0]][:] = results[0]
-                grad3d[num_completed_tasks][:] = results[0]
+            # if ndim==3: 
+            #     grad3d[num_completed_tasks][:] = results[0]
+            # else:
+            #     # grad3d[completed_task[0]][:] = results[0]
+            #     grad3d[num_completed_tasks][:] = results[0]
+            
+            # DONOT RECEIVE GRAD ANY MORE FOR MEMORY EFFICIENCY
 
             loss[idx_freq][epoch][completed_task] = results[1]
 

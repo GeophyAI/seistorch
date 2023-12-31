@@ -67,6 +67,7 @@ geom:
     - vz
 
   receiver_type:
+    - vx
     - vz
 
   # Inital Wave speed model from disk_file

@@ -177,6 +177,7 @@ class SeisSetup:
 
         if forward:
             tasks = np.arange(num_shots_actual)
+            
 
         if inversion:
 

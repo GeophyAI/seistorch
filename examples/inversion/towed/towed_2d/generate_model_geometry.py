@@ -39,7 +39,7 @@ srcz = 1 # the grid depth of source
 idx = 0 # the index of source
 while current_srcx<nx:
     idx+=1
-
+    
     srcx = idx*src_x_inverval
 
     if srcx < num_receivers+srcx_recx_offset:

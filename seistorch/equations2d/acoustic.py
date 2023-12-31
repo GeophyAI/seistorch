@@ -52,7 +52,7 @@ def generate_convolution_kernel(spatial_order):
 
     return kernel
 
-spatial_order = 4
+spatial_order = 2
 device = "cuda"
 kernel = generate_convolution_kernel(spatial_order).unsqueeze(0).unsqueeze(0).to(device)
 padding = kernel.shape[-1]//2
@@ -103,8 +103,8 @@ def _time_step_backward(*args):
                 + torch.mul(vp.pow(2), _laplacian(h1, h)))
                 )
     
-    # with torch.no_grad():
-    #     y = restore_boundaries(y, h_bd)
+    with torch.no_grad():
+        y = restore_boundaries(y, h_bd)
     
     y = src_func(y, src_values, 1)
 

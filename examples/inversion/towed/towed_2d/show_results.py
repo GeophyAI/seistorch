@@ -3,10 +3,12 @@ import matplotlib.pyplot as plt
 
 npml = 50
 expand = 50
+F = 3
+E = 49
 true = np.load('../../../models/marmousi_model/true_vp.npy')[:,expand:-expand]
 init = np.load('../../../models/marmousi_model/linear_vp.npy')[:,expand:-expand]
-inverted = np.load('./results/towed/paravpF00E19.npy')[npml:-npml, npml+expand:-npml-expand]
-grad = np.load('./results/towed/gradvpF00E19.npy')[npml:-npml, npml+expand:-npml-expand]
+inverted = np.load(f'./results/towed/paravpF{F:02d}E{E:02d}.npy')[npml:-npml, npml+expand:-npml-expand]
+grad = np.load(f'./results/towed/gradvpF{F:02d}E{E:02d}.npy')[npml:-npml, npml+expand:-npml-expand]
 
 fig, axes=plt.subplots(4,1,figsize=(8,12))
 vmin,vmax=true.min(),true.max()

@@ -21,30 +21,41 @@ class WaveRNN(torch.nn.Module):
         """Merge all source coords into a super shot.
         """
         super_source = dict()
-        for source in self.sources:
+        batchindices = []
+
+        for bidx, source in enumerate(self.sources):
             coords = source.coords()
             for key in coords.keys():
                 if key not in super_source.keys():
                     super_source[key] = []
                 super_source[key].append(coords[key])
-        return super_source
+            batchindices.append(bidx*torch.ones(1, dtype=torch.int64))
+
+        return batchindices, super_source
 
     def merge_receivers_with_same_keys(self,):
         """Merge all source coords into a super shot.
         """
         super_probes = dict()
-        for probe in self.probes:
+        batchindices = []
+        reccounts = []
+        for bidx, probe in enumerate(self.probes):
             coords = probe.coords()
             for key in coords.keys():
                 if key not in super_probes.keys():
                     super_probes[key] = []
                 super_probes[key].append(coords[key])
-
+            # how many receivers in this group
+            _reccounts = len(coords[key])
+            # add reccounts and batchindices
+            reccounts.append(_reccounts)
+            batchindices.append(bidx*torch.ones(_reccounts, dtype=torch.int64))
+            
         # stack the coords
         for key in super_probes.keys():
-            super_probes[key] = torch.stack(super_probes[key], dim=0)
+            super_probes[key] = torch.concatenate(super_probes[key], dim=0)
 
-        return super_probes
+        return reccounts, torch.concatenate(batchindices), super_probes
 
     def reset_sources(self, sources):
         if isinstance(sources, list):
@@ -91,9 +102,7 @@ class WaveRNN(torch.nn.Module):
         recs = dict()
         y = TensorList()
         for key in self.cell.geom.receiver_type:
-            recs[key] = {}
-            for igroup in range(len(self.probes)):
-                recs[key][f"group{igroup}"] = []
+            recs[key] = []
 
         # p_all = [[] for i in range(nchannels)]
 
@@ -106,12 +115,18 @@ class WaveRNN(torch.nn.Module):
 
         # Loop through time
         x = x.to(device)
-
-        super_source = WaveSource(**self.merge_sources_with_same_keys()).to(device)
-        #super_probes = WaveProbe(**self.merge_receivers_with_same_keys()).to(device)
+        # Get the super source and super probes
+        bidx_source, sourcekeys = self.merge_sources_with_same_keys()
+        super_source = WaveSource(bidx_source, **sourcekeys).to(device)
+        
+        reccounts, bidx_receivers, reckeys = self.merge_receivers_with_same_keys()
+        super_probes = WaveProbe(bidx_receivers, **reckeys).to(device)
+        
         super_source.source_encoding = self.source_encoding
 
         time_offset = 2 if self.cell.geom.equation == "acoustic" else 0
+        
+        batched_records = []
         
         for i, xi in enumerate(x.chunk(x.size(1), dim=1)):
         
@@ -136,17 +151,19 @@ class WaveRNN(torch.nn.Module):
             for source_type in self.cell.geom.source_type:
                 setattr(self, source_type, super_source(getattr(self, source_type), xi.view(xi.size(1), -1)))
 
-            # Measure probe(s)
+            # Measure probe(s): new implementation
             for key in self.cell.geom.receiver_type:
-                for igroup, recgroup in enumerate(self.probes):
-                    recs[key][f"group{igroup}"].append(recgroup(getattr(self, key))[igroup])
+                recs[key].append(super_probes(getattr(self, key)))
 
-        # Combine outputs into a single tensor
-        for igroup in range(len(self.probes)):
-            for key in self.cell.geom.receiver_type:
-                recs[key][f"group{igroup}"] = torch.stack(recs[key][f"group{igroup}"], dim=0)
-            y.append(torch.stack([recs[key][f"group{igroup}"] for key in recs.keys()], dim=2))
+            
+        # stacked_data: (nbatches, nt, nreceivers all batches, nchannels)
+        stacked_data = torch.stack([torch.stack(recs[key], dim=0) for key in recs.keys()], dim=2)
+        # split the stacked data into common shot gathers
+        # splited_data: (1, nt, nreceivers in cogs, nchannels)
+        splited_data = torch.split(stacked_data, reccounts, dim=1)
+        y.data.extend(splited_data)
         
+        # check if there is NaN in the output
         y.has_nan()
 
         return y

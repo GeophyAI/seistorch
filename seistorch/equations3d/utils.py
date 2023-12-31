@@ -76,6 +76,14 @@ def save_boundaries(tensor: torch.Tensor, NPML: int=49, N: int=1):
     front = tensor[..., NPML:NPML+N].clone().to(cpu, non_blocking=nb)#cpu()
     back = tensor[..., -N:].clone() if NPML == 0 else tensor[..., -(NPML+N):-NPML].clone().to(cpu, non_blocking=nb)#cpu()
 
+    # Keep on gpu
+    # top = tensor[:, NPML:NPML+N, ...].clone()
+    # bottom = tensor[:, -N:, ...].clone() if NPML == 0 else tensor[:,-(NPML+N):-NPML, ...].clone()
+    # left = tensor[:,:,NPML:NPML+N,:].clone()
+    # right = tensor[:, :, -N:, :].clone() if NPML == 0 else tensor[:, :, -(NPML+N):-NPML,:].clone()
+    # front = tensor[..., NPML:NPML+N].clone()
+    # back = tensor[..., -N:].clone() if NPML == 0 else tensor[..., -(NPML+N):-NPML].clone()
+
     return top, bottom, left, right, front, back
 
 def restore_boundaries(tensor, memory, NPML=49, N=1):

@@ -1,11 +1,16 @@
 import torch
 
+force_compile = True
+
 class SeisCompile:
 
     def __init__(self, logger=None):
         self.logger = logger
 
     def compile(self, func, **kwargs):
+        
+        if force_compile:
+            return torch.compile(func, **kwargs)
 
         if self.logger is not None:
             self.logger.print(f"Trying to compile function <{func.__name__}>...")

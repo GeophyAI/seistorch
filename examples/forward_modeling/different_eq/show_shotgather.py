@@ -7,7 +7,7 @@ from yaml import CLoader as Loader
 """
 Configures
 """
-config_path = "./forward.yml"
+config_path = "./configs/acoustic.yml"
 obsPath = "./shot_gather.npy"
 
 # Load the configure file

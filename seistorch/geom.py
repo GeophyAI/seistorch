@@ -328,7 +328,9 @@ class WaveGeometryFreeForm(WaveGeometry):
 
     def gradient_cut(self, mask=None, padding=50):
         top = 0 if self.multiple else padding
-        mask = torch.nn.functional.pad(mask, (padding, padding, top, padding), mode='constant', value=0)
+        if self.ndim==2: pads = (padding, padding, top, padding)
+        if self.ndim==3: pads = (padding, padding, top, padding, padding, padding)
+        mask = torch.nn.functional.pad(mask, pads, mode='constant', value=0)
         for para in self.model_parameters:
             var = self.__getattr__(para)
             if var.requires_grad:

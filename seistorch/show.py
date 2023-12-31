@@ -73,8 +73,8 @@ class SeisShow:
         nz, nx = vel.shape
         fig, ax = plt.subplots(figsize=(8, 6))
         im = ax.imshow(vel, cmap='seismic', aspect="auto", extent=[0, nx*dh, nz*dh, 0])
-        sc_sources = ax.scatter([], [], c='red', marker="v", label='Sources')
-        sc_receivers = ax.scatter([], [], c='blue', marker="^", label='Receivers')
+        sc_sources = ax.scatter([], [], c='red', marker="v", s=10, label='Sources')
+        sc_receivers = ax.scatter([], [], c='blue', marker="^", s=2, label='Receivers')
         ax.set_xlabel("X (m)")
         ax.set_ylabel("Z (m)")
         ax.set_title(f"Sources: {len(sources)}, Receivers: {len(receivers[0][0])}")

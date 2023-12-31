@@ -31,6 +31,13 @@ class TensorList(list):
             self.data[i] = self.data[i].cuda()
         return self
     
+    # def extend(self, iterable):
+    #     for item in iterable:
+    #         item = item if isinstance(item, torch.Tensor) else to_tensor(item)
+    #         if item.ndim == 2:
+    #             item = item.unsqueeze(2)
+    #         self.append(item)
+    
     def has_nan(self):
         for i in range(len(self.data)):
             if isinstance(self.data[i], torch.Tensor):

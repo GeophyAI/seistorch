@@ -4,7 +4,7 @@ from .utils import to_tensor
 
 
 class WaveProbe(torch.nn.Module):
-	def __init__(self, **kwargs):
+	def __init__(self, batchidx=None, **kwargs):
 		super().__init__()
 		self._ndim = len(kwargs)
 		self.coord_labels = list(kwargs.keys())
@@ -13,7 +13,9 @@ class WaveProbe(torch.nn.Module):
 			self.register_buffer(key, to_tensor(value, dtype=torch.int64))
 		self.forward = self.get_forward_func()
 		self.batchsize = self.x.size(0) if self.x.ndim>1 else 1
-
+  
+		self.bidx = batchidx
+  
 	@property
 	def ndim(self,):
 		return self._ndim
@@ -31,23 +33,15 @@ class WaveProbe(torch.nn.Module):
 	
 	def get_forward_func(self, ):
 		return getattr(self, f"forward{self.ndim}d")
+     
 
 	def forward2d(self, x):
 
-		if self.x.ndim==1:
-			return x[:, self.y, self.x]
-		
-		if self.x.ndim==2:
-			return torch.stack([x[i:i+1, self.y[i], self.x[i]] for i in range(self.batchsize)])
+		return x[self.bidx, self.y, self.x]
 	
 	def forward3d(self, x):
-		#return x[:, self.x, self.z, self.y]
-		# print(x.shape, self.x.max(), self.z.max(), self.y.max())
-		# print(x[:, self.x, self.z, self.y].shape)
-		return x[:, self.x, self.z, self.y]
- 
-		# Towed
-		# return torch.stack([x[i:i+1, self.x[i], self.z[i], self.y[i]] for i in range(self.batchsize)])
+
+  		return x[self.bidx, self.x, self.z, self.y]
 
 class WaveIntensityProbe(WaveProbe):
 	def __init__(self, **kwargs):
