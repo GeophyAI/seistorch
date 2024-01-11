@@ -27,7 +27,7 @@ def build_model(config_path,
                 commands=None, 
                 logger=None):
 
-    assert mode in ["forward", "inversion"], f"No such mode {mode}!"
+    assert mode in ["forward", "inversion", "rtm"], f"No such mode {mode}!"
 
     # Load the configure file
     with open(config_path, 'r') as ymlfile:

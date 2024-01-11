@@ -30,11 +30,18 @@ def generate_pml_coefficients_2d(domain_shape, N=50, B=100., multiple=False):
     Nx, Ny = domain_shape
 
     # R = 10**(-((np.log10(N)-1)/np.log10(2))-3)
-    #d0 = -(order+1)*cp/(2*abs_N)*np.log(R) # Origin
-    R = 1e-6; order = 2; cp = 1500.# Mao shibo Master
+    # order = 2; cp = 1500
+    # d0 = -(order+1)*cp/(2*N)*np.log(R) # Origin
+    R = 1e-4; order = 2; cp = 1500.# Mao shibo Master
     d0 = (1.5*cp/N)*np.log10(R**-1)
     d_vals = d0 * torch.linspace(0.0, 1.0, N + 1) ** order
     d_vals = torch.flip(d_vals, [0])
+
+    # that in wavetorch
+    # abs_sig = 13
+    # abs_p = 8
+    # d_vals = abs_sig * torch.linspace(0.0, 1.0, N + 1) ** abs_p
+    # d_vals = torch.flip(d_vals, [0])
 
     d_x = torch.zeros(Ny, Nx)
     d_y = torch.zeros(Ny, Nx)

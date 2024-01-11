@@ -14,6 +14,54 @@ from yaml import CLoader as Loader
 import h5py
 from tensorboard.backend.event_processing.event_accumulator import EventAccumulator
 
+class DataLoader:
+    """The class for data loading.
+       Supported file types: .npy, .hdf5
+       For numpy files, we load the whole data into memory.
+       For hdf5 files, we can load a single shot into memory.
+    """
+
+    def __init__(self, dpath, dkey='shot'):
+        self.dpath = dpath
+        self.dkey = dkey
+        self.setup(self.dpath)
+
+    def __getitem__(self, key):
+
+        if self.filetype == '.hdf5':
+            return self.getitem_from_hdf5(key)
+            
+        if self.filetype == '.npy':
+            return self.data[key]
+        
+    def setup(self, path):
+
+        self.filetype = self.get_file_extension(path)
+
+        if self.filetype == '.hdf5':
+            pass
+
+        if self.filetype == '.npy':
+            self.data = np.load(path, allow_pickle=True)
+        
+    def get_file_extension(self, path: str):
+        """Get the extension of the file.
+
+        Args:
+            path (str): The path to the file.
+
+        Returns:
+            str: The extension of the file.
+        """
+        return os.path.splitext(path)[1]
+
+    def getitem_from_hdf5(self, key):
+        with h5py.File(self.dpath, 'r') as f:
+            if isinstance(key, list):
+                return TensorList([f[f'{self.dkey}_{k}'][...].copy() for k in key])
+            if isinstance(key, int):
+                return f[f'{self.dkey}_{key}'][...].copy()
+
 
 class SeisRecord:
 
@@ -70,7 +118,7 @@ class SeisRecord:
             # self.logger.print(f"Create empty numpy array with shape ({self.nshots}, ).")
             self.record = np.empty(self.nshots, dtype=np.ndarray)
 
-        if self.filetype == '.hdf5':
+        if self.filetype in ['.hdf5', 'h5']:
             # self.logger.print("Create hdf5 file on disk.")
             self.create_hdf5_file()
 

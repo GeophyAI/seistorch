@@ -28,7 +28,7 @@ from yaml import dump, load
 import seistorch
 from seistorch.eqconfigure import Shape
 from seistorch.distributed import task_distribution_and_data_reception
-from seistorch.io import SeisIO
+from seistorch.io import SeisIO, DataLoader
 from seistorch.log import SeisLog
 from seistorch.signal import SeisSignal
 from seistorch.model import build_model
@@ -193,8 +193,14 @@ if __name__ == '__main__':
         BATCHSIZE, num_batches = setup.setup_batchsize()
         SEABED = setup.setup_seabed()
 
-        if "datamask" in cfg["geom"].keys():
-            datamask = seisio.fromfile(cfg["geom"]["datamask"])
+        if "obsmask" in cfg["geom"].keys():
+            obsmask = DataLoader(cfg["geom"]["obsmask"])
+            # obsmask = seisio.fromfile(cfg["geom"]["obsmask"])
+            
+        if "synmask" in cfg["geom"].keys():
+            synmask = DataLoader(cfg["geom"]["synmask"])
+            # synmask = seisio.fromfile(cfg["geom"]["synmask"])
+
 
         if MASTER:
             seislog.print(f"Working in dimension {NDIM}")
@@ -274,7 +280,7 @@ if __name__ == '__main__':
                 pbar = setup.setup_pbar(num_batches, f"E{local_epoch+1}/{epoch_per_scale} | F{idx_freq+1}/{num_scales}")
 
                 shots = next(shots_this_iter)#np.random.choice(np.arange(NSHOTS), BATCHSIZE, replace=False) if MINIBATCH else np.arange(NSHOTS)
-
+                # seislog.print(f"shots: {shots}")
                 kwargs = {'loss': loss, 
                           'epoch': local_epoch, 
                           'grad3d': None,
@@ -312,11 +318,11 @@ if __name__ == '__main__':
                         # filter at first
                         # obs = to_tensor(np.stack(filtered_data[shots_this_rank], axis=0)).to(syn.device)#.unsqueeze(0)
                         
-                        if "datamask" in cfg["geom"].keys():
-                            dmask = to_tensor(np.stack(datamask[shots_this_rank], axis=0)).to(syn.device)#.unsqueeze(0)
-                            #dmask = TensorList(datamask[shots_this_rank]).to(syn.device)
-                            syn = syn * dmask
-                            obs = obs * dmask
+                        if "obsmask" in cfg["geom"].keys() and "synmask" in cfg["geom"].keys():
+                            obsM = to_tensor(np.stack(obsmask[shots_this_rank], axis=0)).to(syn.device)
+                            synM = to_tensor(np.stack(synmask[shots_this_rank], axis=0)).to(syn.device)
+                            syn = syn * synM
+                            obs = obs * obsM
 
                         #if shot==10:
                         #name_postfix = 'init' if epoch==0 else ''
@@ -338,7 +344,7 @@ if __name__ == '__main__':
                     loss = closure()
 
                     for idx, mname in enumerate(model.cell.geom.pars_need_invert):
-                        GRAD[idx][:]=model.cell.geom.__getattr__(mname).grad.cpu().detach().numpy()
+                        GRAD[idx][:]+=model.cell.geom.__getattr__(mname).grad.cpu().detach().numpy()
                     #GRAD = np.array(GRAD)
                     #send_GRAD = None
                     # Send to the master node

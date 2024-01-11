@@ -1,6 +1,6 @@
 import torch
 
-force_compile = True
+force_compile = False
 
 class SeisCompile:
 

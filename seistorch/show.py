@@ -52,6 +52,30 @@ class SeisShow:
         plt.tight_layout()
         plt.show()
 
+    def arrival(self, data, arrival, dt=0.001, dh=12.5, figsize=(5,6)):
+        """Plot the data with the arrival time.
+
+        Args:
+            data (np.ndarray): The data to be plotted.
+            arrival (np.ndarray): The arrival time.
+        """
+        fig, ax = plt.subplots(1,1,figsize=figsize)
+        nt, nr, nc = data.shape
+        assert arrival.size==nr, "The arrival time should have the same size as the number of traces."
+        vmin, vmax = np.percentile(data, [2,98])
+        kwargs = dict(vmin=vmin, 
+                      vmax=vmax, 
+                      extent=(0, nr*dh, nt*dt, 0), 
+                      cmap='seismic',
+                      aspect="auto")
+        ax.imshow(data, **kwargs)
+        x = np.arange(nr)*dh
+        ax.scatter(x, arrival*dt, color='black', s=2)
+        ax.set_xlabel("Distance (m)")
+        ax.set_ylabel("Time (s)")
+        plt.tight_layout()
+        plt.show()
+
     def geometry(self, vel, sources:list, receivers:list, savepath:str, dh=1, interval=1):
         """Plot the velocity model and the source and receiver list.
 
@@ -135,6 +159,8 @@ class SeisShow:
                    savepath="shotgather.png",
                    dx=12.5,
                    dt=0.001,
+                   colorbar=True,
+                   show=False,
                    **kwargs):
         
         if inacolumn: ncols, nrows = (1, len(datalist))
@@ -152,20 +178,23 @@ class SeisShow:
         extent = (0, nr*dx, nt*dt, 0)
         if normalize:            
             vmin, vmax=np.percentile(datalist[0], [2,98])
+            
+        axes = axes.ravel() if ncols*nrows>1 else [axes]
 
-        for d, ax, title in zip(datalist, axes.ravel(), titlelist):
+        for d, ax, title in zip(datalist, axes, titlelist):
             if d.ndim==3 and d.shape[2]==1: d = d[:,:,0]
             if not normalize: vmin, vmax=np.percentile(d, [2,98])
-            print(vmin, vmax)
             ax.imshow(d, vmin=vmin, vmax=vmax, extent=extent, aspect="auto", **kwargs)
             ax.set_title(title)
             ax.set_xlabel("x (m)")
             ax.set_ylabel("t (s)")
-            plt.colorbar(ax.images[0], ax=ax)
+            if colorbar: plt.colorbar(ax.images[0], ax=ax)
 
         plt.tight_layout()
-        plt.show()
-        fig.savefig(savepath, dpi=300, bbox_inches='tight')
+        if show:
+            plt.show()
+        if savepath:
+            fig.savefig(savepath, dpi=300, bbox_inches='tight')
 
     def spectrum(self, datalist: list, labellist: list, dt=0.001, db=False, endfreq=100, normalize=False):
         """Compute the frequency spectrum of the data.
@@ -210,7 +239,9 @@ class SeisShow:
                colorlist: list, 
                labellist: list=[],
                dt=0.001, dx=12.5, downsample=4, 
+               fontsize=14,
                savepath=None, 
+               show=False,
                **kwargs):
         """Wiggle plot for the data.
 
@@ -239,10 +270,16 @@ class SeisShow:
         for idx, line in enumerate(lines):
             if idx%ntraces==0 and labellist:
                 line.set_label(labellist[idx//ntraces])
+        # set fontsize of tick labels
+        ax.tick_params(axis='both', which='major', labelsize=fontsize)
+        # set fontsize of x and y labels
+        ax.set_xlabel("Offset (km)", fontsize=fontsize)
+        ax.set_ylabel("Time (s)", fontsize=fontsize)
         # Set legend
-        plt.legend(loc='upper left')
+        plt.legend(loc='upper right', fontsize=fontsize)
         plt.tight_layout()
-        plt.show()
+        if show:
+            plt.show()
         # Save figure
         if savepath:
             fig.savefig(savepath, dpi=300)
