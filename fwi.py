@@ -270,7 +270,10 @@ if __name__ == '__main__':
                 if (use_mpi and not MASTER) or (not use_mpi):
                     # Low pass filtered wavelet
                     if isinstance(x, torch.Tensor): x = x.numpy()
-                    lp_wavelet = seissignal.filter(x.copy().reshape(1, -1), freqs=freq)[0]
+                    # lp_wavelet = seissignal.filter(x.copy().reshape(1, -1), freqs=freq)[0]
+                    # the wavelet will not be filter.
+                    # we will filter the synthetic data at each epoch
+                    lp_wavelet = seissignal.filter(x.copy().reshape(1, -1), freqs='all')[0]
                     lp_wavelet = torch.unsqueeze(torch.from_numpy(lp_wavelet), 0)
         
             """Loop over all epoches"""
@@ -305,16 +308,14 @@ if __name__ == '__main__':
                         """But only one shot here when traditional workflow is using"""
                         model.reset_geom(shots_this_rank, src_list, rec_list, cfg)
                         syn = model(lp_wavelet) # syn is a TensorList
-                        # filter at each epoch
+                        # Filter at each epoch
                         fobs = seissignal.filter(obs0[shots_this_rank], freqs=freq)
                         obs = TensorList(fobs.tolist()).to(syn.device)
-
+                        # Filter the syn data
+                        syn = seissignal.filter(syn, freqs=freq, backend='torch')
                         # FOR RTM
                         syn = syn.stack()
                         obs = obs.stack()
-                        #syn = torch.stack(syn.data, dim=0)# works for rtm
-                        #obs = torch.stack(obs.data, dim=0)# works for rtm
-
                         # filter at first
                         # obs = to_tensor(np.stack(filtered_data[shots_this_rank], axis=0)).to(syn.device)#.unsqueeze(0)
                         

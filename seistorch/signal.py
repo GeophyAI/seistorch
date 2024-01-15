@@ -3,6 +3,8 @@ import torch.nn.functional as F
 import numpy as np
 from scipy import signal
 from joblib import Parallel, delayed
+from scipy.integrate import cumulative_trapezoid
+from torchaudio.functional import filtfilt
 
 class SeisSignal:
 
@@ -39,7 +41,7 @@ class SeisSignal:
         else:
             return signal.sosfilt(sos, data, axis=axis)
 
-    def filter(self, d, freqs, axis=0, threads=1, **kwargs):
+    def filter(self, d, freqs, axis=0, threads=1, backend='scipy', **kwargs):
         
         filter_mode = self.decide_filter_type(freqs)
 
@@ -63,26 +65,35 @@ class SeisSignal:
         wn = wn[0] if len(wn)==1 else wn
 
         nshots  = d.shape[0]
-        d_filter = np.empty(nshots, dtype=np.ndarray)
 
         # call _filter_
         b, a = signal.butter(self.forder, Wn=wn, btype=filter_mode)
 
-        d_filter[:] = Parallel(n_jobs=threads)(
-            delayed(self._filter_)(d[i], b, a, axis)
-            for i in range(nshots)
-        )
+        if backend == 'scipy':
 
-        # Filter 2
-        # z, p, k = signal.iirfilter(N, wn, btype=mode, ftype='butter', output='zpk')
-        # sos = signal.zpk2sos(z, p, k)
+            d_filter = np.empty(nshots, dtype=np.ndarray)
 
-        # d_filter[:] = Parallel(n_jobs=threads)(
-        #     delayed(self._filter2_)(sos, d[i], axis, zero_phase=zero_phase)
-        #     for i in range(nshots)
-        # )
+            d_filter[:] = Parallel(n_jobs=threads)(
+                delayed(self._filter_)(d[i], b, a, axis)
+                for i in range(nshots)
+            )
 
-        return d_filter
+            return d_filter
+        
+        if backend == 'torch':
+            # In this case, d is a Tensorlist
+            b = torch.from_numpy(b).to(d.device)
+            a = torch.from_numpy(a).to(d.device)
+
+            for i in range(d.shape[0]):
+                data  = d.data[i] # (nsample, ntraces, nchannles)
+                data = data.permute(1, 2, 0) # (ntraces, nchannels, nsamples)
+                data = filtfilt(data, a, b)
+                data = data.float().permute(2, 0, 1)
+                d.data[i] = data
+
+            return d
+
 
     def ricker(self, dtype='tensor', inverse=False):
         """
@@ -254,3 +265,6 @@ def normalize_trace_max(d):
     """
     w = torch.max(torch.abs(d), dim=0, keepdim=True)[0]
     return d / w
+
+def integrate(d):
+    return cumulative_trapezoid(d, dx=1, initial=0)
