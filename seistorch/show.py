@@ -8,7 +8,16 @@ class SeisShow:
     def __init__(self,):
         pass
 
-    def alternate(self, obs, syn, interval=10, trace_normalize=True, dt=0.001, dx=12.5, **kwargs):
+    def alternate(self, 
+                  obs, 
+                  syn, 
+                  interval=10, 
+                  trace_normalize=True, 
+                  dt=0.001, 
+                  dx=12.5, 
+                  show=False,
+                  savepath=None,
+                  **kwargs):
         """Plot the observed and synthetic data in an alternating way.
 
         Args:
@@ -18,7 +27,7 @@ class SeisShow:
             dt (float, optional): time step. Defaults to 0.001.
             dx (float, optional): trace step. Defaults to 12.5.
         """
-        nt, nr = obs.shape
+        nt, nr, _ = obs.shape
         show_data = np.zeros_like(obs)
         for i in range(0, nr, interval*2):
             range_obs = np.arange(i, min(i+interval, nr))
@@ -36,13 +45,14 @@ class SeisShow:
                   vmax=vmax, 
                   extent=(0, nr*dx, nt*dt, 0), 
                   aspect="auto",
+                  cmap='seismic',
                   **kwargs)
                 # ax.text(0.00, 0.95, "obs", 
                 # transform=ax.transAxes, 
                 # color='w', fontsize=14, 
                 # fontweight='bold')
         # show text on the image
-        kwargs_text = dict(color='w', fontsize=14, fontweight='bold')
+        kwargs_text = dict(color='black', fontsize=8, fontweight='bold')
         for i in range(0, nr, interval*2):
             ax.text(i*dx, 0.25, "obs", **kwargs_text)
             ax.text((i+interval)*dx, 0.25, "syn", **kwargs_text)
@@ -50,7 +60,10 @@ class SeisShow:
         ax.set_xlabel("Distance (m)")
         ax.set_ylabel("Time (s)")
         plt.tight_layout()
-        plt.show()
+        if savepath:
+            fig.savefig(savepath, dpi=300, bbox_inches='tight')
+        if show:
+            plt.show()
 
     def arrival(self, data, arrival, dt=0.001, dh=12.5, figsize=(5,6)):
         """Plot the data with the arrival time.
