@@ -13,6 +13,7 @@ import os
 import pickle
 import socket
 import time
+import copy
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '1' 
 
@@ -180,6 +181,7 @@ if __name__ == '__main__':
         epoch_per_scale = cfg['training']['N_epochs']
         ROOTPATH = args.save_path if args.save_path else cfg["geom"]["inv_savePath"]
         MINIBATCH = cfg['training']['minibatch']
+        IMPLICIT = cfg['training']['implicit']['use']
         MULTISCALES = cfg['geom']['multiscale']
         num_scales = len(MULTISCALES)
         NDIM = model.cell.geom.ndim
@@ -201,7 +203,6 @@ if __name__ == '__main__':
             synmask = DataLoader(cfg["geom"]["synmask"])
             # synmask = seisio.fromfile(cfg["geom"]["synmask"])
 
-
         if MASTER:
             seislog.print(f"Working in dimension {NDIM}")
             os.makedirs(ROOTPATH, exist_ok=True)
@@ -213,28 +214,22 @@ if __name__ == '__main__':
         """Define the misfit function"""
         criterions = setup.setup_criteria()
 
-        # A GRAD with the same shape of the model
-        # is used for reduce all the gradients to the master node        
-        GRAD = np.zeros(shape.grad_worker, np.float32)
-
+        # For traditional inversion, A GRAD with the same shape of the model
+        # is used for reduce all the gradients to the master node   
+        if not IMPLICIT:     
+            GRAD = np.zeros(shape.grad_worker, np.float32)
+ 
         if MASTER:
             shots_this_iter = setup.setup_tasks()
             seislog.print(f"loss: {criterions}")
-            # full_band_data = seisio.fromfile(cfg['geom']['obsPath'])
-            # full_band_data = setup.setup_file_system()
 
             obs0 = setup.setup_file_system()
             comm.bcast(obs0, root=0)
 
             loss = np.zeros((num_scales, epoch_per_scale, NSHOTS), np.float32)
 
-            # Grad3d/4d is too big for 3d inversion
-            # grad3d = np.lib.format.open_memmap(f"{ROOTPATH}/grad3d.npy", mode='w+', shape=(num_batches,)+shape.grad_worker, dtype=np.float32)
-            # grad2d = np.zeros(shape.grad_worker, np.float32)
-
         else:
             # The gradient of other ranks are 2D arrays.
-            #grad2d = np.zeros(shape.grad_worker, np.float32)
             obs0 = comm.bcast(None, root=0)      
 
 
@@ -242,8 +237,12 @@ if __name__ == '__main__':
         for epoch in range(epoch_per_scale*num_scales):
             
             idx_freq, local_epoch = divmod(epoch, epoch_per_scale)
+            model.cell.geom.step(SEABED)
 
-            GRAD.fill(0.)
+            if IMPLICIT:
+                gradient_dict = {}
+            else:
+                GRAD.fill(0.)
 
             if local_epoch==0:
 
@@ -266,7 +265,7 @@ if __name__ == '__main__':
                     #filtered_data = pickle.loads(data_str)
 
                 # Reset the optimizer at each scale
-                optimizers, lr_scheduler = setup.setup_optimizer(model, idx_freq)
+                optimizers, lr_scheduler = setup.setup_optimizer(model, idx_freq, IMPLICIT)
                 if (use_mpi and not MASTER) or (not use_mpi):
                     # Low pass filtered wavelet
                     if isinstance(x, torch.Tensor): x = x.numpy()
@@ -316,9 +315,7 @@ if __name__ == '__main__':
                         # FOR RTM
                         syn = syn.stack()
                         obs = obs.stack()
-                        # filter at first
-                        # obs = to_tensor(np.stack(filtered_data[shots_this_rank], axis=0)).to(syn.device)#.unsqueeze(0)
-                        
+
                         if "obsmask" in cfg["geom"].keys() and "synmask" in cfg["geom"].keys():
                             obsM = to_tensor(np.stack(obsmask[shots_this_rank], axis=0)).to(syn.device)
                             synM = to_tensor(np.stack(synmask[shots_this_rank], axis=0)).to(syn.device)
@@ -333,9 +330,10 @@ if __name__ == '__main__':
                         loss = criterions(syn, obs)
                         #adj = torch.autograd.grad(loss, syn, create_graph=True)[0]
                         #np.save(f"{ROOTPATH}/adj.npy", adj.detach().cpu().numpy())        
-                        
+                        torch.save(model.cell.geom.nn['vp'].state_dict(), 
+                                   f"{ROOTPATH}/nn{rank}.pt")
                         # For random boundary
-                        model.cell.geom.step()
+                        # model.cell.geom.step()
 
                         loss.backward()
 
@@ -344,41 +342,60 @@ if __name__ == '__main__':
                     # Run the closure
                     loss = closure()
 
-                    for idx, mname in enumerate(model.cell.geom.pars_need_invert):
-                        GRAD[idx][:]+=model.cell.geom.__getattr__(mname).grad.cpu().detach().numpy()
-                    #GRAD = np.array(GRAD)
-                    #send_GRAD = None
+                    """Sum the gradients of all the batches"""
+
+                    if not IMPLICIT:
+                        for idx, mname in enumerate(model.cell.geom.pars_need_invert):
+                            GRAD[idx][:]+=getattr(model.cell.geom, mname).grad.cpu().detach().numpy()
+                        # GRAD[idx][:]+=model.cell.geom.__getattr__(mname).grad.cpu().detach().numpy()
+                    
+                    if IMPLICIT:
+                        for name, param in model.cell.geom.nn['vp'].named_parameters():
+                            if param.grad is not None:
+                                gradient_dict[name] = param.grad.clone().detach()
+
                     # Send to the master node
                     comm.send((tasks, rank, None, loss), dest=0, tag=1)
 
             comm.Barrier()
 
-            # SUM THE GRADIENTS FROM ALL RANKS
-            GRAD = comm.allreduce(GRAD, op=MPI.SUM)
+            if not IMPLICIT:
+                # SUM THE GRADIENTS FROM ALL RANKS
+                GRAD = comm.allreduce(GRAD, op=MPI.SUM)
+
+            if IMPLICIT:
+                all_nn = comm.gather(gradient_dict, root=0)
 
             """"Assigning and Saving"""
             if MASTER:
                 pbar.close()
-                # Calculate the gradient of other ranks
-                # GRAD = comm.reduce(GRAD, op=MPI.SUM, root=0)
-                # print(f"GRAD: {GRAD.shape}")
-                # print(f"GRAD: {GRAD.max()}, {GRAD.min()}")
-                
-                # if NDIM==3: grad3d.flush()
-                # grad2d[:] = np.sum(grad3d, axis=0)
                 np.save(f"{ROOTPATH}/loss.npy", loss)
-                np.save(f"{ROOTPATH}/grad.npy", GRAD)
-                # np.save(f"{ROOTPATH}/grad2d.npy", grad2d)
-                # Clean the grad3d
-                #grad3d[:] = 0.
-            # broadcast the gradient to other ranks
-            #comm.Bcast(grad2d, root=0)
+                if not IMPLICIT:
+                    np.save(f"{ROOTPATH}/grad.npy", GRAD)
+                
+                if IMPLICIT:
+                    all_nn = all_nn[1:]
+                    # copy grad to data
+                    for name, param in model.cell.geom.nn['vp'].named_parameters():
+                        grad = torch.sum(torch.stack([nn[name].cpu() for nn in all_nn]), axis=0)
+                        param.data.copy_(grad.to(args.dev)/1e6)
 
-            if not MASTER:
+                # Save the sumemd gradients
+                torch.save(model.cell.geom.nn['vp'].state_dict(), f'{ROOTPATH}/grad.pt')
+
+                # print(nnfiles)
+            if not MASTER: # Post processing for gradients
+
+                if IMPLICIT:
+                    summed_grad = torch.load(f'{ROOTPATH}/grad.pt', map_location='cpu')
+                    for name, param in model.cell.geom.nn['vp'].named_parameters():
+                        param.grad = summed_grad[name].to(args.dev)
+
                 # Assign gradient of other ranks
-                for idx, para in enumerate(model.cell.geom.pars_need_invert):
-                    var = model.cell.geom.__getattr__(para)
-                    var.grad.data = to_tensor(GRAD[idx]).to(args.dev)
+                if not IMPLICIT:
+                    for idx, para in enumerate(model.cell.geom.pars_need_invert):
+                        var = model.cell.geom.__getattr__(para)
+                        var.grad.data = to_tensor(GRAD[idx]).to(args.dev)
 
                 if args.grad_smooth:
                     model.cell.geom.gradient_smooth()
@@ -390,7 +407,7 @@ if __name__ == '__main__':
                 # Update the model parameters and learning rate
                 optimizers.step()
                 lr_scheduler.step()
-                model.cell.geom.step()
+                # model.cell.geom.step()
                 # Proj simplex
                 # if True:
                 #     for idx, para in enumerate(model.cell.geom.pars_need_invert):

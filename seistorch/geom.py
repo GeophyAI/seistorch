@@ -220,12 +220,14 @@ class WaveGeometryFreeForm(WaveGeometry):
 
             # par_value.clamp_(min=0, max=vmax)
             # using std and mean
+
             anti_value = self.anti_normalization(par_value, 3000., 1000.)*self.unit
+            print(anti_value.max(), anti_value.min())
             # using vmin and vmax
             # anti_value = (vmin+(vmax-vmin)*par_value)*self.unit
             # anti_value = par_value # no anti normalization
             #anti_value *= mask
-            anti_value[0:self.padding+1] = 1500.*self.unit
+            # anti_value[0:self.padding+1] = 1500.*self.unit
             setattr(self, par, anti_value)
 
     def step_random_boundary(self,):
@@ -332,7 +334,8 @@ class WaveGeometryFreeForm(WaveGeometry):
         if self.ndim==3: pads = (padding, padding, top, padding, padding, padding)
         mask = torch.nn.functional.pad(mask, pads, mode='constant', value=0)
         for para in self.model_parameters:
-            var = self.__getattr__(para)
+            # print(self.vp)
+            var = getattr(self, para)#self.__getattr__(para)
             if var.requires_grad:
                 var.grad.data = var.grad.data * mask
     

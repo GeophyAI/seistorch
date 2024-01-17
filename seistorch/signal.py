@@ -82,13 +82,13 @@ class SeisSignal:
         
         if backend == 'torch':
             # In this case, d is a Tensorlist
-            b = torch.from_numpy(b).to(d.device)
-            a = torch.from_numpy(a).to(d.device)
+            b = torch.from_numpy(b).double().to(d.device)
+            a = torch.from_numpy(a).double().to(d.device)
 
             for i in range(d.shape[0]):
                 data  = d.data[i] # (nsample, ntraces, nchannles)
                 data = data.permute(1, 2, 0) # (ntraces, nchannels, nsamples)
-                data = filtfilt(data, a, b)
+                data = filtfilt(data.double(), a, b)
                 data = data.float().permute(2, 0, 1)
                 d.data[i] = data
 
