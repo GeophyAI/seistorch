@@ -25,7 +25,8 @@ def build_model(config_path,
                 mode="forward", 
                 source_encoding=False, 
                 commands=None, 
-                logger=None):
+                logger=None, 
+                backend=None):
 
     assert mode in ["forward", "inversion", "rtm"], f"No such mode {mode}!"
 

@@ -75,9 +75,14 @@ class WaveRNN(torch.nn.Module):
 
         self.reset_sources(sources)
         self.reset_probes(receivers)
-        
+
+        for module in self.probes:
+            module.to(self.cell.geom.device)
+        for module in self.sources:
+            module.to(self.cell.geom.device)
+
     """Original implementation"""
-    def forward(self, x, omega=10.0):
+    def forward(self, x, omega=10.0, super_source=None, super_probes=None):
         """Propagate forward in time for the length of the inputs
         Parameters
         ----------
@@ -88,9 +93,11 @@ class WaveRNN(torch.nn.Module):
         """
         # Hacky way of figuring out if we're on the GPU from inside the model
         device = self.cell.geom.device
-
         # Init hidden states
-        batchsize = 1 if self.source_encoding else len(self.sources)
+        if super_source is None:
+            batchsize = 1 if self.source_encoding else len(self.sources)
+        else:
+            batchsize = super_source.x.shape[0]
         hidden_state_shape = (batchsize,) + self.cell.geom.domain_shape
         wavefield_names = Wavefield(self.cell.geom.equation).wavefields
         # Set wavefields
@@ -116,12 +123,18 @@ class WaveRNN(torch.nn.Module):
         # Loop through time
         x = x.to(device)
         # Get the super source and super probes
-        bidx_source, sourcekeys = self.merge_sources_with_same_keys()
-        super_source = WaveSource(bidx_source, **sourcekeys).to(device)
-        
-        reccounts, bidx_receivers, reckeys = self.merge_receivers_with_same_keys()
-        super_probes = WaveProbe(bidx_receivers, **reckeys).to(device)
-        
+
+        if super_source is None:
+            bidx_source, sourcekeys = self.merge_sources_with_same_keys()
+
+            super_source = WaveSource(bidx_source, **sourcekeys).to(device)
+
+        if super_probes is None:
+            reccounts, bidx_receivers, reckeys = self.merge_receivers_with_same_keys()
+            super_probes = WaveProbe(bidx_receivers, **reckeys).to(device)
+        else:
+            reccounts = super_probes.x.shape[0]
+
         super_source.source_encoding = self.source_encoding
 
         time_offset = 2 if self.cell.geom.equation == "acoustic" else 0

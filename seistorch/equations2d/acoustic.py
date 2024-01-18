@@ -66,7 +66,7 @@ def _laplacian(y, h):
     #                          [0.0, 0.0, 1.333, 0.0, 0.0],
     #                          [0.0, 0.0, -0.083, 0.0, 0.0]]]]).to(y.device)
     
-    operator = h ** (-2) * kernel#.to(y.device)
+    operator = h ** (-2) * kernel.to(y.device)
     y = y.unsqueeze(1)
     return conv2d(y, operator, padding=padding).squeeze(1)
 

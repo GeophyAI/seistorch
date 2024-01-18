@@ -7,10 +7,12 @@ import torch
 
 from seistorch.eqconfigure import Parameters
 from seistorch.loss import Loss
-from seistorch.io import SeisIO, SeisRecord
+from seistorch.io import SeisIO, SeisRecord, DataLoader
 from seistorch.utils import read_pkl, ricker_wave, to_tensor, roll
 from seistorch.source import WaveSource
 from seistorch.probe import WaveIntensityProbe
+from torch.nn.parallel import DistributedDataParallel
+
 
 class SeisSetup:
 
@@ -97,6 +99,20 @@ class SeisSetup:
         seisrec = SeisRecord(self.cfg, logger=None)
         seisrec.setup(self.args.mode)
         return seisrec
+    
+    def setup_datamask(self, ):
+
+        if "obsmask" in self.cfg["geom"].keys():
+            obsmask = DataLoader(self.cfg["geom"]["obsmask"])
+        else:
+            obsmask = None
+            
+        if "synmask" in self.cfg["geom"].keys():
+            synmask = DataLoader(self.cfg["geom"]["synmask"])
+        else:
+            synmask = None
+
+        return obsmask, synmask
 
     def setup_num_shots(self):
         # Read the source and receiver locations from the configuration file
@@ -122,6 +138,7 @@ class SeisSetup:
             model (RNN): The model to be optimized.
             cfg (dict): The configuration file.
         """
+
         lr = self.cfg['training']['lr']
         opt = self.cfg['training']['optimizer']
         epoch_decay = self.cfg['training']['lr_decay']
@@ -131,6 +148,9 @@ class SeisSetup:
 
         # Setup the learning rate for each parameter
         paras_for_optim = []
+
+        if isinstance(model, DistributedDataParallel):
+            model = model.module
 
         for para in pars_need_by_eq:
             # Set the learning rate for each parameter
@@ -230,6 +250,18 @@ def setup_acquisition(shots, src_list, rec_list, cfg, *args, **kwargs):
     for shot in shots:
         src = setup_src_coords(src_list[shot], cfg['geom']['pml']['N'], cfg['geom']['multiple'])
         rec = setup_rec_coords(rec_list[shot], cfg['geom']['pml']['N'], cfg['geom']['multiple'])
+        sources.append(src)
+        receivers.extend(rec)
+
+    return sources, receivers
+
+def setup_acquisition2(src_list, rec_list, cfg, *args, **kwargs):
+
+    sources, receivers = [], []
+
+    for i in range(len(src_list)):
+        src = setup_src_coords(src_list[i], cfg['geom']['pml']['N'], cfg['geom']['multiple'])
+        rec = setup_rec_coords(rec_list[i], cfg['geom']['pml']['N'], cfg['geom']['multiple'])
         sources.append(src)
         receivers.extend(rec)
 
