@@ -1,9 +1,9 @@
-torchrun --nnodes=1 --nproc_per_node=4 \
+torchrun --nproc_per_node=4 \
 /home/shaowinw/Desktop/seistorch/seistorch_dist.py \
-config/forward.yml \
+config/inversion_nn.yml \
 --opt adam \
 --loss vp=l2 \
---lr vp=10.0 \
+--lr vp=0.0001 \
 --mode inversion \
 --save-path ./results/towed \
 --use-cuda

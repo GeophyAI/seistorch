@@ -10,6 +10,15 @@ equation: acoustic
 
 training:
 
+  smooth:
+    counts: 10 # the number of smooth times
+    radius: # the radius of smooth in x and z direction
+      x: 10
+      z: 10
+    sigma: # the sigma of smooth in x and z direction
+      x: 20
+      z: 1
+
   implicit:
     use: false
     pretrained:
@@ -86,10 +95,10 @@ geom:
   inv_savePath:
 
   multiscale:
-  - 1.0
-  - 3.0
-  - 5.0
-  - all
+    - 1.0
+    - 3.0
+    - 5.0
+    - all
 
   # Time Sampling step
   dt: 0.002

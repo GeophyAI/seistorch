@@ -1,5 +1,7 @@
+from typing import Iterator, Tuple
 import numpy as np
 import torch
+from torch.nn.parameter import Parameter
 
 from .eqconfigure import Wavefield
 from .source import WaveSource
@@ -16,6 +18,16 @@ class WaveRNN(torch.nn.Module):
         self.cell = cell
         #  Check the availability of the type of sources and probes.
         self.source_encoding = source_encoding # short cut
+        self.use_implicit = self.cell.geom.use_implicit
+
+    def named_parameters(self, prefix: str = '', recurse: bool = True, remove_duplicate: bool = True) -> Iterator[Tuple[str, Parameter]]:
+        if self.cell.geom.use_implicit:
+            for key in self.cell.geom.nn:
+                for name, param in self.cell.geom.nn[key].named_parameters(prefix, recurse, remove_duplicate):
+                    yield name, param
+        else:
+            for name, param in self.cell.geom.named_parameters(prefix, recurse, remove_duplicate):
+                yield name, param
 
     def merge_sources_with_same_keys(self,):
         """Merge all source coords into a super shot.
@@ -82,7 +94,7 @@ class WaveRNN(torch.nn.Module):
             module.to(self.cell.geom.device)
 
     """Original implementation"""
-    def forward(self, x, omega=10.0, super_source=None, super_probes=None):
+    def forward(self, x, omega=10.0, super_source=None, super_probes=None, vp=None):
         """Propagate forward in time for the length of the inputs
         Parameters
         ----------
@@ -114,8 +126,13 @@ class WaveRNN(torch.nn.Module):
         # p_all = [[] for i in range(nchannels)]
 
         # Set model parameters
-        for name in self.cell.geom.model_parameters:
-            setattr(self, name, getattr(self.cell.geom, name))
+        if not self.use_implicit:
+            for name in self.cell.geom.model_parameters:
+                setattr(self, name, getattr(self.cell.geom, name))
+        else:
+            # THIS IS THE IMPLICIT VERSION
+            # WILL BE DEPRECATED
+            setattr(self, 'vp', vp)
 
         # Pack parameters
         model_paras = [getattr(self, name) for name in self.cell.geom.model_parameters]
@@ -133,7 +150,7 @@ class WaveRNN(torch.nn.Module):
             reccounts, bidx_receivers, reckeys = self.merge_receivers_with_same_keys()
             super_probes = WaveProbe(bidx_receivers, **reckeys).to(device)
         else:
-            reccounts = super_probes.x.shape[0]
+            reccounts = super_probes.reccounts
 
         super_source.source_encoding = self.source_encoding
 

@@ -14,6 +14,7 @@ from .geom import WaveGeometryFreeForm
 from .rnn import WaveRNN
 from .utils import set_dtype, update_cfg, to_tensor
 
+
 try:
     from yaml import CDumper as Dumper
     from yaml import CLoader as Loader

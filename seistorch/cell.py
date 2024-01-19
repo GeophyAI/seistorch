@@ -18,7 +18,6 @@ class WaveCell(torch.nn.Module):
         self.backward_func = backward_func
         self.ckpt = ckpt_acoustic if 'acoustic' in inspect.getmodule(forward_func).__name__ else ckpt
 
-
     def parameters(self, recursive=True):
         for param in self.geom.parameters():
             yield param

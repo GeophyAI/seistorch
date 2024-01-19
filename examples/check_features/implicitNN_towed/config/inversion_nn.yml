@@ -16,14 +16,14 @@ training:
     in_features: 2
     out_features: 1
     hidden_features: 128
-    hidden_layers: 6
+    hidden_layers: 4
     pretrained:
     vmin: 1000.
     vmax: 5500.
 
   minibatch: true
 
-  batch_size: 12
+  batch_size: 16
 
   # Number of training epochs
   N_epochs: 10000
@@ -43,7 +43,7 @@ training:
 geom:
 
   # The observer data
-  obsPath: ./observed.npy
+  obsPath: ./observed.hdf5
 
   # Wave speed model from disk_file for forward modeling
   truePath:

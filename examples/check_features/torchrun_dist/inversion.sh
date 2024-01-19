@@ -8,4 +8,5 @@ configs/forward.yml \
 --mode inversion \
 --save-path ./results/towed \
 --grad-cut \
+--grad-smooth \
 --use-cuda

@@ -4,7 +4,7 @@ from .utils import to_tensor
 
 
 class WaveProbe(torch.nn.Module):
-	def __init__(self, batchidx=None, **kwargs):
+	def __init__(self, batchidx=None, reccounts=[], **kwargs):
 		super().__init__()
 		self._ndim = len(kwargs)
 		self.coord_labels = list(kwargs.keys())
@@ -15,6 +15,10 @@ class WaveProbe(torch.nn.Module):
 		self.batchsize = self.x.size(0) if self.x.ndim>1 else 1
   
 		self.bidx = batchidx
+
+		# This parameter is used for split the records in RNN
+		# DONNOT DELETE IT
+		self.reccounts = reccounts 
   
 	@property
 	def ndim(self,):

@@ -32,25 +32,8 @@ class OBSDataset(Dataset):
 
     def __getitem__(self, key):
 
-        # src_this_epoch = np.array(self.srclist[key]).tolist()
-        # rec_this_epoch = np.array(self.reclist[key]).tolist()
-
         src_this_epoch = self.srclist[key]
         rec_this_epoch = self.reclist[key]
-
-        # Source and Receivers in Grid
-        # if isinstance(key, int):
-        #     src_this_epoch = [np.array(self.srclist)[key].tolist()]
-        #     rec_this_epoch = [np.array(self.reclist)[key].tolist()]
-
-        # # Pad Source and Receivers with PML and Multiple
-        # sources, receivers = [], []
-        # for i in range(len(src_this_epoch)):
-        #     print(src_this_epoch[i])
-        #     src = setup_src_coords(src_this_epoch[i], self.padding, self.multiple)
-        #     rec = setup_rec_coords(rec_this_epoch[i], self.padding, self.multiple)
-        #     sources.append(src)
-        #     receivers.extend(rec)
 
         # Load data from h5df file
         with h5py.File(self.dpath, 'r') as f:
@@ -58,7 +41,7 @@ class OBSDataset(Dataset):
                 data = TensorList([f[f'{self.dkey}_{k}'][...].copy() for k in key])
             if isinstance(key, int):
                 data = f[f'{self.dkey}_{key}'][...].copy()
-        return data, src_this_epoch, rec_this_epoch
+        return data, src_this_epoch, rec_this_epoch, key
             
     def __len__(self):
         # count the number of shots

@@ -21,26 +21,23 @@ import torch.distributed as dist
 from yaml import dump, load
 
 from torch.nn.parallel import DistributedDataParallel
-from torch.utils.data import Subset
-from torch.utils.data.sampler import SubsetRandomSampler
 from torch.utils.data.distributed import DistributedSampler
 import seistorch
 from seistorch.eqconfigure import Shape
 from seistorch.distributed import task_distribution_and_data_reception
 from seistorch.io import SeisIO, DataLoader
-# from torch.utils.tensorboard import SummaryWriter
+from torch.utils.tensorboard import SummaryWriter
 from seistorch.log import SeisLog
+from seistorch.coords import single2batch
 from seistorch.signal import SeisSignal
-from seistorch.source import WaveSource
-from seistorch.probe import WaveProbe
 from seistorch.model import build_model
 from seistorch.setup import *
 from seistorch.utils import (DictAction, to_tensor)
-from seistorch.utils import merge_sources_with_same_keys, merge_receivers_with_same_keys
 from seistorch.setup import *
 from seistorch.dataset import OBSDataset
 from seistorch.type import TensorList
-
+from seistorch.process import PostProcess
+from torch.distributed.elastic.multiprocessing.errors import record
 
 
 parser = argparse.ArgumentParser()
@@ -71,7 +68,8 @@ parser.add_argument('--grad-smooth', action='store_true',
 parser.add_argument('--source-encoding', action='store_true', default=False,
                     help='PLEASE DO NOT CHANGE THE DEFAULT VALUE.')
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
 
     dist.init_process_group("nccl")
 
@@ -93,6 +91,7 @@ if __name__ == '__main__':
     seisio = SeisIO(cfg)
     seissignal = SeisSignal(cfg, seislog)
     setup = SeisSetup(cfg, args, seislog)
+    postprocess = PostProcess(model, cfg, args)
     
     ### Get source-x and source-y coordinate in grid cells
     src_list, rec_list = seisio.read_geom(cfg)
@@ -101,9 +100,6 @@ if __name__ == '__main__':
     x = setup.setup_wavelet().to(rank)
     x = torch.unsqueeze(x, 0)
 
-    model = DistributedDataParallel(model, device_ids=[rank])
-    seislog.print('DistributedDataParallel is used.')
-
     """CONFIGURES"""
     EPOCH_PER_SCALE = cfg['training']['N_epochs']
     ROOTPATH = args.save_path if args.save_path else cfg["geom"]["inv_savePath"]
@@ -111,6 +107,13 @@ if __name__ == '__main__':
     MULTISCALES = cfg['geom']['multiscale']
     IMPLICIT = cfg['training']['implicit']['use']
     SCALE_COUNTS = len(MULTISCALES)
+    SHOTS_PER_BATCH = cfg['training']['batch_size'] # USE SHOTS_PER_BATCH for GRADIENT
+    
+    if IMPLICIT:
+        nn = DistributedDataParallel(model.cell.geom.nn['vp'], device_ids=[rank])
+    else:
+        model = DistributedDataParallel(model, device_ids=[rank])
+    seislog.print('DistributedDataParallel is used.')
 
     # UPDATE THE CONFIGURATION FILE
     cfg['loss'] = args.loss
@@ -123,7 +126,8 @@ if __name__ == '__main__':
     if MASTER:
         os.makedirs(ROOTPATH, exist_ok=True)
         seisio.write_cfg(f"{ROOTPATH}/configure.yml", cfg)
-        # writer = SummaryWriter(os.path.join(ROOTPATH, "logs"))
+        pbar = tqdm.tqdm(total=EPOCH_PER_SCALE*SCALE_COUNTS)
+        writer = SummaryWriter(os.path.join(ROOTPATH, "logs"))
 
     """Load obs data"""
     obs0 = OBSDataset(cfg['geom']['obsPath'], 
@@ -134,7 +138,6 @@ if __name__ == '__main__':
                       PMLN=cfg['geom']['pml']['N'], 
                       MULTIPLE=cfg['geom']['multiple'])
 
-    SHOTS_PER_BATCH = 4 # USE SHOTS_PER_BATCH for GRADIENT
     batch_size_per_gpu = SHOTS_PER_BATCH//size
     obssampler = DistributedSampler(obs0)
     obsloader = torch.utils.data.DataLoader(obs0, 
@@ -150,75 +153,76 @@ if __name__ == '__main__':
     obsmask, synmask = setup.setup_datamask()
 
     """Tranining"""
-    for epoch in tqdm.trange(EPOCH_PER_SCALE*SCALE_COUNTS):
-
+    for epoch in range(EPOCH_PER_SCALE*SCALE_COUNTS):
+        
         idx_freq, local_epoch = divmod(epoch, EPOCH_PER_SCALE)
 
         if local_epoch==0:
+            """Reset the optimizer at every scale"""
             freq = MULTISCALES[idx_freq]
             optimizers, lr_scheduler = setup.setup_optimizer(model, idx_freq, IMPLICIT)
-
 
         optimizers.zero_grad()
         
         obssampler.set_epoch(epoch)
-        obs, src, rec = next(iter(obsloader)) # in grids, no padding
+        """Get the data"""
+        obs, src, rec, shots = next(iter(obsloader)) # in grids, no padding
+        super_source, super_probes = single2batch(src, rec, cfg, dev) # padding, in batch
 
-        """Processing the coordinates"""
-        rec = [torch.stack(item) for item in rec]
-        rec = torch.stack(rec).permute(2, 0, 1).cpu().numpy().tolist()
-
-        src = torch.stack(src).cpu().numpy().T.tolist()
-
-        padded_src, padded_rec = setup_acquisition2(src, rec, cfg)
-
-        if isinstance(padded_src, list):
-            padded_src = torch.nn.ModuleList(padded_src)
+        if IMPLICIT:
+            coords = model.cell.geom.nn['vp'].coords
+            vp = nn(coords)[0]
+            std = 1000.
+            mean = 3000.
+            vp = vp * std + mean
         else:
-            padded_src = torch.nn.ModuleList([padded_src])
+            vp = None
 
-        if isinstance(padded_rec, list):
-            padded_rec = torch.nn.ModuleList(padded_rec)
-        else:
-            padded_rec = torch.nn.ModuleList([padded_rec])
-
-        # Get the super source and super probes
-        bidx_source, sourcekeys = merge_sources_with_same_keys(padded_src)
-        super_source = WaveSource(bidx_source, **sourcekeys).to(dev) 
-
-        reccounts, bidx_receivers, reckeys = merge_receivers_with_same_keys(padded_rec)
-        super_probes = WaveProbe(bidx_receivers, **reckeys).to(dev)
-
-        syn = model(x, None, super_source, super_probes)
+        """Forward modeling"""
+        syn = model(x, None, super_source, super_probes, vp=vp)
         obs = TensorList(obs).to(dev)
 
         """Filter the data"""
         syn = seissignal.filter(syn, freqs=freq, backend='torch')
         obs = seissignal.filter(obs, freqs=freq, backend='torch')
 
+        """Apply the mask"""
+        if obsmask is not None and synmask is not None:
+            obs = obs * obsmask
+            syn = syn * synmask
+
+        """Compute the loss"""
         loss = criterions(syn, obs)
 
         # SAVE THE DATA
-        torch.save(obs, f"{ROOTPATH}/obs_{epoch}.pt")
-        torch.save(syn, f"{ROOTPATH}/syn_{epoch}.pt")
+        # torch.save(obs, f"{ROOTPATH}/obs_{epoch}.pt")
+        # torch.save(syn, f"{ROOTPATH}/syn_{epoch}.pt")
 
         loss.backward()
+
+        """Post-processing"""
+        if args.grad_smooth:
+            postprocess.smooth_gradient()
+
+        if args.grad_cut:
+            postprocess.cut_gradient()
+
         optimizers.step()
         lr_scheduler.step()
 
         if MASTER:
             # SAVE THE INVERTED MODEL
-            torch.save(model.module.state_dict(), 
-                       f"{ROOTPATH}/model_{epoch}.pt")
-            # SAVE THE GRADIENT
-            torch.save(model.module.cell.geom.vp.grad, 
-                       f"{ROOTPATH}/grad_{epoch}.pt")
+            if IMPLICIT:
+                torch.save(vp, 
+                           f"{ROOTPATH}/model_{epoch}.pt")
+            else:
+                torch.save(model.module.state_dict(), 
+                           f"{ROOTPATH}/model_{epoch}.pt")
+                # SAVE THE GRADIENT
+                torch.save(model.module.cell.geom.vp.grad, 
+                           f"{ROOTPATH}/grad_{epoch}.pt")
+            pbar.update(1)
 
-        # print(loss)
-
-
-
-    
-
-
+            writer.add_histogram('Sample Indices', shots, epoch)
+            writer.add_scalar('Loss', loss, epoch)
 

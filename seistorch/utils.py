@@ -519,44 +519,4 @@ def merge_dicts_with_same_keys(dict_list):
             merged_dict[k].append(v)
     return merged_dict
 
-def merge_sources_with_same_keys(sources):
-    """Merge all source coords into a super shot.
-    """
-    super_source = dict()
-    batchindices = []
-
-    for bidx, source in enumerate(sources):
-        coords = source.coords()
-        for key in coords.keys():
-            if key not in super_source.keys():
-                super_source[key] = []
-            super_source[key].append(coords[key])
-        batchindices.append(bidx*torch.ones(1, dtype=torch.int64))
-
-    return batchindices, super_source
-
-def merge_receivers_with_same_keys(receivers):
-    """Merge all source coords into a super shot.
-    """
-    super_probes = dict()
-    batchindices = []
-    reccounts = []
-    for bidx, probe in enumerate(receivers):
-        coords = probe.coords()
-        for key in coords.keys():
-            if key not in super_probes.keys():
-                super_probes[key] = []
-            super_probes[key].append(coords[key])
-        # how many receivers in this group
-        _reccounts = len(coords[key])
-        # add reccounts and batchindices
-        reccounts.append(_reccounts)
-        batchindices.append(bidx*torch.ones(_reccounts, dtype=torch.int64))
-        
-    # stack the coords
-    for key in super_probes.keys():
-        super_probes[key] = torch.concatenate(super_probes[key], dim=0)
-
-    return reccounts, torch.concatenate(batchindices), super_probes
-
 interp1d = Interp1d.apply

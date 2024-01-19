@@ -94,7 +94,6 @@ class SeisSignal:
 
             return d
 
-
     def ricker(self, dtype='tensor', inverse=False):
         """
             Ricker-like wave.
@@ -195,6 +194,68 @@ def batch_sta_lta_torch(traces, sta_len, lta_len, threshold_on=0.5, threshold_of
     fa_time[fa_time==0] = nt-1
 
     return fa_time.squeeze().int()
+
+def gaussian_filter(input_tensor, sigma, radius, axis=-1):
+    """
+    Function that applies Gaussian filter to a tensor along a given axis.
+
+    Args:
+    - input_tensor: Input tensor
+    - sigma: Standard deviation of the Gaussian filter
+    - radius: Radius of the Gaussian filter
+    - axis: Axis along which the Gaussian filter is applied
+
+    Returns:
+    - output_tensor: Output tensor
+    """
+    dev = input_tensor.device
+    ndim = input_tensor.ndim
+    # chech odd or even
+    if radius % 2 == 0:
+        kernel_size = radius+1
+    else:
+        kernel_size = radius
+
+    # Generate the Gaussian kernel
+    kernel = torch.tensor(
+        np.exp(-(np.arange(kernel_size) - kernel_size // 2)**2 / (2 * sigma**2)),
+        dtype=torch.float32,
+        device=dev,
+    )
+    kernel = kernel / kernel.sum()
+
+    # Reshape the kernel
+    kernel = kernel.view(1, 1, -1)
+
+    # Pad the input tensor
+    padding = kernel_size // 2
+
+    # Apply the Gaussian filter
+    if ndim == 1:
+        result = F.conv1d(input_tensor.unsqueeze(0).unsqueeze(0), kernel, padding=padding, stride=1)
+    elif ndim == 2:
+        if axis == 0:
+            kernel = kernel.view(1, 1, -1, 1)
+            padding = (padding, 0)
+        elif axis == 1:
+            kernel = kernel.view(1, 1, 1, -1)
+            padding = (0, padding)
+        result = F.conv2d(input_tensor.unsqueeze(0).unsqueeze(0), kernel, padding=padding, stride=1)
+    elif ndim == 3:
+        if axis == 0:
+            kernel = kernel.view(1, 1, 1, -1, 1)
+            padding = (0, padding, 0)
+        elif axis == 1:
+            kernel = kernel.view(1, 1, 1, 1, -1)
+            padding = (0, 0, padding)
+        elif axis == 2:
+            kernel = kernel.view(1, 1, -1, 1, 1)
+            padding = (padding, 0, 0)
+        result = F.conv3d(input_tensor.unsqueeze(0).unsqueeze(0), kernel, padding=padding, stride=1)
+    else:
+        raise ValueError("Unsupported number of dimensions. Only 1D, 2D, and 3D are supported.")
+
+    return result.squeeze(0).squeeze(0)
 
 def generate_mask(fa_time, nt, nr, N):
     mask = torch.zeros(nt, nr, dtype=torch.float32)

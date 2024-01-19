@@ -222,7 +222,6 @@ class WaveGeometryFreeForm(WaveGeometry):
             # using std and mean
 
             anti_value = self.anti_normalization(par_value, 3000., 1000.)*self.unit
-            print(anti_value.max(), anti_value.min())
             # using vmin and vmax
             # anti_value = (vmin+(vmax-vmin)*par_value)*self.unit
             # anti_value = par_value # no anti normalization
@@ -302,54 +301,10 @@ class WaveGeometryFreeForm(WaveGeometry):
 
         return img
 
-    def gradient_smooth(self, ):
-
-        for para in self.model_parameters:
-            var = self.__getattr__(para)
-            if var.requires_grad:
-                # copy data from tensor to numpy
-                smoothed_grad = var.grad.cpu().detach().numpy()
-                # smooth the data
-                smoothed_grad = self.seismp.smooth(smoothed_grad)
-                # copy data from numpy to tensor
-                var.grad.copy_(to_tensor(smoothed_grad).to(var.grad.device))
-
     @property
     def padding_list(self,):
         top = 0 if self.multiple else self.padding
         return (top, self.padding, self.padding, self.padding)
-
-    # @property
-    # def unit(self,):
-    #     # if 'unit' in self.kwargs['geom'].keys():
-    #     #     self.unit = 1
-    #     # else:
-    #     #     self.unit = 0.001
-    #     self.unit=0.001
-    #     return self.unit
-
-    def gradient_cut(self, mask=None, padding=50):
-        top = 0 if self.multiple else padding
-        if self.ndim==2: pads = (padding, padding, top, padding)
-        if self.ndim==3: pads = (padding, padding, top, padding, padding, padding)
-        mask = torch.nn.functional.pad(mask, pads, mode='constant', value=0)
-        for para in self.model_parameters:
-            # print(self.vp)
-            var = getattr(self, para)#self.__getattr__(para)
-            if var.requires_grad:
-                var.grad.data = var.grad.data * mask
-    
-    def gradient_clip(self,):
-        grad_list = [param.grad for param in self.siren["vp"].parameters()]
-
-        grad = torch.cat([grad.flatten() for grad in grad_list])
-
-        bound = torch.quantile(grad, torch.Tensor([0.02, 0.98]).to(grad.device).to(grad.dtype))
-        min_val = torch.min(bound[0])
-        max_val = torch.max(bound[1])
-
-        for para in self.siren["vp"].parameters():
-            para.grad.data.clamp_(min=min_val, max=max_val)
 
     def save_model(self, path: str, paras: str, freq_idx=1, epoch=1, writer=None, max_epoch=1000):
         """Save the data of model parameters and their gradients(if they have).
