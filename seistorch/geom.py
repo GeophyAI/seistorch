@@ -352,6 +352,7 @@ class WaveGeometryFreeForm(WaveGeometry):
                     # Write the model error to tensorboard.
                     writer.add_scalar(f"model_error/{para}", model_error, global_step=freq_idx*max_epoch+epoch)
 
+
 class ModelProcess:
 
     def __init__(self, cfg, ):

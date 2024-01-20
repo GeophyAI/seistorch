@@ -188,8 +188,14 @@ if __name__ == "__main__":
 
         """Apply the mask"""
         if obsmask is not None and synmask is not None:
-            obs = obs * obsmask
-            syn = syn * synmask
+            obsM = to_tensor(np.stack(obsmask[shots.cpu().numpy().tolist()], axis=0)).to(syn.device)
+            synM = to_tensor(np.stack(synmask[shots.cpu().numpy().tolist()], axis=0)).to(syn.device)
+            # Stack to tensor
+            obs = obs.stack()
+            syn = syn.stack()
+            # Mask the data
+            obs = obs * obsM
+            syn = syn * synM
 
         """Compute the loss"""
         loss = criterions(syn, obs)

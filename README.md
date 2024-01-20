@@ -1,6 +1,16 @@
 # Seistorch: Where wave equations meets Automatic Differentiation
 
-From this version, seistorch will use 'torchrun' to perform distributed full waveform inversion('mpi4py' used before).
+From this version, seistorch will use 'torchrun' to perform distributed full waveform inversion('mpi4py' used before). Please refer to <seistorch/examples/check_features/torchrun_dist>. The old mpi4py APIs in seistorch will be deprecated, nccl in torch will be prefered.
+
+Note: I am preparing my dissertation now, so the update may be delayed.
+
+| Inversion Tests | Status |
+| :----------- | :-----------: |
+| Acoustic   | Passed       |
+| Acoustic+NN   | Passed     |
+| Elastic   | Not test yet   |
+| Others   | Not test yet   |
+
 
 # Citation
 
