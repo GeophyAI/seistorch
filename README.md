@@ -2,6 +2,8 @@
 
 Seistorch is a seismic inversion framework designed for researchers in the field of geophysics and seismic imaging. This open-source Python library empowers users to perform state-of-the-art Full-Waveform Inversion (FWI) based on pytorch's automatic differentiation.
 
+Note: This version maybe not update anymore. New features will be incorporated into the dev branch.
+
 - **Key features** :
 
     1. **Python-Powered**: Seistorch is developed entirely in Python, ensuring ease of use and compatibility with various Python environments.
@@ -56,12 +58,14 @@ Such as the misfits in Seistorch:
 
 12. AD-based elastic inversion [Wang W.L. et al.](https://doi.org/10.1190/geo2020-0542.1).
 
+13. Global correlation norm [Choi & Alkhalifah](https://doi.org/10.1111/j.1365-2478.2012.01079.x).
+
 etc.
 
 # TODO Recently
 1. Random boundary by [Shen & Clapp](https://doi/10.1190/geo2014-0542.1).
 
-2. A zoo of PINNs.
+2. A zoo of Physics+NN methods.
 
 3. Gradient sampling.
 

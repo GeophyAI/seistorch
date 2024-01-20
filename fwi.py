@@ -330,8 +330,9 @@ if __name__ == '__main__':
                         loss = criterions(syn, obs)
                         #adj = torch.autograd.grad(loss, syn, create_graph=True)[0]
                         #np.save(f"{ROOTPATH}/adj.npy", adj.detach().cpu().numpy())        
-                        torch.save(model.cell.geom.nn['vp'].state_dict(), 
-                                   f"{ROOTPATH}/nn{rank}.pt")
+                        if IMPLICIT:
+                            torch.save(model.cell.geom.nn['vp'].state_dict(), 
+                                    f"{ROOTPATH}/nn{rank}.pt")
                         # For random boundary
                         # model.cell.geom.step()
 
@@ -380,8 +381,8 @@ if __name__ == '__main__':
                         grad = torch.sum(torch.stack([nn[name].cpu() for nn in all_nn]), axis=0)
                         param.data.copy_(grad.to(args.dev)/1e6)
 
-                # Save the sumemd gradients
-                torch.save(model.cell.geom.nn['vp'].state_dict(), f'{ROOTPATH}/grad.pt')
+                    # Save the sumemd gradients
+                    torch.save(model.cell.geom.nn['vp'].state_dict(), f'{ROOTPATH}/grad.pt')
 
                 # print(nnfiles)
             if not MASTER: # Post processing for gradients
