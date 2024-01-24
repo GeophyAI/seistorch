@@ -56,6 +56,10 @@ geom:
     Q: 
     #/mnt/data/wangsw/inversion/marmousi_10m/data//velocity/q_const.npy
 
+  obsmask:
+
+  synmask:
+
   sources: /home/les_01/wangsw/fwi2d/geometry/marmousi_obn_10m/sources.pkl
 
   receivers: /home/les_01/wangsw/fwi2d/geometry/marmousi_obn_10m/receivers.pkl
@@ -96,7 +100,10 @@ geom:
   inv_savePath: /mnt/data/wangsw/inversion/marmousi_10m/Test
 
   multiscale:
-    - 0.0
+    - - 1.0
+      - 3.0
+    - 5.0
+    - all
 
   # Time Sampling step
   dt: 0.001

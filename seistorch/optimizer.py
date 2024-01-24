@@ -148,7 +148,10 @@ class Cg(Optimizer):
         return "ncg"
     
     def __init__(self, params, lr=1.0, beta_type='PR', grad_clamp=True, **kwargs):
-        defaults = dict(lr=lr, beta_type=beta_type, grad_clamp=grad_clamp)
+        defaults = dict(lr=lr, 
+                        beta_type=beta_type, 
+                        grad_clamp=grad_clamp, 
+                        clip_value=kwargs['clip_value'])
         super(Cg, self).__init__(params, defaults)
 
     # def __setstate__(self, state):
@@ -173,7 +176,10 @@ class Cg(Optimizer):
                 # Clamp the gradient
                 if group['grad_clamp']:
                     grad_temp = p.grad.data
-                    bound = torch.quantile(grad_temp, torch.Tensor([0.02, 0.98]).to(grad_temp.device).to(grad_temp.dtype))
+                    upper = 1-group['clip_value']
+                    lower = group['clip_value']
+                    print(f'Clip the gradient between {lower} and {upper}')
+                    bound = torch.quantile(grad_temp, torch.Tensor([lower, upper]).to(grad_temp.device).to(grad_temp.dtype))
                     grad = torch.clamp(grad_temp, min=bound[0], max=bound[1])
                 else:
                     grad = p.grad.data

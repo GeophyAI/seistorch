@@ -65,6 +65,9 @@ parser.add_argument('--grad-cut', action='store_true',
                     help='Cut the boundaries of gradient or not')
 parser.add_argument('--grad-smooth', action='store_true',
                     help='Smooth the gradient or not')
+parser.add_argument('--grad-clip', action='store_true', default=True,
+                    help='Clip the gradient or not')
+parser.add_argument('--clipvalue', type=float, default=0.02)
 parser.add_argument('--source-encoding', action='store_true', default=False,
                     help='PLEASE DO NOT CHANGE THE DEFAULT VALUE.')
 
@@ -160,7 +163,11 @@ if __name__ == "__main__":
         if local_epoch==0:
             """Reset the optimizer at every scale"""
             freq = MULTISCALES[idx_freq]
-            optimizers, lr_scheduler = setup.setup_optimizer(model, idx_freq, IMPLICIT)
+            optimizers, lr_scheduler = setup.setup_optimizer(model, 
+                                                             idx_freq, 
+                                                             IMPLICIT, 
+                                                             args.grad_clip, 
+                                                             args.clipvalue)
 
         optimizers.zero_grad()
         
@@ -205,6 +212,12 @@ if __name__ == "__main__":
         # torch.save(syn, f"{ROOTPATH}/syn_{epoch}.pt")
 
         loss.backward()
+
+        if MASTER:
+            if not IMPLICIT:
+                # SAVE THE GRADIENT
+                torch.save(model.module.cell.geom.vp.grad, 
+                           f"{ROOTPATH}/grad_nosm_{epoch}.pt")
 
         """Post-processing"""
         if args.grad_smooth:

@@ -131,6 +131,7 @@ class SeisSetup:
                         idx_freq=0, 
                         implicit=False, 
                         grad_clamp=True,
+                        clip_value=0.02,
                         *args, **kwargs):
         """Setup the optimizer for the model
 
@@ -160,7 +161,7 @@ class SeisSetup:
             eps = 1e-22 if not implicit else 1e-8
 
         opt_module = importlib.import_module('seistorch.optimizer')
-        optimizers = getattr(opt_module, opt.capitalize())(paras_for_optim, eps=eps, grad_clamp=grad_clamp)
+        optimizers = getattr(opt_module, opt.capitalize())(paras_for_optim, eps=eps, grad_clamp=grad_clamp, clip_value=clip_value)
 
         # Setup the learning rate scheduler
         lr_scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizers, epoch_decay, last_epoch=- 1, verbose=False)
