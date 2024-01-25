@@ -117,6 +117,7 @@ class CheckpointFunction(torch.autograd.Function):
                 source_function, 
                 save_condition, 
                 para_counts, 
+                habcs,
                 *args):
         # check_backward_validity(args)
         ctx.requires_grad_list = [arg.requires_grad for arg in itertools.chain(args)]
@@ -128,7 +129,7 @@ class CheckpointFunction(torch.autograd.Function):
         save_boundaries = sb2d if '2d' in inspect.getmodule(run_function).__name__ else sb3d
 
         with torch.no_grad():
-            outputs = run_function(*args)
+            outputs = run_function(*args, habcs=habcs)
 
         ctx.models = args[:para_counts]
         ctx.geoms = args[::-1][0:3][::-1]
@@ -156,7 +157,7 @@ class CheckpointFunction(torch.autograd.Function):
             if ACOUSTIC2nd == True:
                 CheckpointFunction.wavefields.reverse()
             wavefields = CheckpointFunction.wavefields
-            return (None, None, None, None, None) + tuple(None for _ in range(len(ctx.requires_grad_list)))
+            return (None, None, None, None, None, None) + tuple(None for _ in range(len(ctx.requires_grad_list)))
         else:
             wavefields = CheckpointFunction.wavefields
 
@@ -165,7 +166,7 @@ class CheckpointFunction(torch.autograd.Function):
             # When the equaion == "acoustic", it has little difference from other 
             # first order wave equations, since we need to start the backpropagation 
             # from the nt-2.
-            return (None, None, None, None, None) + tuple(None for _ in range(len(ctx.requires_grad_list)))
+            return (None, None, None, None, None, None) + tuple(None for _ in range(len(ctx.requires_grad_list)))
 
         inputs = ctx.models + tuple(wavefields) + ctx.geoms
         
@@ -207,10 +208,10 @@ class CheckpointFunction(torch.autograd.Function):
         grads = tuple(inp.grad if isinstance(inp, torch.Tensor) else None
                       for inp in inputs[:len(ctx.requires_grad_list)])
 
-        return (None, None, None, None, None) + grads
+        return (None, None, None, None, None, None) + grads
  
 
-def checkpoint(function, backfunction, source_function, save_condition, para_counts, *args, use_reentrant: bool = True, **kwargs):
+def checkpoint(function, backfunction, source_function, save_condition, para_counts, *args, use_reentrant: bool = True, habcs=None, **kwargs):
     r"""Checkpoint a model or part of the model
 
     Checkpointing works by trading compute for memory. Rather than storing all
@@ -295,7 +296,7 @@ def checkpoint(function, backfunction, source_function, save_condition, para_cou
         raise ValueError("Unexpected keyword arguments: " + ",".join(arg for arg in kwargs))
 
     if use_reentrant:
-        return CheckpointFunction.apply(function, backfunction, source_function, save_condition, para_counts, *args)
+        return CheckpointFunction.apply(function, backfunction, source_function, save_condition, para_counts, habcs, *args)
     else:
         return _checkpoint_without_reentrant(
             function,

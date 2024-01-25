@@ -3,6 +3,7 @@ import torch
 from .utils import to_tensor
 from .checkpoint_new import checkpoint as ckpt_acoustic
 from .checkpoint import checkpoint as ckpt
+from .habc import bound_mask
 
 class WaveCell(torch.nn.Module):
     """The recurrent neural network cell implementing the scalar wave equation"""
@@ -17,6 +18,14 @@ class WaveCell(torch.nn.Module):
         self.forward_func = forward_func
         self.backward_func = backward_func
         self.ckpt = ckpt_acoustic if 'acoustic' in inspect.getmodule(forward_func).__name__ else ckpt
+
+    def setup_habc(self, batchsize):
+        if self.geom.use_habc:
+            self.habc_masks = bound_mask(*self.geom.domain_shape,
+                                         self.geom.bwidth, 
+                                         self.geom.device, 
+                                         batchsize, 
+                                         return_idx=True)
 
     def parameters(self, recursive=True):
         for param in self.geom.parameters():
@@ -49,10 +58,11 @@ class WaveCell(torch.nn.Module):
         forward = not self.geom.inversion
         inversion = self.geom.inversion
         geoms = self.dt, self.geom.h, self.geom.d
+        habcs = self.habc_masks if self.geom.use_habc else None
 
         if using_boundary_saving and inversion:
-            hidden = self.ckpt(self.forward_func, self.backward_func, source_term, save_condition, len(model_vars), *model_vars, *wavefields, *geoms)
+            hidden = self.ckpt(self.forward_func, self.backward_func, source_term, save_condition, len(model_vars), *model_vars, *wavefields, *geoms, habcs=habcs)
         if forward or (inversion and not using_boundary_saving):
-            hidden = self.forward_func(*model_vars, *wavefields, *geoms)
+            hidden = self.forward_func(*model_vars, *wavefields, *geoms, habcs=habcs)
 
         return hidden

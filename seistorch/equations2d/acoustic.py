@@ -70,7 +70,7 @@ def _laplacian(y, h):
     y = y.unsqueeze(1)
     return conv2d(y, operator, padding=padding).squeeze(1)
 
-def _time_step(*args):
+def _time_step(*args, **kwargs):
 
     c = args[0]
     h1, h2 = args[1:3]
@@ -85,7 +85,7 @@ def _time_step(*args):
 
     return y, h1
 
-def _time_step_backward(*args):
+def _time_step_backward(*args, **kwargs):
 
     vp = args[0]
     h1, h2 = args[1:3]

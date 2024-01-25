@@ -111,6 +111,8 @@ class WaveRNN(torch.nn.Module):
         else:
             batchsize = super_source.x.shape[0]
         hidden_state_shape = (batchsize,) + self.cell.geom.domain_shape
+        # Initialize habc if needed
+        if self.cell.geom.use_habc: self.cell.setup_habc(batchsize)
         wavefield_names = Wavefield(self.cell.geom.equation).wavefields
         # Set wavefields
         for name in wavefield_names:

@@ -11,6 +11,11 @@ Note: I am preparing my dissertation now, so the update may be delayed.
 | Elastic   | Not test yet   |
 | Others   | Not test yet   |
 
+# New features:
+| Type | New | Old |
+| :----------- | ----------- | :-----------: |
+| Boundary conditions   | HABC([Xie et al.](https://doi.org/10.1093/jge/gxz102))    | PML |
+|Distributed | [torchrun](https://pytorch.org/docs/stable/elastic/run.html) | [mpi4py](https://mpi4py.readthedocs.io/en/stable/mpi4py.html) |
 
 # Citation
 

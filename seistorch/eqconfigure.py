@@ -7,6 +7,7 @@ class Parameters:
 
         paras = {"aec":          ["vp", "vs", "rho"], 
                  "acoustic":     ["vp"],
+                 "acoustic_habc": ["vp"],
                  "elastic":      ["vp", "vs", "rho"],
                  "acoustic1st":  ["vp", "rho"],
                  "viscoacoustic":["vp", "rho", "Q"],
@@ -25,6 +26,10 @@ class Wavefield:
 
     @property
     def acoustic(self,):
+        return ["h1", "h2"]
+    
+    @property
+    def acoustic_habc(self,):
         return ["h1", "h2"]
     
     @property

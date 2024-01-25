@@ -53,7 +53,7 @@ def generate_convolution_kernel(spatial_order):
 
     return kernel
 
-spatial_order = 4
+spatial_order = 2
 device = "cuda"
 kernel = generate_convolution_kernel(spatial_order).unsqueeze(0).unsqueeze(0).to(device)
 padding = kernel.shape[-1]//2
@@ -71,16 +71,15 @@ def _laplacian(y, h):
     y = y.unsqueeze(1)
     return conv2d(y, operator, padding=padding).squeeze(1)
 
-def cutb(d, w=30, n=2):
-    w += n
+def cutb(d, w=30, n=1):
     if d.ndim == 3:
-        return d[:, :w, :]
+        return d[:, :w+n, :]
     else:
-        return d[:w, :]
+        return d[:w+n, :]
 
 def _habc(u_next, u_now, u_pre, c, b, dt, dh, w=30):
     cut = w
-    w += 2
+    # w += 2
     u_next = u_next#[:, :w, :]
     u_now = u_now#[:, :w, :]
     u_pre = u_pre#[:, :w, :]
@@ -128,7 +127,6 @@ def identity(d):
 def stack(*args):
     return torch.stack(args, dim=0)
 
-
 def bound_mask(nz, nx, w, dev):
 
     top = torch.ones(w, nx, device=dev)
@@ -140,99 +138,80 @@ def bound_mask(nz, nx, w, dev):
     bottom = torch.flipud(top)
 
     left = torch.ones(nz, w, device=dev)
-    indices = np.triu_indices(w, k=0)
+    indices = np.triu_indices(w, k=1)
     left[indices] = 0.0
     left *= torch.flipud(left)
     right = torch.fliplr(left)
 
-    # top = torch.zeros(w, nx, device=dev)
-    # top[:,w:-w]=1
-    # bottom = top
-
-    # left = torch.zeros(nz, w, device=dev)
-    # left[w:-w,:]=1.
-    # right = left
-
     return top, bottom, left, right
 
-def habc(y, h1, h2, vel, coes, dt, h, w=30):
+def habc(y, h1, h2, vel, coes, dt, h, w=30, maskidx=None):
 
     otherargs = [dt, h]
+    # Calculate weighted one/two-wave-wavefield
     tbargs = [stack(cutb(array), cutb(flipud(array))) for array in [y, h1, h2, vel.unsqueeze(0), coes.unsqueeze(0)]]+otherargs
     lrargs = [stack(cutb(rot90(array, -1)), cutb(rot90(array, 1))) for array in [y, h1, h2, vel.unsqueeze(0), coes.unsqueeze(0)]]+otherargs
 
     top, bottom = torch.split(_habc(*tbargs), 1, dim=0)
     left, right = torch.split(_habc(*lrargs), 1, dim=0)
-    tm, bm, lm, rm = bound_mask(*vel.shape, w, y.device)
+    tmidx, bmidx, lmidx, rmidx = maskidx
 
+    """Rotate"""
+    y_top = top.squeeze()
+    y_bottom = torch.flip(bottom, dims=[2]).squeeze()
+    y_left = rot90(left).squeeze()
+    y_right = rot90(right, -1).squeeze()
 
-    idxl = tm.unsqueeze(0)==1
-    idxr = tm.unsqueeze(0).unsqueeze(0)==1
+    # Top
+    y[:,:w,:][tmidx] = y_top[tmidx]
 
-    y[:,:w,:][idxl] = (top*tm)[idxr]
+    # Bottom
+    y[:,-w:,:][bmidx] = y_bottom[bmidx]
 
-    # idxl = bm.unsqueeze(0)==1
-    # idxr = bm.unsqueeze(0).unsqueeze(0)==1
+    # Left
+    y[:, :, :w][lmidx] = y_left[lmidx]
 
-    # y[:,-w:,:][idxl] = (torch.flip(bottom, dims=[2])*bm)[idxr]
+    # Right boundary
+    y[:, :, -w:][rmidx] = y_right[rmidx]
 
-    idxl = lm.unsqueeze(0)==1
-    idxr = lm.unsqueeze(0).unsqueeze(0)==1
-
-    y[:, :, :w][idxl] = (rot90(left)*lm)[idxr]
-
-    # idxl = rm.unsqueeze(0)==1
-    # idxr = rm.unsqueeze(0).unsqueeze(0)==1
-
-    # y[:, :, -w:][idxl] = (rot90(right, -1)*rm)[idxr]
-
-    
-    # y[:,:w,:] = top*tm
-    # y[:,-w:,:] = torch.flip(bottom, dims=[2])*bm
-    # y[:, :, :w] = rot90(left)*lm
-    # y[:, :, -w:] = rot90(right, -1)*rm
-
+    # Top-Left corner
     dix, diz = np.diag_indices(w)
 
-    y[:, dix, diz] = 0.5*top[:,:,dix, diz]+0.5*rot90(left)[:,:,dix, diz]
-
-    # y[:,0:w,0:w] = 0.5*top[:,:,0:w,0:w]+0.5*rot90(left)[:,:,0:w,0:w]
-
+    y[:, dix, diz] = 0.5*y_top[..., dix, diz]\
+                   + 0.5*y_left[..., dix, diz]
+    
+    # Bottom-Left corner
+    y[:, -w+dix, diz] = 0.5*y_bottom[..., dix, diz]\
+                      + 0.5*y_left[..., -w+dix, diz]
+    
+    # Top-Right corner
+    y[:, dix, -w+diz] = 0.5*y_top[..., dix, -w+diz]\
+                      + 0.5*y_right[..., dix, -w+diz]
+    
+    # Bottom-Right corner
+    y[:, -w+dix, -w+diz] = 0.5*y_bottom[..., dix, -w+diz]\
+                         + 0.5*y_right[..., -w+dix, -w+diz]
 
     return y
 
-def _time_step(*args):
+def _time_step(*args, **kwargs):
 
     c = args[0]
     h1, h2 = args[1:3]
     dt, h, b = args[3:6]
-
-    # b = 0
-    # When b=0, without boundary conditon.
-    # Original implementation
-    y = torch.mul((dt**-2 + b * dt**-1).pow(-1),
-                (2 / dt**2 * h1 - torch.mul((dt**-2 - b * dt**-1), h2)
+    habc_masks = kwargs['habcs']
+    
+    # HABC
+    y = torch.mul((dt**-2).pow(-1),
+                (2 / dt**2 * h1 - torch.mul((dt**-2 ), h2)
                 + torch.mul(c.pow(2), _laplacian(h1, h)))
                 )
     
-    # HABC
-    # coes  = b.clone()
-    # b = 0.
-    # y = torch.mul((dt**-2 + b * dt**-1).pow(-1),
-    #             (2 / dt**2 * h1 - torch.mul((dt**-2 - b * dt**-1), h2)
-    #             + torch.mul(c.pow(2), _laplacian(h1, h)))
-    #             )
-    
-    # y = habc(y, h1, h2, c, coes, dt, h)
-
-
-    # Wang W.H.
-    # y = (2-b**2*dt**2)/(1+b*dt)*h1 - (1-b*dt)/(1+b*dt)*h2\
-    #   + (dt**2)/(1+b*dt)*c**2*_laplacian(h1, h)
+    y = habc(y, h1, h2, c, b, dt, h, maskidx = habc_masks)
 
     return y, h1
 
-def _time_step_backward(*args):
+def _time_step_backward(*args, **kwargs):
 
     vp = args[0]
     h1, h2 = args[1:3]

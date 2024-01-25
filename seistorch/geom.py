@@ -25,7 +25,7 @@ class WaveGeometry(torch.nn.Module):
 
         self.domain_shape = domain_shape
 
-        # self.multiple = multiple
+        self.multiple = multiple
 
         self.ndim = ndim
 
@@ -34,36 +34,53 @@ class WaveGeometry(torch.nn.Module):
         self.register_buffer("abs_N", to_tensor(abs_N, dtype=torch.uint8))
 
         # default boundary type is pml
-        use_pml=False
+        self.use_habc=False
+        self.use_random=False
         self.use_random=False
 
         if abs_N==0:
             self.register_buffer("_d", to_tensor(0.))
 
-        if 'boundary' not in self.kwargs['geom'].keys() and abs_N > 0:
-            use_pml = True
+        self.setup_bc()
+
+
+    def setup_bc(self,):
+
+        if 'boundary' not in self.kwargs['geom'].keys() and self.abs_N > 0:
+            self.use_pml = True
+            btype = 'pml'
 
         if 'boundary' in self.kwargs['geom'].keys():
             btype = self.kwargs['geom']['boundary']['type']
-            bwidth = self.kwargs['geom']['boundary']['width']
+            self.bwidth = self.kwargs['geom']['boundary']['width']
 
-            use_pml =  btype == 'pml' and bwidth > 0
-            self.use_random = btype == 'random' and bwidth > 0
+            # Choose the boundary type
+            self.use_pml =  btype == 'pml' and self.bwidth > 0
+            self.use_random = btype == 'random' and self.bwidth > 0
+            self.use_habc = btype == 'habc' and self.bwidth > 0
+        
+        assert btype in ['pml', 'random', 'habc'], 'boundary type must be one of [pml, random, habc]'
+        
+        if self.use_pml or self.use_habc:
+
+            module = importlib.import_module(f"seistorch.{btype}")
+            coes_func = getattr(module, f"generate_{btype}_coefficients_{self.ndim}d", None)
             
-        if use_pml:
-            module = importlib.import_module("seistorch.pml")
-            coes_func = getattr(module, f"generate_pml_coefficients_{ndim}d", None)
-            d = coes_func(domain_shape, abs_N, multiple=multiple)
-            # np.save("pml.npy", d)
+            if btype =='habc':
+                self.bwidth = 30
+                if self.logger is not None:
+                    self.logger.print(f"For HABC, width={self.bwidth} is fixed.")
+            else:
+                self.bwidth = self.abs_N.numpy()
+
+            d = coes_func(self.domain_shape, self.bwidth, multiple=self.multiple)
 
             self.register_buffer("_d", d)
-            if self.logger is not None:
-                self.logger.print(f"Using PML with width={abs_N}.")
 
         if self.use_random:
             self.register_buffer("_d", to_tensor(0.))
             if self.logger is not None:
-                self.logger.print(f"Using random boundary with width={abs_N}.")
+                self.logger.print(f"Using random boundary with width={self.abs_N}.")
 
     def state_reconstruction_args(self):
         return {"h": self.h.item(),
