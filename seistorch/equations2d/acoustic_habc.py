@@ -66,8 +66,7 @@ def _laplacian(y, h):
     #                          [-0.083, 1.333, -2.5, 1.333, -0.083],
     #                          [0.0, 0.0, 1.333, 0.0, 0.0],
     #                          [0.0, 0.0, -0.083, 0.0, 0.0]]]]).to(y.device)
-    
-    operator = h ** (-2) * kernel#.to(y.device)
+    operator = h ** (-2) * kernel.to(y.device)
     y = y.unsqueeze(1)
     return conv2d(y, operator, padding=padding).squeeze(1)
 
@@ -147,6 +146,7 @@ def bound_mask(nz, nx, w, dev):
 
 def habc(y, h1, h2, vel, coes, dt, h, w=30, maskidx=None):
 
+
     otherargs = [dt, h]
     # Calculate weighted one/two-wave-wavefield
     tbargs = [stack(cutb(array), cutb(flipud(array))) for array in [y, h1, h2, vel.unsqueeze(0), coes.unsqueeze(0)]]+otherargs
@@ -156,6 +156,8 @@ def habc(y, h1, h2, vel, coes, dt, h, w=30, maskidx=None):
     left, right = torch.split(_habc(*lrargs), 1, dim=0)
     tmidx, bmidx, lmidx, rmidx = maskidx
 
+    multiple = tmidx is None
+
     """Rotate"""
     y_top = top.squeeze()
     y_bottom = torch.flip(bottom, dims=[2]).squeeze()
@@ -163,30 +165,37 @@ def habc(y, h1, h2, vel, coes, dt, h, w=30, maskidx=None):
     y_right = rot90(right, -1).squeeze()
 
     # Top
-    y[:,:w,:][tmidx] = y_top[tmidx]
+    # print(y_top.shape, y.shape, tmidx.shape)
+    if not multiple:
+        idxl = tmidx[None, :, :] if y.ndim != tmidx.ndim else tmidx
+        y[:,:w,:][idxl] = y_top[tmidx]
 
     # Bottom
-    y[:,-w:,:][bmidx] = y_bottom[bmidx]
+    idxl = bmidx[None, :, :] if y.ndim != bmidx.ndim else bmidx
+    y[:,-w:,:][idxl] = y_bottom[bmidx]
 
     # Left
-    y[:, :, :w][lmidx] = y_left[lmidx]
+    idxl = lmidx[None, :, :] if y.ndim != lmidx.ndim else lmidx
+    y[:, :, :w][idxl] = y_left[lmidx]
 
     # Right boundary
-    y[:, :, -w:][rmidx] = y_right[rmidx]
+    idxl = rmidx[None, :, :] if y.ndim != rmidx.ndim else rmidx
+    y[:, :, -w:][idxl] = y_right[rmidx]
 
-    # Top-Left corner
     dix, diz = np.diag_indices(w)
 
-    y[:, dix, diz] = 0.5*y_top[..., dix, diz]\
-                   + 0.5*y_left[..., dix, diz]
+    if not multiple:
+        # Top-Left corner
+        y[:, dix, diz] = 0.5*y_top[..., dix, diz]\
+                    + 0.5*y_left[..., dix, diz]
+        
+        # Top-Right corner
+        y[:, dix, -w+diz] = 0.5*y_top[..., dix, -w+diz]\
+                        + 0.5*y_right[..., dix, -w+diz]
     
     # Bottom-Left corner
     y[:, -w+dix, diz] = 0.5*y_bottom[..., dix, diz]\
                       + 0.5*y_left[..., -w+dix, diz]
-    
-    # Top-Right corner
-    y[:, dix, -w+diz] = 0.5*y_top[..., dix, -w+diz]\
-                      + 0.5*y_right[..., dix, -w+diz]
     
     # Bottom-Right corner
     y[:, -w+dix, -w+diz] = 0.5*y_bottom[..., dix, -w+diz]\

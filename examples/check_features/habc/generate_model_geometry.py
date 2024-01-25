@@ -33,11 +33,11 @@ vel = np.ones((nz, nx), dtype=dtype)*1500
 # specified in a grid coordinate system, not in real-world distance coordinates. 
 # This distinction is essential for accurate simulation and interpretation of results.
  
-src_x = [32, 64, 96, 128, 160, 192, 224]
-src_z = [1, 1, 1, 1, 1, 1, 1]
+# src_x = [32, 64, 96, 128, 160, 192, 224]
+# src_z = [1, 1, 1, 1, 1, 1, 1]
 
-# src_x = [128]
-# src_z = [1]
+src_x = [128, 129]
+src_z = [128, 128]
 
 sources = [[src_x, src_z] for src_x, src_z in zip(src_x, src_z)]
 

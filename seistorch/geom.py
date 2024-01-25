@@ -74,7 +74,7 @@ class WaveGeometry(torch.nn.Module):
                 self.bwidth = self.abs_N.numpy()
 
             d = coes_func(self.domain_shape, self.bwidth, multiple=self.multiple)
-
+            np.save(f"{btype}.npy", d)
             self.register_buffer("_d", d)
 
         if self.use_random:

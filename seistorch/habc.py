@@ -1,7 +1,7 @@
 import torch
 import numpy as np
 
-def bound_mask(nz, nx, w, dev, batchsize=1, return_idx=False):
+def bound_mask(nz, nx, w, dev, batchsize=1, return_idx=False, multiple=False):
 
     top = torch.ones(w, nx, device=dev)
 
@@ -11,20 +11,32 @@ def bound_mask(nz, nx, w, dev, batchsize=1, return_idx=False):
     top *= torch.fliplr(top)
     bottom = torch.flipud(top)
 
+    if multiple:
+        top = None
+
     left = torch.ones(nz, w, device=dev)
     indices = np.triu_indices(w, k=1)
     left[indices] = 0.0
     left *= torch.flipud(left)
     right = torch.fliplr(left)
 
+    if multiple:
+        left[:w] = 1.
+        right[:w] = 1.
+
     if not return_idx:
         return top, bottom, left, right
     else:
         if batchsize>1:
-            tm = top.repeat(batchsize, 1, 1)==1
+            tm = top.repeat(batchsize, 1, 1)==1 if not multiple else None
             bm = bottom.repeat(batchsize, 1, 1)==1
             lm = left.repeat(batchsize, 1, 1)==1
             rm = right.repeat(batchsize, 1, 1)==1
+        else:
+            tm = top==1 if not multiple else None
+            bm = bottom==1
+            lm = left==1
+            rm = right==1
         return tm, bm, lm, rm
 
 def generate_habc_coefficients_2d(domain_shape, 
@@ -38,13 +50,14 @@ def generate_habc_coefficients_2d(domain_shape,
 
     d_vals = torch.linspace(0.0, N, N, device=device)/N
     d_vals = torch.flip(d_vals, [0])
-    
-    tm, bm, lm, rm = bound_mask(*domain_shape, N, dev=device)
+
+    tm, bm, lm, rm = bound_mask(*domain_shape, N, dev=device, multiple=multiple)
 
     if N > 0:
         # Top
-        idx = tm==1
-        d[:N,:][idx] = (d_vals.repeat(nx, 1).transpose(0, 1)*tm)[idx]
+        if not multiple:
+            idx = tm==1
+            d[:N,:][idx] = (d_vals.repeat(nx, 1).transpose(0, 1)*tm)[idx]
 
         # Bottom
         idx = bm==1 # Mask for equation left
@@ -52,10 +65,17 @@ def generate_habc_coefficients_2d(domain_shape,
 
         # Left
         idx = lm==1
-        d[:, :N][idx] = (d_vals.repeat(nz, 1)*lm)[idx]
+        if not multiple:
+            d[:, :N][idx] = (d_vals.repeat(nz, 1)*lm)[idx]
+        if multiple:
+            lm[:N] = 1.
+            d[:, :N][lm==1] = (d_vals.repeat(nz, 1)*lm)[lm==1]
 
         # Right boundary
         idx = rm==1
-        d[:, -N:][idx] = (torch.flip(d_vals, [0]).repeat(nz, 1)*rm)[idx]
-
+        if not multiple:
+            d[:, -N:][idx] = (torch.flip(d_vals, [0]).repeat(nz, 1)*rm)[idx]
+        if multiple:
+            rm[:N] = 1.
+            d[:, -N:][rm==1] = (torch.flip(d_vals, [0]).repeat(nz, 1)*rm)[rm==1]
     return d

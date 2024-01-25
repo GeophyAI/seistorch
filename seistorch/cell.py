@@ -25,7 +25,8 @@ class WaveCell(torch.nn.Module):
                                          self.geom.bwidth, 
                                          self.geom.device, 
                                          batchsize, 
-                                         return_idx=True)
+                                         return_idx=True, 
+                                         multiple=self.geom.multiple)
 
     def parameters(self, recursive=True):
         for param in self.geom.parameters():

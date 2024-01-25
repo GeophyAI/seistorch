@@ -2,8 +2,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 """Load the shot gather"""
-cog_habc = np.load('shot_gather_habc.npy', allow_pickle=True)[3]
-cog_pml = np.load('shot_gather_pml.npy', allow_pickle=True)[3]
+cog_habc = np.load('shot_gather_habc.npy', allow_pickle=True)[0]
+cog_pml = np.load('shot_gather_pml.npy', allow_pickle=True)[0]
 
 
 """Show the shot gather"""

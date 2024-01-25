@@ -30,7 +30,6 @@ class ConfigureCheck:
 
         modelPath = self.cfg['VEL_PATH']
         invlist = self.cfg['geom']['invlist']
-
         needed_model_paras = Parameters.valid_model_paras()[self.cfg['equation']]
 
         for para in needed_model_paras:
