@@ -155,7 +155,7 @@ if __name__ == '__main__':
                 with torch.no_grad():
                     shots = tasks
                     model.reset_geom(shots, src_list, rec_list, cfg)
-                    model.cell.geom.step() # random boundary
+                    # model.cell.geom.step() # random boundary
                     y = model(x)
                     record = y.numpy()
                 

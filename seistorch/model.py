@@ -1,7 +1,5 @@
 
 import importlib
-import traceback
-import warnings
 
 import numpy as np
 import torch
@@ -12,7 +10,7 @@ from .default import ConfigureCheck
 from .compile import SeisCompile
 from .geom import WaveGeometryFreeForm
 from .rnn import WaveRNN
-from .utils import set_dtype, update_cfg, to_tensor
+from .utils import set_dtype, update_cfg
 
 
 try:
@@ -40,23 +38,6 @@ def build_model(config_path,
     cfg.update({'VEL_PATH': VEL_PATH})
 
     ConfigureCheck(cfg, mode=mode, args=commands)
-
-    # Try to get the data shape by vel model
-    try:
-        for path in VEL_PATH.values():
-            if path is None:
-                continue
-            d = np.load(path)
-            if d.ndim == 2: ny, nx = np.load(path).shape; nz = 0
-            if d.ndim == 3: nz, nx, ny = np.load(path).shape    
-            if ny is not None and nx is not None:
-                cfg['geom'].update({'Nx': nx})
-                cfg['geom'].update({'Ny': ny})
-                cfg['geom'].update({'Nz': nz})
-                break
-    except Exception as e:
-        traceback.print_exc()
-        print(e)
 
     set_dtype(cfg['dtype'])
 

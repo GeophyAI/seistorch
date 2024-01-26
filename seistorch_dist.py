@@ -138,7 +138,7 @@ if __name__ == "__main__":
                       srclist=src_list,
                       reclist=rec_list,
                       freqs=None, 
-                      PMLN=cfg['geom']['pml']['N'], 
+                      PMLN=cfg['geom']['boundary']['width'], 
                       MULTIPLE=cfg['geom']['multiple'])
 
     batch_size_per_gpu = SHOTS_PER_BATCH//size

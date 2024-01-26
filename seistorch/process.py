@@ -25,13 +25,14 @@ class PostProcess:
 
     def load_seabed(self, ):
         # Parameters
-        padding = self.cfg['geom']['pml']['N']
+        padding = self.cfg['geom']['boundary']['width']
         multiple = self.cfg['geom']['multiple']
         # Load seabed from disk
         seabed = np.load(self.cfg['geom']['seabed'])
         seabed = torch.from_numpy(seabed).float()
         # Pad the seabed
         top = 0 if multiple else padding
+        
         if self.ndim==2: pads = (padding, padding, top, padding)
         if self.ndim==3: pads = (padding, padding, top, padding, padding, padding)
         

@@ -5,6 +5,7 @@ import pickle
 import socket
 import struct
 from typing import Any, Iterable, List, Tuple
+import traceback
 
 import numpy as np
 import torch.nn.functional as F
@@ -281,26 +282,47 @@ def to_tensor(x, dtype=None):
 def update_cfg(cfg, geom = 'geom', device='cpu'):
     """update the cfg dict, mainly update the Nx and Ny paramters.
     """
+
+    # Try to get the data shape by vel model
+    try:
+        for path in cfg['VEL_PATH'].values():
+            if path is None:
+                continue
+            d = np.load(path)
+            if d.ndim == 2: ny, nx = np.load(path).shape; nz = 0
+            if d.ndim == 3: nz, nx, ny = np.load(path).shape    
+            if ny is not None and nx is not None:
+                cfg['geom'].update({'Nx': nx})
+                cfg['geom'].update({'Ny': ny})
+                cfg['geom'].update({'Nz': nz})
+                break
+    except Exception as e:
+        traceback.print_exc()
+        print(e)
+
     Nx, Ny, Nz = cfg[geom]['Nx'], cfg[geom]['Ny'], cfg[geom]['Nz']
 
+    padding = cfg[geom]['boundary']['width']
+    multiple = cfg[geom]['multiple']
+
     cfg[geom]['_oriNx'] = Nx
-    cfg[geom]['_oriNz'] = Ny
+    cfg[geom]['_oriNy'] = Ny
     cfg[geom]['_oriNz'] = Nz
 
-    cfg[geom].update({'Nx':Nx + 2*cfg[geom]['pml']['N']})
+    cfg[geom].update({'Nx':Nx + 2*padding})
 
     if Nz==0: # 2d = (Nz==0)
-        if cfg[geom]['multiple']:
-            nz = Ny + cfg[geom]['pml']['N']
+        if multiple:
+            nz = Ny + padding
         else:
-            nz = Ny + 2*cfg[geom]['pml']['N']
+            nz = Ny + 2*padding
         cfg[geom].update({'Ny': nz})
         cfg.update({'domain_shape': (cfg[geom]['Ny'], cfg[geom]['Nx'])})
-    if Nz>0:
 
-        cfg[geom].update({'Nx':Nx + 2*cfg[geom]['pml']['N']})
-        cfg[geom].update({'Ny':Ny + 2*cfg[geom]['pml']['N']})
-        cfg[geom].update({'Nz':Nz + 2*cfg[geom]['pml']['N']})
+    if Nz>0: # 3d
+        cfg[geom].update({'Nx':Nx + 2*padding})
+        cfg[geom].update({'Ny':Ny + 2*padding})
+        cfg[geom].update({'Nz':Nz + 2*padding})
         cfg.update({'domain_shape': (cfg['geom']['Nz'], cfg['geom']['Nx'], cfg['geom']['Ny'])})
 
     cfg.update({'device': device})

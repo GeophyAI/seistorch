@@ -120,5 +120,6 @@ geom:
   # Total Shots
   Nshots: 999
 
-  pml:
-    N: 50    # PML thickness in number of grid cells
+  boundary:
+    type:
+    width:

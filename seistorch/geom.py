@@ -16,7 +16,7 @@ class WaveGeometry(torch.nn.Module):
     def __init__(self, 
                  domain_shape: Tuple, 
                  h: float, 
-                 abs_N: int = 20, 
+                 bwidth: int = 20, 
                  equation: str = "acoustic", 
                  ndim: int = 2, 
                  multiple: bool = False):
@@ -31,14 +31,12 @@ class WaveGeometry(torch.nn.Module):
 
         self.register_buffer("h", to_tensor(h))
 
-        self.register_buffer("abs_N", to_tensor(abs_N, dtype=torch.uint8))
-
         # default boundary type is pml
         self.use_habc=False
         self.use_random=False
         self.use_random=False
-
-        if abs_N==0:
+        self.bwidth = bwidth
+        if bwidth==0:
             self.register_buffer("_d", to_tensor(0.))
 
         self.setup_bc()
@@ -46,18 +44,13 @@ class WaveGeometry(torch.nn.Module):
 
     def setup_bc(self,):
 
-        if 'boundary' not in self.kwargs['geom'].keys() and self.abs_N > 0:
-            self.use_pml = True
-            btype = 'pml'
+        btype = self.kwargs['geom']['boundary']['type']
+        self.bwidth = self.kwargs['geom']['boundary']['width']
 
-        if 'boundary' in self.kwargs['geom'].keys():
-            btype = self.kwargs['geom']['boundary']['type']
-            self.bwidth = self.kwargs['geom']['boundary']['width']
-
-            # Choose the boundary type
-            self.use_pml =  btype == 'pml' and self.bwidth > 0
-            self.use_random = btype == 'random' and self.bwidth > 0
-            self.use_habc = btype == 'habc' and self.bwidth > 0
+        # Choose the boundary type
+        self.use_pml =  btype == 'pml' and self.bwidth > 0
+        self.use_random = btype == 'random' and self.bwidth > 0
+        self.use_habc = btype == 'habc' and self.bwidth > 0
         
         assert btype in ['pml', 'random', 'habc'], 'boundary type must be one of [pml, random, habc]'
         
@@ -70,21 +63,15 @@ class WaveGeometry(torch.nn.Module):
                 self.bwidth = 30
                 if self.logger is not None:
                     self.logger.print(f"For HABC, width={self.bwidth} is fixed.")
-            else:
-                self.bwidth = self.abs_N.numpy()
 
             d = coes_func(self.domain_shape, self.bwidth, multiple=self.multiple)
-            np.save(f"{btype}.npy", d)
+            # np.save(f"{btype}.npy", d)
             self.register_buffer("_d", d)
 
         if self.use_random:
             self.register_buffer("_d", to_tensor(0.))
             if self.logger is not None:
-                self.logger.print(f"Using random boundary with width={self.abs_N}.")
-
-    def state_reconstruction_args(self):
-        return {"h": self.h.item(),
-                "abs_N": self.abs_N.item()}
+                self.logger.print(f"Using random boundary with width={self.bwidth}.")
 
     def __repr__(self):
         return "WaveGeometry shape={}, h={}".format(self.domain_shape, self.h)
@@ -117,13 +104,12 @@ class WaveGeometryFreeForm(WaveGeometry):
         else:
             self.unit = self.kwargs['geom']['unit']
         h = kwargs['geom']['h']*self.unit
-        abs_N = kwargs['geom']['pml']['N']
-        self.dh = kwargs['geom']['h']*self.unit
-        self.padding = kwargs['geom']['pml']['N']
-        self.domain_shape = kwargs['domain_shape']
         self.dt = kwargs['geom']['dt']
-        self.boundary_saving = kwargs['geom']['boundary_saving']
+        self.dh = kwargs['geom']['h']*self.unit
         self.device = kwargs['device']
+        self.bwidth = kwargs['geom']['boundary']['width']
+        self.domain_shape = kwargs['domain_shape']
+        self.boundary_saving = kwargs['geom']['boundary_saving']
         self.source_type = kwargs['geom']['source_type']
         self.receiver_type = kwargs['geom']['receiver_type']
         self.multiple = kwargs['geom']['multiple']
@@ -131,11 +117,11 @@ class WaveGeometryFreeForm(WaveGeometry):
         self.inversion = False
         self.logger = logger
 
-        self.seismp = ModelProcess(kwargs)
         self.seisio = SeisIO(kwargs)
 
+        # The demension of the model
         self.ndim = 2 if kwargs['geom']['Nz'] == 0 else 3
-        super().__init__(self.domain_shape, h, abs_N, ndim=self.ndim, multiple=kwargs['geom']['multiple'])
+        super().__init__(self.domain_shape, h, self.bwidth, ndim=self.ndim, multiple=kwargs['geom']['multiple'])
         self.equation = kwargs["equation"]
         self.use_implicit = kwargs["training"]['implicit']['use']
         # Initialize the model parameters if not using implicit neural network
@@ -210,172 +196,27 @@ class WaveGeometryFreeForm(WaveGeometry):
             # load the initial model for the inversion
             if not self.use_implicit:
                 invert = False if self.mode=='forward' else invlist[mname]
-                self.__setattr__(mname, self.seismp.add_parameter(mpath, invert, self.unit))
+                self.__setattr__(mname, self.add_parameter(mpath, invert, self.unit))
                 
                 if self.logger is not None:
                     self.logger.print(f"The max value of {mname} is {getattr(self, mname).max().item()}")
                     self.logger.print(f"The min value of {mname} is {getattr(self, mname).min().item()}")
-                
-                # self.__setattr__(mname, self.seismp.add_parameter(mpath, invert))
-                # getattr(self, mname).to(self.device)
-
-    def step_implicit(self, mask):
-        vmin, vmax = self.kwargs['training']['implicit']['vmin'], self.kwargs['training']['implicit']['vmax']
-        for par in self.pars_need_invert:
-            if self.nntype in ['siren', 'sirenscale']:
-                coords = self.nn[par].coords.to(self.device) # x, y coordinates
-                # coords = self.coords.to(self.device) # x, y coordinates
-                par_value = self.nn[par](coords)[0]
-            elif self.nntype=='encoder':
-                par_value = self.nn[par](self.rand_vec)
-            elif self.nntype=='cnn':
-                par_value = self.nn[par](self.rand_vec)
-            #if mask is not None:
-                #mask = torch.nn.functional.pad(mask, (self.padding,)*4, mode='constant', value=0)
-            # an-ti normalization for getting the true values
-            # par_value = par_value.abs()
-
-            # par_value.clamp_(min=0, max=vmax)
-            # using std and mean
-
-            anti_value = self.anti_normalization(par_value, 3000., 1000.)*self.unit
-            # using vmin and vmax
-            # anti_value = (vmin+(vmax-vmin)*par_value)*self.unit
-            # anti_value = par_value # no anti normalization
-            #anti_value *= mask
-            # anti_value[0:self.padding+1] = 1500.*self.unit
-            setattr(self, par, anti_value)
-
-    def step_random_boundary(self,):
-        vmin, vmax = 600, 4600
-        effective_length = 30 # in grid
-        for par in self.model_parameters:
-            var = self.__getattr__(par)
-            # copy data from tensor to numpy
-            var_data = var.cpu().detach().numpy()
-            # var_data = var.clone().cpu().numpy()
-            # reset the random boundary
-            var_data = random_fill_2d(var_data, effective_length, self.padding, self.dh, self.dh, vmin, vmax)
-            # np.save("vel_rand.npy", var_data)
-            # copy data from numpy to tensor
-            # tensor = torch.nn.Parameter(var_data)
-            # setattr(self, par, tensor)
-
-            var.copy_(to_tensor(var_data).to(var.device))
-
-    def step(self, seabed=None):
-        """
-            Doing this step for each iteration.
-        """
-        # If we use implicit neural network for reparameterization, 
-        # we need to reset model parameters by input the coords of 
-        # the model to the implicit neural network.
-        # e.g: vp = self.siren['vp'](coords); 
-        # e.g: vs = self.siren['vs'](coords);
-
-        if self.use_implicit:
-            self.step_implicit(seabed)
-
-        if self.use_random:
-            self.logger.print("Resetting the random boundary ...")
-            with torch.no_grad():
-                self.step_random_boundary()
-        
-        # TODO: random boundary
-        # 10.1190/geo2014-0542.1
-        # use_random = self.kwargs['geom']['boundary']['type'] == 'random'
-        # if use_random:
-        #     for para in self.model_parameters:
-        #         var = self.__getattr__(para)
-        #         var.data = random_fill(var, self.padding, 400., var.max().item(), self.multiple)
-        # pass
-
-    def anti_normalization(self, model, mean=4000., std=1000.):
-        return model * std + mean
     
     def __repr__(self):
         return f"Paramters of {self.model_parameters} have been defined."
-    
-    def tensor_to_img(self, key, array, padding=0, vmin=None, vmax=None, cmap="seismic"):
-        cmap = plt.get_cmap(cmap)
-        array = array[padding:-padding, padding:-padding]
-        #
-        if vmin is None:
-            vmin = array.min()
-        if vmax is None:
-            vmax = array.max()
-        
-        array = np.clip(array, vmin, vmax)
-        
-        # Normalize to [0, 1]
-        array = (array - vmin) / (vmax - vmin+1e-10)
-        
-        # Apply the colormap
-        img = cmap(array)
-        
-        # Convert to numpy
-        img = torch.from_numpy(img).permute(2, 0, 1)#.unsqueeze(0)
-
-        return img
 
     @property
     def padding_list(self,):
-        top = 0 if self.multiple else self.padding
-        return (top, self.padding, self.padding, self.padding)
+        top = 0 if self.multiple else self.bwidth
 
-    def save_model(self, path: str, paras: str, freq_idx=1, epoch=1, writer=None, max_epoch=1000):
-        """Save the data of model parameters and their gradients(if they have).
-
-        Args:
-            path (str): The root save path.
-            paras (str): not used.
-            freq_idx (int, optional): The frequency index of multi scale. Defaults to 1.
-            epoch (int, optional): The epoch of the current scale. Defaults to 1.
-        """
-        if not os.path.exists(path):
-            os.makedirs(path, exist_ok=True)
-
-        for para in self.model_parameters: # para is in ["vp", "vs", "rho", "Q", ....]
-            #var = self.__getattr__(para)
-            var = getattr(self, para)
-            if para not in self.pars_need_invert:
-                continue
-            # if the model parameter is in the invlist, then save it.
-            var_par = var.cpu().detach().numpy()
-            if not self.use_implicit:
-                if var.grad is not None:
-                    var_grad = var.grad.cpu().detach().numpy()
-            else:
-                var_grad = np.zeros_like(var_par)
-            for key, data in zip(["para"+para, "grad"+para], [var_par, var_grad]):
-                # Save the data of model parameters and their gradients(if they have) to disk.
-                save_path = os.path.join(path, f"{key}F{freq_idx:02d}E{epoch:02d}.npy")
-                np.save(save_path, data)
-
-                # Calcualte the model error when the true model is known.
-                if "para" in key and self.true_models:
-                    data_copy = self.seismp.depad(data)
-                    model_error = np.sum((data_copy - self.true_models[para])**2)
-
-                # Write the data to tensorboard.
-                if writer is not None:
-                    if self.ndim==2:
-                        tensor_data = self.tensor_to_img(key, data, padding=self.padding, vmin=None, vmax=None)
-                        # Write the model parameters and their gradients(if they have) to tensorboard.
-                        writer.add_images(key, 
-                                            tensor_data, 
-                                            global_step=freq_idx*max_epoch+epoch, 
-                                            dataformats='CHW',)
-                    # Write the model error to tensorboard.
-                    writer.add_scalar(f"model_error/{para}", model_error, global_step=freq_idx*max_epoch+epoch)
-
-
-class ModelProcess:
-
-    def __init__(self, cfg, ):
-        self.cfg = cfg
-        self.io = SeisIO(cfg)
-
+        if self.ndim == 2:
+            return [[top, self.bwidth], [self.bwidth, self.bwidth]]
+        
+        if self.ndim == 3:
+            return [[top, self.bwidth], 
+                    [self.bwidth, self.bwidth], 
+                    [self.bwidth, self.bwidth]]
+    
     # Add the torch paramter
     def add_parameter(self, path: str, requires_grad=False, unit=1):
         """Read the model paramter and setting the attribute 'requires_grad'.
@@ -387,71 +228,8 @@ class ModelProcess:
         Returns:
             _type_: torch.nn.Tensor
         """
-        d = self.io.fromfile(path)*unit
-        model = self.pad(d, mode="edge")
+        d = self.seisio.fromfile(path)*unit
+        model = np.pad(d, self.padding_list, mode="edge")
+        if self.logger is not None:
+            self.logger.print(f"The model has been padded from {d.shape} to {model.shape}.")
         return torch.nn.Parameter(to_tensor(model), requires_grad=requires_grad)
-
-    def pad(self, d, mode="edge"):
-        """Padding the model based on the PML width.
-
-        Args:
-            d (np.ndarray): The data need to be padded.
-            mode (str, optional): padding mode. Defaults to 'edge'.
-
-        Returns:
-            np.ndarray: the data after padding.
-        """
-        mode_options = ['constant', 'edge', 'linear_ramp', 'maximum', 'mean', 'median', 'minimum', 'reflect', 'symmetric', 'wrap']
-        assert mode in mode_options, f"mode must be one of {mode_options}"
-
-        padding = self.cfg['geom']['pml']['N']
-        multiple = self.cfg['geom']['multiple']
-        ndim = 2 if self.cfg['geom']['Nz'] == 0 else 3
-
-        top = 0 if multiple else padding
-        if ndim==2:
-            return np.pad(d, ((top, padding), (padding,padding)), mode=mode)
-        elif ndim==3:
-            _padding_ = ((padding, padding), )*ndim
-            return np.pad(d, _padding_, mode=mode)
-    
-    def depad(self, d):
-        """Depadding the model based on the PML width.
-
-        Args:
-            d (np.ndarray): The data need to be depadded.
-
-        Returns:
-            np.ndarray: the data after depadding.
-        """
-        padding = self.cfg['geom']['pml']['N']
-        multiple = self.cfg['geom']['multiple']
-        ndim = 2 if self.cfg['geom']['Nz'] == 0 else 3
-
-        top = 0 if multiple else padding
-        if ndim==2:
-            return d[top:-padding, padding:-padding]
-        elif ndim==3:
-            return d[padding:-padding, padding:-padding, padding:-padding]
-        
-    def smooth(self, data):
-        """Smooth the data.
-
-        Args:
-            data (np.ndarray): The data need to be smoothed.
-
-        Returns:
-            np.ndarray: The smoothed data.
-        """
-        
-        smcfg = self.cfg['training']['smooth']
-
-        counts = smcfg['counts']
-        radius = (smcfg['radius']['z'], smcfg['radius']['x'])
-        sigma = (smcfg['sigma']['z'], smcfg['sigma']['x'])
-
-        smdata = data.copy()
-        for _ in range(counts):
-            smdata = gaussian_filter(smdata, sigma, radius=radius)
-        return smdata
-    

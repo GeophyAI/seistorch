@@ -16,11 +16,32 @@ class ConfigureCheck:
         self.check_equation()
         self.check_source_receiver_type()
         self.check_path()
+        self.check_boundary()
         if self.args is not None:
             if self.args.grad_smooth:
                 self.check_smooth()
             if self.args.grad_cut:
                 self.check_seabed()
+
+    def check_boundary(self, title='boundary'):
+        """Check the boundary parameters.
+        """
+        assert title in self.cfg["geom"].keys(), \
+            f"boundary parameter is not in the config file."
+        
+        boundary = self.cfg["geom"][title]
+        assert isinstance(boundary, dict), \
+            f"boundary should be dict with keys <type, width>."
+        
+        assert "type" in boundary.keys(), \
+            f"type is not in the boundary parameter."
+        
+        assert boundary["type"] in ["pml", "habc", "random"], \
+            f"boundary type should be 'pml' or 'habc'."
+        
+        assert "width" in boundary.keys(), \
+            f"width is not in the boundary parameter."
+        
 
     def check_dict(self, key, dict):
         assert key in dict.keys(), \
@@ -53,6 +74,8 @@ class ConfigureCheck:
         for geom in geoms:
             assert os.path.exists(self.cfg['geom'][geom]), \
                 f"Cannot find {geom} file '{self.cfg['geom'][geom]}'"
+            
+    
 
     def check_smooth(self, 
                      title="smooth", 
