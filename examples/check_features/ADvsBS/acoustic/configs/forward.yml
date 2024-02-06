@@ -6,7 +6,7 @@ name: forward_modeling
 # Data type to use for tensors, either float32 or float64
 dtype: float32
 
-equation: acoustic
+equation: acoustic_habc
 
 training:
 
@@ -36,7 +36,7 @@ training:
 geom:
 
   # The observer data
-  obsPath: ./shot_gather.npy
+  obsPath: ./shot_gather.hdf5
 
   # Wave speed model from disk_file for forward modeling
   truePath:
@@ -103,5 +103,6 @@ geom:
   # Total Shots
   Nshots: 999
 
-  pml:
-    N: 50    # PML thickness in number of grid cells
+  boundary:
+    type: habc
+    width: 50

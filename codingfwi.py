@@ -30,6 +30,7 @@ from seistorch.io import SeisIO
 from seistorch.signal import SeisSignal
 from seistorch.utils import (DictAction, dict2table,
                              low_pass, roll, roll2, to_tensor)
+from seistorch.process import PostProcess
 
 # from torchviz import make_dot
 # The flag below controls whether to allow TF32 on matmul. This flag defaults to False
@@ -121,10 +122,11 @@ if __name__ == '__main__':
     model.to(args.dev)
 
     model.train()
-    #model = torch.compile(model)
+    postprocess = PostProcess(model, cfg, args)
+
     # In coding fwi, the probes are set only once, 
     # because they are fixed with respect to moving source.
-    probes = setup_rec_coords(full_rec_list, cfg['geom']['pml']['N'], cfg['geom']['multiple'])
+    probes = setup_rec_coords(full_rec_list, cfg['geom']['boundary']['width'], cfg['geom']['multiple'])
     model.reset_probes(probes)
 
     # TODO: add checkpoint
@@ -179,7 +181,7 @@ if __name__ == '__main__':
     # The total number of epochs is the number of epochs times the number of scales
     for epoch in range(EPOCHS*len(cfg['geom']['multiscale'])):
 
-        model.cell.geom.step(SEABED)
+        # model.cell.geom.step(SEABED)
         # Reset for each scale
         idx_freq, local_epoch = divmod(epoch, EPOCHS)
         if local_epoch==0:
@@ -189,11 +191,12 @@ if __name__ == '__main__':
             
             # Filter both record and ricker
             lp_rec = seissignal.filter(full_band_data, freqs=freq)
-
             # Low pass filtered wavelet
             if isinstance(x, torch.Tensor): x = x.numpy()
-
+            # NOTE: The wavelet is filtered
             lp_wav = seissignal.filter(x.copy().reshape(1, -1), freqs=freq)[0]
+            # NOTE: The wavelet is not filtered/using the full band
+            # lp_wav = seissignal.filter(x.copy().reshape(1, -1), freqs='all')[0]
             lp_wav = torch.unsqueeze(torch.from_numpy(lp_wav), 0)
 
             logging.info(f"Info. of optimizers:{optimizers}")
@@ -206,18 +209,17 @@ if __name__ == '__main__':
         pbar.set_description(f"F{idx_freq}E{local_epoch}")
         shots = np.random.choice(np.arange(NSHOTS), BATCHSIZE, replace=False) if MINIBATCH else np.arange(NSHOTS)
         sources, receivers = [], []
-
         # Get the coding shot numbers and coding data
-        for i, shot in enumerate(shots):
+
+        for i, shot in enumerate(shots.tolist()):
             #shot = 335
-            src = setup_src_coords(src_list[shot], cfg['geom']['pml']['N'], cfg['geom']['multiple'])
+            src = setup_src_coords(src_list[shot], cfg['geom']['boundary']['width'], cfg['geom']['multiple'])
             sources.append(src)
             # For fixed acquisition data, the receivers are fixed and the receivers are the same for all shots
             # so we only need to setup the receivers once, and the data can be summed immediately
             # But for non-fixed receivers, we need to setup the receivers for each shot,
             # reconstruct a pseudo-fixed data and then sum them up
-            
-            # wave_temp, d_temp = roll(lp_wav, lp_rec[shot] * arrival_mask[shot])
+
             wave_temp, d_temp = roll(lp_wav, lp_rec[shot])
             coding_wav[i] = to_tensor(wave_temp).to(args.dev)
             if recs_are_fixed:
@@ -227,7 +229,7 @@ if __name__ == '__main__':
                 coding_obs[..., index,:] += to_tensor(d_temp).to(args.dev)
 
         """Calculate encoding gradient"""
-        def closure():
+        def closure(coding_obs):
             optimizers.zero_grad()
             # Reset sources of super shot gathers
             model.reset_sources(sources)
@@ -235,16 +237,21 @@ if __name__ == '__main__':
 
             # The random boundary for bp should be
             # different from forward modeling
-            model.cell.geom.step()
+            # model.cell.geom.step()
 
             # loss = criterion(coding_syn, coding_obs, model.cell.geom.vp)
             # (f"{ROOTPATH}/syn.npy", coding_syn.cpu().detach().numpy())
             # np.save(f"{ROOTPATH}/obs.npy", coding_obs.cpu().detach().numpy())
             if not MULTI_LOSS:
                 # One loss function for all parameters
-                # np.save(f"{ROOTPATH}/syn.npy", coding_syn.stack().cpu().detach().numpy())
-                # np.save(f"{ROOTPATH}/obs.npy", coding_obs.unsqueeze(0).cpu().detach().numpy())
-                loss = criterions(coding_syn.stack(), coding_obs.unsqueeze(0))
+
+                """Filter the data"""
+                # coding_syn = seissignal.filter(coding_syn.stack(), freqs=freq, backend='torch')
+            
+                np.save(f"{ROOTPATH}/syn.npy", coding_syn.stack().cpu().detach().numpy())
+                np.save(f"{ROOTPATH}/obs.npy", coding_obs.cpu().detach().numpy())
+                
+                loss = criterions(coding_syn, coding_obs.unsqueeze(0))
                 # adj = torch.autograd.grad(loss, coding_syn)[0]
                 # np.save(f"{ROOTPATH}/adj.npy", adj.detach().cpu().numpy())
                 loss.backward() #retain_graph=True
@@ -283,42 +290,39 @@ if __name__ == '__main__':
             return loss
 
         # Run the closure
-        loss[idx_freq][local_epoch] = closure().item()
+        loss[idx_freq][local_epoch] = closure(coding_obs).item()
 
+        for mname in PARS_NEED_INVERT:
+            torch.save(model.cell.geom.__getattr__(mname).grad, 
+                       f"{ROOTPATH}/grad_nosm_{mname}_F{idx_freq:02d}E{local_epoch:02d}.pt")
+
+        """Post-processing"""
         if args.grad_smooth:
-            model.cell.geom.gradient_smooth(sigma=1)
+            postprocess.smooth_gradient()
 
-        if args.grad_cut and isinstance(SEABED, torch.Tensor) and not IMPLICIT:
-            model.cell.geom.gradient_cut(SEABED, cfg['geom']['pml']['N'])
+        if args.grad_cut:
+            postprocess.cut_gradient()
+
+        # Save vel and grad
+
+        torch.save(model.state_dict(), 
+                    f"{ROOTPATH}/model_F{idx_freq:02d}E{local_epoch:02d}.pt")
+        
+        for mname in PARS_NEED_INVERT:
+            torch.save(model.cell.geom.__getattr__(mname).grad, 
+                       f"{ROOTPATH}/grad_{mname}_F{idx_freq:02d}E{local_epoch:02d}.pt")
 
         # Update the parameters
         optimizers.step()
         lr_scheduler.step()
-        # model.cell.geom.step() ???
-
-        # Saving checkpoint
-        # torch.save({'epoch': local_epoch, 
-        #             'model_state_dict': model.state_dict(), 
-        #             'optimizer_state_dict': optimizers.state_dict()}, 
-        #             f"{ROOTPATH}/ckpt_{local_epoch}.pt")
 
         pbar.update(1)
-        # Save vel and grad
-
-        model.cell.geom.save_model(ROOTPATH, 
-                                   paras=["vel", "grad"], 
-                                   freq_idx=idx_freq, 
-                                   epoch=local_epoch,
-                                   writer=writer, max_epoch=EPOCHS)
 
         # logging
-        seislog.info(f"Encoding shots: {shots}")
-        seislog.info(f"Freq {idx_freq:02d} Epoch {local_epoch:02d} loss: {loss[idx_freq][local_epoch]}")
+        seislog.print(f"Encoding shots: {shots}")
 
         # Add scalars to tensorboard
         writer.add_scalar(f"Loss", loss[idx_freq][local_epoch], global_step=epoch)
-        writer.add_scalar(f"GPU allocated", torch.cuda.max_memory_allocated()/ (1024 ** 3), global_step=epoch)
-        writer.add_scalar(f"CPU Usage", torch.cuda.memory_stats()['allocated_bytes.all.current']/ (1024 ** 3), global_step=epoch)
 
         np.save(os.path.join(ROOTPATH, "loss.npy"), loss)
 

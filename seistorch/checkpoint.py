@@ -5,7 +5,7 @@ import itertools
 import warnings
 import weakref
 from typing import Any, Iterable, List, Tuple
-
+import numpy as np
 import torch
 
 from seistorch.equations3d.utils import save_boundaries as sb3d
@@ -181,19 +181,9 @@ class CheckpointFunction(torch.autograd.Function):
         # and then calculate the gradient using forward function.
         with torch.no_grad():
             outputs = ctx.back_function(*inputs)
-        # if ACOUSTIC2nd:
-        #     with torch.no_grad():
-        #         outputs = ctx.back_function(*inputs)
-        # else:
-        #     with torch.enable_grad():
-        #         outputs = ctx.back_function(*inputs)
 
         if isinstance(outputs, torch.Tensor):
             outputs = (outputs,)
-
-        # if CheckpointFunction.counts%1==0:
-        #     np.save(f"/mnt/data/wangsw/inversion/marmousi_10m/inv_rho/l2/backward/backward{CheckpointFunction.counts:04d}.npy", 
-        #             outputs[0].cpu().detach().numpy())
 
         # Update wavefields
         if not (CheckpointFunction.counts == 1 and ACOUSTIC2nd) or not CheckpointFunction.counts == 0:
@@ -210,6 +200,8 @@ class CheckpointFunction(torch.autograd.Function):
 
         inputs = [inp.detach().requires_grad_(value) for inp, value in zip(inputs, ctx.requires_grad_list)]
 
+        # RUN FORWARD AGAIN
+        # IT WASTE TIME, BUT IT IS NECESSARY FOR ACCURATE GRADIENT CALCULATION
         with torch.enable_grad():
             outputs = ctx.run_function(*inputs)
 
@@ -232,7 +224,7 @@ class CheckpointFunction(torch.autograd.Function):
         return (None, None, None, None, None) + grads
  
 
-def checkpoint(function, backfunction, source_function, save_condition, para_counts, *args, use_reentrant: bool = True, **kwargs):
+def checkpoint(function, backfunction, source_function, save_condition, para_counts, *args, use_reentrant: bool = True, habcs=None, **kwargs):
     r"""Checkpoint a model or part of the model
 
     Checkpointing works by trading compute for memory. Rather than storing all

@@ -68,11 +68,14 @@ def save_boundaries(tensor: torch.Tensor, NPML: int=49, N: int=1):
 
     return top, bottom, left, right
 
-def restore_boundaries(tensor, memory, NPML=49, N=1):
+def restore_boundaries(tensor, memory, NPML=49, N=1, multiple=False):
 
     top, bottom, left, right = memory
-    #ntensor = tensor.clone()
-    tensor[:, NPML:NPML+N, :] = top#.requires_grad_()
+
+    # For multiple, no need to do this
+    if not multiple:
+        tensor[:, NPML:NPML+N, :] = top#.requires_grad_()
+
     if NPML!=0:
         tensor[:, -(NPML+N):-NPML, :] = bottom#.requires_grad_()
     else:

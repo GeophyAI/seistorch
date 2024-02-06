@@ -29,7 +29,7 @@ from seistorch.io import SeisIO, DataLoader
 from torch.utils.tensorboard import SummaryWriter
 from seistorch.log import SeisLog
 from seistorch.coords import single2batch
-from seistorch.signal import SeisSignal
+from seistorch.signal import SeisSignal, generate_arrival_mask
 from seistorch.model import build_model
 from seistorch.setup import *
 from seistorch.utils import (DictAction, to_tensor)
@@ -101,6 +101,7 @@ if __name__ == "__main__":
 
     # Setup wavelet
     x = setup.setup_wavelet().to(rank)
+
     x = torch.unsqueeze(x, 0)
 
     """CONFIGURES"""
@@ -154,6 +155,7 @@ if __name__ == "__main__":
     criterions = setup.setup_criteria()
 
     obsmask, synmask = setup.setup_datamask()
+    usemask = obsmask is not None or synmask is not None
 
     """Tranining"""
     for epoch in range(EPOCH_PER_SCALE*SCALE_COUNTS):
@@ -168,6 +170,10 @@ if __name__ == "__main__":
                                                              IMPLICIT, 
                                                              args.grad_clip, 
                                                              args.clipvalue)
+            
+        lpx = seissignal.filter(x.cpu().numpy().copy().reshape(1, -1), freqs=freq)[0]
+        # lpx = seissignal.filter(x.cpu().numpy().copy().reshape(1, -1), freqs='all')[0]
+        lpx = torch.unsqueeze(torch.from_numpy(lpx), 0)
 
         optimizers.zero_grad()
         
@@ -179,14 +185,13 @@ if __name__ == "__main__":
         if IMPLICIT:
             coords = model.cell.geom.nn['vp'].coords
             vp = nn(coords)[0]
-            std = 1000.
-            mean = 3000.
+            std, mean = 1000., 3000.
             vp = vp * std + mean
         else:
             vp = None
 
         """Forward modeling"""
-        syn = model(x, None, super_source, super_probes, vp=vp)
+        syn = model(lpx, None, super_source, super_probes, vp=vp)
         obs = TensorList(obs).to(dev)
 
         """Filter the data"""
@@ -194,30 +199,40 @@ if __name__ == "__main__":
         obs = seissignal.filter(obs, freqs=freq, backend='torch')
 
         """Apply the mask"""
-        if obsmask is not None and synmask is not None:
-            obsM = to_tensor(np.stack(obsmask[shots.cpu().numpy().tolist()], axis=0)).to(syn.device)
-            synM = to_tensor(np.stack(synmask[shots.cpu().numpy().tolist()], axis=0)).to(syn.device)
-            # Stack to tensor
-            obs = obs.stack()
-            syn = syn.stack()
-            # Mask the data
-            obs = obs * obsM
+        obs = obs.stack()
+        syn = syn.stack()
+
+        if usemask:
+            if obsmask is not None:
+                obsM = to_tensor(np.stack(obsmask[shots.cpu().numpy().tolist()], axis=0)).to(syn.device)
+                obs = obs * obsM
+
+            if synmask is not None:
+                synM = to_tensor(np.stack(synmask[shots.cpu().numpy().tolist()], axis=0)).to(syn.device)
+            else:
+                synM = generate_arrival_mask(syn, top_win=200, down_win=200)
+            
             syn = syn * synM
+
 
         """Compute the loss"""
         loss = criterions(syn, obs)
 
-        # SAVE THE DATA
-        # torch.save(obs, f"{ROOTPATH}/obs_{epoch}.pt")
-        # torch.save(syn, f"{ROOTPATH}/syn_{epoch}.pt")
+        np.save(f'{ROOTPATH}/syn{rank}.npy', syn.cpu().detach().numpy())
+        np.save(f'{ROOTPATH}/obs{rank}.npy', obs.cpu().detach().numpy())
+
+        # adj = torch.autograd.grad(loss, syn)[0]
+        # np.save(f'{ROOTPATH}/adj{rank}.npy', adj.cpu().detach().numpy())
 
         loss.backward()
 
         if MASTER:
             if not IMPLICIT:
                 # SAVE THE GRADIENT
-                torch.save(model.module.cell.geom.vp.grad, 
-                           f"{ROOTPATH}/grad_nosm_{epoch}.pt")
+                for par in model.module.cell.geom.pars_need_invert:
+                    tensor = model.module.cell.geom.__getattr__(par).grad
+                    torch.save(tensor, 
+                            f"{ROOTPATH}/grad_{par}_nosm_{epoch}.pt")
 
         """Post-processing"""
         if args.grad_smooth:
@@ -225,6 +240,9 @@ if __name__ == "__main__":
 
         if args.grad_cut:
             postprocess.cut_gradient()
+
+        if False:
+            postprocess.repad()
 
         optimizers.step()
         lr_scheduler.step()
@@ -238,8 +256,10 @@ if __name__ == "__main__":
                 torch.save(model.module.state_dict(), 
                            f"{ROOTPATH}/model_{epoch}.pt")
                 # SAVE THE GRADIENT
-                torch.save(model.module.cell.geom.vp.grad, 
-                           f"{ROOTPATH}/grad_{epoch}.pt")
+                for par in model.module.cell.geom.pars_need_invert:
+                    tensor = model.module.cell.geom.__getattr__(par).grad
+                    torch.save(tensor, 
+                            f"{ROOTPATH}/grad_{par}_{epoch}.pt")
             pbar.update(1)
 
             writer.add_histogram('Sample Indices', shots, epoch)

@@ -60,7 +60,7 @@ class WaveGeometry(torch.nn.Module):
             coes_func = getattr(module, f"generate_{btype}_coefficients_{self.ndim}d", None)
             
             if btype =='habc':
-                self.bwidth = 30
+                self.bwidth = 50
                 if self.logger is not None:
                     self.logger.print(f"For HABC, width={self.bwidth} is fixed.")
 

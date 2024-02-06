@@ -1,13 +1,14 @@
 import numpy as np
 import matplotlib.pyplot as plt
+import torch
 
-pmln = 50
+bwitdh = 50
 
-grad_ADPML = np.load("./results/fwi_classic_ADPML/gradvpF00E00.npy")[pmln:-pmln, pmln:-pmln]
-grad_ADHABC = np.load("./results/fwi_classic_ADHABC/gradvpF00E00.npy")[pmln:-pmln, pmln:-pmln]
+grad_ADPML = torch.load("./results/fwi_classic_ADPML/grad_0.pt", 'cpu')[bwitdh:-bwitdh, bwitdh:-bwitdh]
+grad_ADHABC = torch.load("./results/fwi_classic_ADHABC/grad_0.pt", 'cpu')[bwitdh:-bwitdh, bwitdh:-bwitdh]
 
-grad_BSPML = np.load("./results/fwi_classic_BSPML/gradvpF00E00.npy")[pmln:-pmln, pmln:-pmln]
-grad_HABC = np.load("./results/fwi_classic_BSHABC/gradvpF00E00.npy")[pmln:-pmln, pmln:-pmln]
+grad_BSPML = torch.load("./results/fwi_classic_BSPML/grad_0.pt", 'cpu')[bwitdh:-bwitdh, bwitdh:-bwitdh]
+grad_HABC = torch.load("./results/fwi_classic_BSHABC/grad_0.pt", 'cpu')[bwitdh:-bwitdh, bwitdh:-bwitdh]
 
 fig, axes= plt.subplots(2, 2, figsize=(8, 8))
 for d, ax, title in zip([grad_ADPML, grad_BSPML, grad_ADHABC, grad_HABC], 

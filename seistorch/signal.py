@@ -27,7 +27,9 @@ class SeisSignal:
             str : The filter type.
         """
         if isinstance(freq, (int, float)): filter_mode = "lowpass"
-        if isinstance(freq, list): filter_mode = "bandpass"
+        if isinstance(freq, list): 
+            if len(freq) == 1: filter_mode = "lowpass"
+            if len(freq) == 2: filter_mode = "bandpass"
         if freq == "all": filter_mode = "all"
         return filter_mode
     
@@ -55,6 +57,7 @@ class SeisSignal:
             assert filter_mode in valid_modes, "mode must be lowpass, highpass or bandpass"
 
             if filter_mode in ["lowpass", "highpass"]:
+                if isinstance(freqs, list): freqs = freqs[0]
                 assert isinstance(freqs, (int, float)), "freqs must be a number for lowpass or highpass filter"
                 freqs = [freqs]
 
@@ -160,7 +163,6 @@ def batch_sta_lta_torch(traces, sta_len, lta_len, threshold_on=0.5, threshold_of
         return torch.stack([
             function(x_i) for x_i in torch.unbind(arr, dim=axis)
         ], dim=axis)
-    
     sta_kernel = torch.ones(1, 1, sta_len, device=traces.device)
     lta_kernel = torch.ones(1, 1, lta_len, device=traces.device)
 
@@ -194,6 +196,31 @@ def batch_sta_lta_torch(traces, sta_len, lta_len, threshold_on=0.5, threshold_of
     fa_time[fa_time==0] = nt-1
 
     return fa_time.squeeze().int()
+
+def generate_arrival_mask(d, top_win=200, down_win=200):
+    mask = torch.zeros_like(d)
+    nb, nt, nr, nc = mask.shape
+    for idx in range(nb):
+        arrival = batch_sta_lta_torch(d[idx, :, :, 0], 100, 500, 0.5, 1)
+        for tno in range(nr):
+            _arr = int(arrival[tno])
+            top = 0 if _arr-top_win<0 else _arr-top_win
+            down = nt if _arr+down_win>nt else _arr+down_win
+            mask[idx, :down, tno] = 1
+    return mask
+
+def generate_arrival_mask_np(d, top_win=200, down_win=200, swin=100, lwin=500, on=0.5, off=1):
+    mask = np.zeros_like(d)
+    nb, nt, nr, nc = mask.shape
+    for idx in range(nb):
+        arrival = batch_sta_lta(d[idx, :, :, 0], swin, lwin, on, off)
+        for tno in range(nr):
+            _arr = int(arrival[tno])
+            top = 0 if _arr-top_win<0 else _arr-top_win
+            down = nt if _arr+down_win>nt else _arr+down_win
+            mask[idx, :down, tno] = 1
+    return mask
+
 
 # def gaussian_filter(input_tensor, sigma, radius, axis=-1):
 #     """

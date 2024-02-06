@@ -70,13 +70,13 @@ def _laplacian(y, h):
     y = y.unsqueeze(1)
     return conv2d(y, operator, padding=padding).squeeze(1)
 
-def cutb(d, w=30, n=1):
+def cutb(d, w=50, n=1):
     if d.ndim == 3:
         return d[:, :w+n, :]
     else:
         return d[:w+n, :]
 
-def _habc(u_next, u_now, u_pre, c, b, dt, dh, w=30):
+def _habc(u_next, u_now, u_pre, c, b, dt, dh, w=50):
     cut = w
     # w += 2
     u_next = u_next#[:, :w, :]
@@ -144,7 +144,7 @@ def bound_mask(nz, nx, w, dev):
 
     return top, bottom, left, right
 
-def habc(y, h1, h2, vel, coes, dt, h, w=30, maskidx=None):
+def habc(y, h1, h2, vel, coes, dt, h, w=50, maskidx=None):
 
 
     otherargs = [dt, h]
@@ -221,6 +221,30 @@ def _time_step(*args, **kwargs):
     return y, h1
 
 def _time_step_backward(*args, **kwargs):
+    bwidth=50
+    N=1
+    vp = args[0]
+    h1, h2 = args[1:3]
+    dt, h, b = args[3:6]
+    h_bd, _ = args[-2]
+    src_type, src_func, src_values = args[-1]
+    
+    vp = vp.unsqueeze(0)
+    b = b.unsqueeze(0)
+
+    y = torch.mul((dt**-2).pow(-1),
+                (2 / dt**2 * h1 - torch.mul((dt**-2), h2)
+                + torch.mul(vp.pow(2), _laplacian(h1, h)))
+                )
+
+    with torch.no_grad():
+        y = restore_boundaries(y, h_bd)
+
+    y = src_func(y, src_values, 1)
+
+    return y, h1
+
+def _time_step_backward_multiple(*args, **kwargs):
 
     vp = args[0]
     h1, h2 = args[1:3]
@@ -231,15 +255,13 @@ def _time_step_backward(*args, **kwargs):
     vp = vp.unsqueeze(0)
     b = b.unsqueeze(0)
 
-    # b = 0
-
-    y = torch.mul((dt**-2 + b * dt**-1).pow(-1),
-                (2 / dt**2 * h1 - torch.mul((dt**-2 - b * dt**-1), h2)
+    y = torch.mul((dt**-2).pow(-1),
+                (2 / dt**2 * h1 - torch.mul((dt**-2), h2)
                 + torch.mul(vp.pow(2), _laplacian(h1, h)))
                 )
     
     with torch.no_grad():
-        y = restore_boundaries(y, h_bd)
+        y = restore_boundaries(y, h_bd, multiple=True)
     
     y = src_func(y, src_values, 1)
 

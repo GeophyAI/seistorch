@@ -36,6 +36,7 @@ def build_model(config_path,
     # update the configure file
     VEL_PATH = cfg['geom']['initPath'] if mode == 'inversion' else cfg['geom']['truePath']
     cfg.update({'VEL_PATH': VEL_PATH})
+    use_multiple = cfg['geom']['multiple']
 
     ConfigureCheck(cfg, mode=mode, args=commands)
 
@@ -62,15 +63,23 @@ def build_model(config_path,
         print(f"Cannot found cell '{module_name}'. Please check your equation in configure file.")
         exit()
     # Import the forward and backward functions with the specified equation
+    
+    if use_multiple:
+        backward_key = '_time_step_backward_multiple'
+    else:
+        backward_key = '_time_step_backward'
     forward_func = getattr(module, "_time_step", None)
-    backward_func = getattr(module, "_time_step_backward", None)
+    backward_func = getattr(module, backward_key, None)
+
+    if backward_func is None:
+        raise ImportError(f"Cannot found backward function '{module_name}{backward_key}'. Please check your equation in configure file.")
 
     # Compile the forward and backward functions
     compile = SeisCompile(logger=logger)
     forward_func = compile.compile(forward_func)
     backward_func = compile.compile(backward_func)
 
-    forward_func.ACOUSTIC2nd = True if cfg['equation'] == "acoustic" else False
+    forward_func.ACOUSTIC2nd = True if cfg['equation'] in ["acoustic", "acoustic_habc"] else False
     # Build Cell
     cell = WaveCell(geom, forward_func, backward_func)
     # Build RNN

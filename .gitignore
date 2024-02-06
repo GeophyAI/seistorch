@@ -5,10 +5,10 @@ para*
 *.pt
 *.pyc
 *.pkl
-examples/check_features/implicitNN_towed/*.npy
-examples/check_features/implicitNN_towed/*.results
+
 __pycache__
 test
 plot.py
 study
-examples/representation
+*.hdf5
+examples/*

@@ -17,7 +17,14 @@ class WaveCell(torch.nn.Module):
         self.register_buffer("dt", to_tensor(self.geom.dt))
         self.forward_func = forward_func
         self.backward_func = backward_func
-        self.ckpt = ckpt_acoustic if 'acoustic' in inspect.getmodule(forward_func).__name__ else ckpt
+
+        func_name = inspect.getmodule(forward_func).__name__
+        if func_name.split('.')[-1] in ['acoustic', 'acoustic_habc']:
+            print("Using acoustic checkpointing")
+            self.ckpt = ckpt_acoustic
+        else:
+            print("Using elastic checkpointing")
+            self.ckpt = ckpt
 
     def setup_habc(self, batchsize):
         if self.geom.use_habc:

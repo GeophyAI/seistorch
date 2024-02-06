@@ -42,6 +42,10 @@ class ConfigureCheck:
         assert "width" in boundary.keys(), \
             f"width is not in the boundary parameter."
         
+        if boundary["type"] == 'habc':
+            assert 'habc' in self.cfg['equation'], \
+                f'When boundary type is habc, the equation must be <...>_habc.'
+        
 
     def check_dict(self, key, dict):
         assert key in dict.keys(), \

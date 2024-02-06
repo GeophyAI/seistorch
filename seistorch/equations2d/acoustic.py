@@ -96,6 +96,32 @@ def _time_step_backward(*args, **kwargs):
     vp = vp.unsqueeze(0)
     b = b.unsqueeze(0)
 
+
+
+    y = torch.mul((dt**-2 + b * dt**-1).pow(-1),
+                (2 / dt**2 * h1 - torch.mul((dt**-2 - b * dt**-1), h2)
+                + torch.mul(vp.pow(2), _laplacian(h1, h)))
+                )
+    
+    # b = 0
+    with torch.no_grad():
+        y = restore_boundaries(y, h_bd)
+    
+    y = src_func(y, src_values, 1)
+
+    return y, h1
+
+def _time_step_backward_multiple(*args, **kwargs):
+
+    vp = args[0]
+    h1, h2 = args[1:3]
+    dt, h, b = args[3:6]
+    h_bd, _ = args[-2]
+    src_type, src_func, src_values = args[-1]
+    
+    vp = vp.unsqueeze(0)
+    b = b.unsqueeze(0)
+
     # b = 0
 
     y = torch.mul((dt**-2 + b * dt**-1).pow(-1),
@@ -104,7 +130,7 @@ def _time_step_backward(*args, **kwargs):
                 )
     
     with torch.no_grad():
-        y = restore_boundaries(y, h_bd)
+        y = restore_boundaries(y, h_bd, multiple=True)
     
     y = src_func(y, src_values, 1)
 

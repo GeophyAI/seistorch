@@ -172,8 +172,8 @@ class WaveRNN(torch.nn.Module):
                                   omega=omega, 
                                   source=[self.cell.geom.source_type, super_source, x[..., tmpi].view(xi.size(1), -1)])
             
-            if False:
-                np.save(f"./wf_pml/wf{i:04d}.npy", wavefield[0].cpu().numpy())
+            # if True:
+            #     np.save(f"./wf_pml/wf_foward{i:04d}.npy", wavefield[0].detach().cpu().numpy())
 
             # Set the data to vars
             for name, data in zip(wavefield_names, wavefield):
@@ -186,7 +186,6 @@ class WaveRNN(torch.nn.Module):
             # Measure probe(s): new implementation
             for key in self.cell.geom.receiver_type:
                 recs[key].append(super_probes(getattr(self, key)))
-
             
         # stacked_data: (nbatches, nt, nreceivers all batches, nchannels)
         stacked_data = torch.stack([torch.stack(recs[key], dim=0) for key in recs.keys()], dim=2)

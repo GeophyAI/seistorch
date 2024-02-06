@@ -40,7 +40,7 @@ geom:
 
   # Wave speed model from disk_file for forward modeling
   truePath:
-    vp: /home/shaowinw/Desktop/wangsw/backup/seistorch/examples/models/marmousi_model/true_vp.npy
+    vp: /home/shaowinw/seistorch/examples/models/marmousi_model/true_vp.npy
     vs:
     rho:
     Q: 
@@ -50,7 +50,7 @@ geom:
 
   receivers: ./geometry/receivers.pkl
 
-  seabed: /home/shaowinw/Desktop/wangsw/backup/seistorch/examples/models/marmousi_model/seabed.npy
+  seabed: /home/shaowinw/seistorch/examples/models/marmousi_model/seabed.npy
 
   wavelet:
 
@@ -71,7 +71,7 @@ geom:
 
   # Inital Wave speed model from disk_file
   initPath: 
-    vp: /home/shaowinw/Desktop/wangsw/backup/seistorch/examples/models/marmousi_model/linear_vp.npy
+    vp: /home/shaowinw/seistorch/examples/models/marmousi_model/linear_vp.npy
     vs:
     rho:
     Q:

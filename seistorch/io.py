@@ -14,6 +14,17 @@ from yaml import CLoader as Loader
 import h5py
 from tensorboard.backend.event_processing.event_accumulator import EventAccumulator
 
+def count_dataset_by_key(h5path, key):
+    count = 0
+    
+    with h5py.File(h5path, 'r') as file:
+        # Loop over the datasets
+        for dataset_name in file:
+            # Check if the key is in the dataset name
+            if dataset_name.startswith(key):
+                count += 1
+    return count
+
 class DataLoader:
     """The class for data loading.
        Supported file types: .npy, .hdf5
@@ -33,6 +44,12 @@ class DataLoader:
             
         if self.filetype == '.npy':
             return self.data[key]
+    @property
+    def shape(self,):
+        if self.filetype == '.npy':
+            return self.data.shape
+        if self.filetype == '.hdf5':
+            return (count_dataset_by_key(self.dpath, 'shot_'),)
         
     def setup(self, path):
 
@@ -223,12 +240,17 @@ class SeisIO:
 
         data_loader = {".npy": np.load, 
                        ".bin": self.read_fortran_binary, 
-                       ".pkl": self.read_pkl}
+                       ".pkl": self.read_pkl, 
+                       ".hdf5": self.fromh5}
 
         if extension in data_loader:
             return data_loader[extension]
         else:
             raise NotImplementedError(f"Cannot read {extension} file.")
+        
+    def fromh5(self, path, *args, **kwargs):
+        data = DataLoader(path)
+        return data
 
     def get_file_extension(self, path: str):
         """Get the extension of the file.
