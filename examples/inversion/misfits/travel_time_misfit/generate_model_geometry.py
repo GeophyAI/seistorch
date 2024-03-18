@@ -4,7 +4,9 @@ import os, pickle
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
-
+import sys
+sys.path.append("/home/shaowinw/default")
+from pltparam import *
 
 def write_pkl(path: str, data: list):
     # Open the file in binary mode and write the list using pickle
@@ -30,12 +32,13 @@ seabed[0:water_grid] = 0
 
 for depth in range(water_grid, nz):
     # let the velocity increasing with depth
-    vel1[depth] = 1500 + (depth-water_grid) * 10.
-    vel2[depth] = 1500 + (depth-water_grid) * 15.
+    vel1[depth] = 1500 + (depth-water_grid) * 18.
+    vel2[depth] = 1500 + (depth-water_grid) * 10.
 
-fig, axes= plt.subplots(3, 1, figsize=(6, 6))
+fig, axes= plt.subplots(3, 1, figsize=(6, 8))
 vmin=1500
 vmax=max(vel1.max(), vel2.max())
+print(f'vel1: {vel1.max()}, vel2: {vel2.max()}')
 kwargs = dict(cmap='seismic', vmin=vmin, vmax=vmax, aspect="auto", extent=[0, nx*dh, nz*dh, 0])
 axes[0].imshow(vel1, **kwargs)
 axes[1].imshow(vel2, **kwargs)
@@ -47,18 +50,35 @@ axes[0].set_xlabel("X (m)")
 axes[0].set_ylabel("Z (m)")
 axes[1].set_xlabel("X (m)")
 axes[1].set_ylabel("Z (m)")
+axes[0].xaxis.set_label_position('top')
+axes[1].xaxis.set_label_position('top')
 
 # plot the velocity difference
 depth = np.arange(nz)*dh
-axes[2].plot(depth, vel1[:,150], label="True")
-axes[2].plot(depth, vel2[:,150], label="Init")
+axes[2].plot(depth, vel1[:,150], c='red', label="True")
+axes[2].plot(depth, vel2[:,150], c='blue', label="Init")
 axes[2].set_ylabel("Velocity (m/s)")
 axes[2].set_xlabel("Depth (m)")
+# set xlabel top
+
+axes[2].xaxis.set_tick_params(labelbottom=True)
+axes[2].xaxis.set_tick_params(labeltop=False)
+axes[2].xaxis.set_tick_params(top=False)
+# axes[2].xaxis.xtick.labelbottom = True
 axes[2].legend()
 
+# add abc to subplots
+for i, ax in enumerate(axes):
+    ax.text(-0.15, 1.1, 
+            chr(97+i)+')', 
+            transform=ax.transAxes, 
+            fontsize=12, 
+            va='top', weight='bold')
+
 plt.tight_layout()
-plt.show()
 fig.savefig("velocity_model.png", bbox_inches="tight", dpi=600)
+
+plt.show()
 
 model_save_path = r"./velocity_model"
 os.makedirs(model_save_path, exist_ok=True)

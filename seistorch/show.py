@@ -2,6 +2,7 @@ import numpy as np
 from obspy import Trace, Stream
 import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
+from matplotlib.ticker import FormatStrFormatter
 
 class SeisShow:
 
@@ -16,8 +17,11 @@ class SeisShow:
                   dt=0.001, 
                   dx=12.5, 
                   figsize=(10,6),
+                  text='a)',
                   show=False,
                   savepath=None,
+                  fontsize=12,
+                  xlabel="Distance (m)",
                   **kwargs):
         """Plot the observed and synthetic data in an alternating way.
 
@@ -35,11 +39,16 @@ class SeisShow:
             range_syn = np.arange(i+interval, min(i+2*interval, nr))
             show_data[:,range_obs] = obs[:,range_obs]
             show_data[:,range_syn] = syn[:,range_syn]
+        
 
         if trace_normalize:
             show_data /= np.max(np.abs(show_data), axis=0, keepdims=True)
+            # show_data /= np.linalg.norm(show_data, axis=0, keepdims=True)
 
         fig, ax = plt.subplots(1,1,figsize=figsize)
+        # for i in range(0, nr, interval):
+        #     plt.vlines(i, 0, nt*dt, colors='blue', linestyles='dashed', linewidth=1.0)
+
         vmin, vmax=np.percentile(show_data, [5,95])
         ax.imshow(show_data, 
                   vmin=vmin, 
@@ -48,17 +57,18 @@ class SeisShow:
                   aspect="auto",
                   cmap='seismic',
                   **kwargs)
-                # ax.text(0.00, 0.95, "obs", 
-                # transform=ax.transAxes, 
-                # color='w', fontsize=14, 
-                # fontweight='bold')
+        if text:
+            ax.text(-0.15, 0.95, text, 
+                    transform=ax.transAxes, 
+                    color='black', fontsize=fontsize, 
+                    fontweight='bold')
         # show text on the image
         kwargs_text = dict(color='black', fontsize=8, fontweight='bold')
         for i in range(0, nr, interval*2):
-            ax.text(i*dx, 0.25, "obs", **kwargs_text)
-            ax.text((i+interval)*dx, 0.25, "syn", **kwargs_text)
+            ax.text((i+interval*0.25)*dx, 0.25, "obs", **kwargs_text)
+            ax.text((i+interval*1.25)*dx, 0.25, "syn", **kwargs_text)
         
-        ax.set_xlabel("Distance (m)")
+        ax.set_xlabel(xlabel)
         ax.set_ylabel("Time (s)")
         plt.tight_layout()
         if savepath:
@@ -175,6 +185,7 @@ class SeisShow:
                    dt=0.001,
                    colorbar=True,
                    show=False,
+                   _vmin=2,
                    **kwargs):
         
         if inacolumn: ncols, nrows = (1, len(datalist))
@@ -191,13 +202,13 @@ class SeisShow:
 
         extent = (0, nr*dx, nt*dt, 0)
         if normalize:            
-            vmin, vmax=np.percentile(datalist[0], [2,98])
+            vmin, vmax=np.percentile(datalist[0], [_vmin,100-_vmin])
             
         axes = axes.ravel() if ncols*nrows>1 else [axes]
 
         for d, ax, title in zip(datalist, axes, titlelist):
             if d.ndim==3 and d.shape[2]==1: d = d[:,:,0]
-            if not normalize: vmin, vmax=np.percentile(d, [2,98])
+            if not normalize: vmin, vmax=np.percentile(d, [_vmin,100-_vmin])
             ax.imshow(d, vmin=vmin, vmax=vmax, extent=extent, aspect="auto", **kwargs)
             ax.set_title(title)
             ax.set_xlabel("x (m)")
@@ -256,6 +267,11 @@ class SeisShow:
                fontsize=14,
                savepath=None, 
                show=False,
+               figsize=(6,6),
+               text='a)',
+               textpos=(-0.2, 1.0), 
+               xlabel="Offset (km)",
+               legendloc=1,
                **kwargs):
         """Wiggle plot for the data.
 
@@ -267,7 +283,7 @@ class SeisShow:
             dx (float, optional): Spatial interval. Defaults to 12.5.
             savepath ([type], optional): The path to save the figure. Defaults to None.
         """
-        fig, ax = plt.subplots(1,1,figsize=(6,6))
+        fig, ax = plt.subplots(1,1,figsize=figsize)
         kwargs=dict(type='section',
                     fig=fig, 
                     ax=ax, 
@@ -287,10 +303,14 @@ class SeisShow:
         # set fontsize of tick labels
         ax.tick_params(axis='both', which='major', labelsize=fontsize)
         # set fontsize of x and y labels
-        ax.set_xlabel("Offset (km)", fontsize=fontsize)
+        ax.set_xlabel(xlabel, fontsize=fontsize)
+        ax.xaxis.set_major_formatter(FormatStrFormatter('%d'))
         ax.set_ylabel("Time (s)", fontsize=fontsize)
+        if text:
+            ax.text(textpos[0], textpos[1], text, 
+                    transform=ax.transAxes, size=fontsize, weight='bold')
         # Set legend
-        plt.legend(loc='upper right', fontsize=fontsize)
+        plt.legend(loc=legendloc, fontsize=fontsize)
         plt.tight_layout()
         if show:
             plt.show()

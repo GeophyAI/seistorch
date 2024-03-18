@@ -75,22 +75,22 @@ class PostProcess:
 
         for para in self.model.parameters():
             if para.requires_grad:
-                grad = para.grad.cpu().detach().numpy()
-
+                grad = para.grad.cpu().detach()#.numpy()
+                grad = grad * self.modelmask#.to(para.device)
                 for _ in range(counts):
                     if para.ndim == 2:
                         # Smooth along the z axis
-                        # para.grad = gaussian_filter(para.grad, 
-                        #                             sigma['z'], 
-                        #                             radius['z'], 
-                        #                             axis=axis2d['z'])
-                        # # Smooth along the x axis
-                        # para.grad = gaussian_filter(para.grad, 
-                        #                             sigma['x'], 
-                        #                             radius['x'], 
-                        #                             axis=axis2d['x'])
-                        gaussian_filter1d(grad, sigma['z'], axis=axis2d['z'], radius=radius['z'], output=grad)
-                        gaussian_filter1d(grad, sigma['x'], axis=axis2d['x'], radius=radius['x'], output=grad)
+                         grad = gaussian_filter(grad, 
+                                                     sigma['z'], 
+                                                     radius['z'], 
+                                                     axis=axis2d['z'])
+                         # Smooth along the x axis
+                         grad = gaussian_filter(grad, 
+                                                     sigma['x'], 
+                                                     radius['x'], 
+                                                     axis=axis2d['x'])
+                        #gaussian_filter1d(grad, sigma['z'], axis=axis2d['z'], radius=radius['z'], output=grad)
+                        #gaussian_filter1d(grad, sigma['x'], axis=axis2d['x'], radius=radius['x'], output=grad)
                     elif para.ndim == 3:
                         # Smooth along the x axis
                         raise NotImplementedError("3D smoothing not implemented")
@@ -108,4 +108,4 @@ class PostProcess:
                         #                             sigma['y'], 
                         #                             radius['y'], 
                         #                             axis=axis3d['y'])
-                para.grad.data = torch.from_numpy(grad).to(para.device)
+                para.grad.data = grad.to(para.device)#torch.from_numpy(grad).to(para.device)

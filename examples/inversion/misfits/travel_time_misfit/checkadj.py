@@ -4,7 +4,7 @@ import torch.nn.functional as F
 import matplotlib.pyplot as plt
 
 import sys
-sys.path.append("../../")
+sys.path.append("/home/shaowinw/seistorch")
 from seistorch.show import SeisShow
 from seistorch.signal import travel_time_diff
 from seistorch.loss import Loss
@@ -49,6 +49,28 @@ show.shotgather([obs[shot_no].cpu().detach().numpy(),
                 inarow=True,
                 dt=0.001,
                 normalize=False,
-                aspect="auto",
                 savepath="./checkadj.png",
                 dx=20)
+
+_syn = syn[shot_no].cpu().detach().numpy()
+
+adj_byhand = _syn.copy()
+adj_byhand[1:] = (_syn[1:] - _syn[:-1])
+
+for trace in range(obs.shape[2]):
+    tt = travel_time_diff(obs[shot_no][:,trace, 0 ], 
+                               syn[shot_no][:,trace, 0]).cpu().numpy()
+    adj_byhand[:, trace, :] *= tt
+# fig,ax=plt.subplots(1,1)
+# plt.plot(tt)
+# plt.show()
+ 
+fig, axes = plt.subplots(1, 2, figsize=(15, 5))
+adj_auto = adj[shot_no].cpu().detach().numpy()
+vmin,vmax=np.percentile(adj_auto, [5, 95])
+axes[0].imshow(adj_auto, vmin=vmin, vmax=vmax, aspect="auto", cmap="seismic")
+axes[0].set_title("Auto-grad")
+vmin,vmax=np.percentile(adj_byhand, [5, 95])
+axes[1].imshow(adj_byhand, vmin=vmin, vmax=vmax, aspect="auto", cmap="seismic")
+axes[1].set_title("By-hand")
+plt.show()

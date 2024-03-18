@@ -159,7 +159,8 @@ class WaveRNN(torch.nn.Module):
         time_offset = 2 if self.cell.geom.equation == "acoustic" else 0
         
         batched_records = []
-        
+        # print(super_source.x, super_source.y)
+        # print(super_probes.x, super_probes.y)
         for i, xi in enumerate(x.chunk(x.size(1), dim=1)):
         
             # Propagate the fields

@@ -451,6 +451,7 @@ def setup_src_coords(coords, bwidth, multiple=False):
     kwargs = dict()
     # Padding the source location with boundary width
     for key, value in zip(keys, coords):
+        assert type(value) in [int, float, type(None)], f"The source location must be a number, got {type(value)}."
         if isinstance(value, (int, float)):
             kwargs[key] = value+bwidth
         else:

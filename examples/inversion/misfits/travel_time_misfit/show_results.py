@@ -1,4 +1,5 @@
 import numpy as np
+import numpy as np
 import matplotlib.pyplot as plt
 
 loss_tt = np.load("./results/traveltime/loss.npy")[0]

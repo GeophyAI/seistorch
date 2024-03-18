@@ -71,6 +71,8 @@ parser.add_argument('--mode', choices=['inversion'], default='inversion',
                     help='forward modeling, inversion or reverse time migration mode')
 parser.add_argument('--source-encoding', action='store_true', default=True,
                     help='PLEASE DO NOT CHANGE THE DEFAULT VALUE.')
+parser.add_argument('--filteratlast', action='store_true', 
+                    help='Filter the wavelet at the last step or not')
 
 if __name__ == '__main__':
 
@@ -193,10 +195,13 @@ if __name__ == '__main__':
             lp_rec = seissignal.filter(full_band_data, freqs=freq)
             # Low pass filtered wavelet
             if isinstance(x, torch.Tensor): x = x.numpy()
-            # NOTE: The wavelet is filtered
-            lp_wav = seissignal.filter(x.copy().reshape(1, -1), freqs=freq)[0]
-            # NOTE: The wavelet is not filtered/using the full band
-            # lp_wav = seissignal.filter(x.copy().reshape(1, -1), freqs='all')[0]
+            if not args.filteratlast:
+                # NOTE: The wavelet is filtered
+                lp_wav = seissignal.filter(x.copy().reshape(1, -1), freqs=freq)[0]
+            if args.filteratlast:
+                # NOTE: The wavelet is not filtered/using the full band
+                lp_wav = seissignal.filter(x.copy().reshape(1, -1), freqs='all')[0]
+
             lp_wav = torch.unsqueeze(torch.from_numpy(lp_wav), 0)
 
             logging.info(f"Info. of optimizers:{optimizers}")
@@ -246,11 +251,13 @@ if __name__ == '__main__':
                 # One loss function for all parameters
 
                 """Filter the data"""
-                # coding_syn = seissignal.filter(coding_syn.stack(), freqs=freq, backend='torch')
-            
-                np.save(f"{ROOTPATH}/syn.npy", coding_syn.stack().cpu().detach().numpy())
+                if args.filteratlast:
+                    coding_syn = seissignal.filter(coding_syn.stack(), freqs=freq, backend='torch')
+                    np.save(f"{ROOTPATH}/syn.npy", coding_syn.cpu().detach().numpy())
+                if not args.filteratlast:
+                    np.save(f"{ROOTPATH}/syn.npy", coding_syn.stack().cpu().detach().numpy())
                 np.save(f"{ROOTPATH}/obs.npy", coding_obs.cpu().detach().numpy())
-                
+
                 loss = criterions(coding_syn, coding_obs.unsqueeze(0))
                 # adj = torch.autograd.grad(loss, coding_syn)[0]
                 # np.save(f"{ROOTPATH}/adj.npy", adj.detach().cpu().numpy())
@@ -275,7 +282,7 @@ if __name__ == '__main__':
                         requires_grad = False if p != para else True
                         model.cell.geom.__getattr__(p).requires_grad = requires_grad
                     # Calculate the loss
-                    loss = criterion(coding_syn, coding_obs)
+                    loss = criterion(coding_syn, coding_obs.unsqueeze(0))
                     # adj = torch.autograd.grad(loss, coding_syn)[0]
                     # np.save(f"{ROOTPATH}/adj.npy", adj.detach().cpu().numpy())
                     # if the para is the last loss, do not retain the graph

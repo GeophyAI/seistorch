@@ -181,7 +181,9 @@ class CheckpointFunction(torch.autograd.Function):
         # and then calculate the gradient using forward function.
         with torch.no_grad():
             outputs = ctx.back_function(*inputs)
-
+        # if True:
+        #     np.save(f"./wf_pml/wf_backward{CheckpointFunction.counts:04d}.npy", 
+        #             outputs[0].detach().cpu().numpy())
         if isinstance(outputs, torch.Tensor):
             outputs = (outputs,)
 
@@ -204,6 +206,10 @@ class CheckpointFunction(torch.autograd.Function):
         # IT WASTE TIME, BUT IT IS NECESSARY FOR ACCURATE GRADIENT CALCULATION
         with torch.enable_grad():
             outputs = ctx.run_function(*inputs)
+
+        # if True:
+        #     np.save(f"./wf_pml/wf_backward{CheckpointFunction.counts:04d}.npy", 
+        #             outputs[0].detach().cpu().numpy())
 
         outputs_with_grad = []
         args_with_grad = []

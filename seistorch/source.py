@@ -55,7 +55,6 @@ class WaveSource(torch.nn.Module):
 
 		if self.source_encoding:
 			Y_new[..., self.y, self.x] += dt*X
-
 		return Y_new
 
 	# def forward2d(self, Y, X, dt=1.0):

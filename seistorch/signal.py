@@ -91,7 +91,7 @@ class SeisSignal:
             for i in range(d.shape[0]):
                 data  = d.data[i] # (nsample, ntraces, nchannles)
                 data = data.permute(1, 2, 0) # (ntraces, nchannels, nsamples)
-                data = filtfilt(data.double(), a, b)
+                data = filtfilt(data.double(), a, b, clamp=False)
                 data = data.float().permute(2, 0, 1)
                 d.data[i] = data
 
@@ -202,6 +202,8 @@ def generate_arrival_mask(d, top_win=200, down_win=200):
     nb, nt, nr, nc = mask.shape
     for idx in range(nb):
         arrival = batch_sta_lta_torch(d[idx, :, :, 0], 100, 500, 0.5, 1)
+        # arrival = batch_sta_lta_torch(d[idx, :, :, 0], 200, 1000, 0.5, 1)
+
         for tno in range(nr):
             _arr = int(arrival[tno])
             top = 0 if _arr-top_win<0 else _arr-top_win

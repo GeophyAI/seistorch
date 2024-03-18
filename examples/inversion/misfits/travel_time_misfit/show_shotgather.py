@@ -6,7 +6,7 @@ from yaml import CLoader as Loader
 np.random.seed(20230915)
 
 import sys
-sys.path.append("../..")
+sys.path.append("/home/shaowinw/seistorch")
 from seistorch.show import SeisShow
 show = SeisShow()
 """

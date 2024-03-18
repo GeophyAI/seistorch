@@ -43,7 +43,6 @@ class Loss:
                 return loss_class()
         raise ValueError(f"Cannot find loss named {self.loss_name}")
 
-
 class CosineSimilarity(torch.nn.Module):
     """The cosine similarity (Normalized cross correlation) loss function.
     """
@@ -76,6 +75,58 @@ class CosineSimilarity(torch.nn.Module):
             similarity = F.cosine_similarity(x_reshaped, y_reshaped, dim=0, eps=1e-10)
             # Compute the mean difference between similarity and 1
             loss += torch.mean(1-similarity)
+
+        return loss
+
+class Crosscorrelation(torch.nn.Module):
+    """The cosine similarity (Normalized cross correlation) loss function.
+    """
+
+    def __init__(self):
+        super(Crosscorrelation, self).__init__()
+
+    @property
+    def name(self,):
+        return "cc"
+
+    def forward(self, x, y, win=512, step=1):
+        """
+        Compute the similarity loss based on cosine similarity.
+
+        Args:
+            x: input data, tensor of shape (time_samples, num_traces, num_channels)
+            y: target data, tensor of shape (time_samples, num_traces, num_channels)
+
+        Returns:
+            A tensor representing the similarity loss.
+        """
+        loss = 0.
+        for _x, _y in zip(x, y):
+            
+            nt = _x.shape[0]
+
+            # From (nt, ntraces, nchannle)
+            # To   (ntraces, nchannels, nt)
+            _x = _x.permute(1, 2, 0)
+            _y = _y.permute(1, 2, 0)
+            # conv 1d: input shape: (batch_size, in_channels, signal_len)
+            #           kernel shape: (out_channels, in_channels, kernel_size)
+            for trace in range(_x.shape[0]):
+                cross_corr = torch.nn.functional.conv1d(_y[trace].unsqueeze(0), 
+                                                        _x[trace].unsqueeze(0))
+                loss += -cross_corr.mean()
+            # calculate the local cosine similarity
+            # for i in range(x_reshaped.shape[0]//step):
+            #     # use a slice window
+            #     start = i*step
+            #     end = i*step+win
+            #     end = nt if end > nt else end
+            #     drange = range(start, end)
+            #     # Compute cosine similarity along the ? dimension
+            #     cross_corr = 
+            #     similarity = F.cosine_similarity(x_reshaped[drange], y_reshaped[drange], dim=0, eps=1e-22)
+            #     # Compute the mean difference between similarity and 1
+            #     loss += torch.sum(1-similarity)
 
         return loss
 
@@ -309,8 +360,25 @@ class L1(torch.nn.Module):
         return "l1"
     
     def forward(self, x, y):
-        return torch.nn.L1Loss(reduction='sum')(x, y)
+        loss = 0.
+        for _x, _y in zip(x, y):
+            loss += torch.nn.L1Loss(reduction='sum')(_x, _y)
+        return loss
+
+class SML1(torch.nn.Module):
+    def __init__(self, ):
+        super(SML1, self).__init__()
+
+    @property
+    def name(self,):
+        return "sml1"
     
+    def forward(self, x, y):
+        loss = 0.
+        for _x, _y in zip(x, y):
+            loss += torch.nn.SmoothL1Loss(reduction='sum', beta=0.001)(_x, _y)
+        return loss
+
 class L2(torch.nn.Module):
     def __init__(self, ):
         super(L2, self).__init__()
@@ -518,18 +586,21 @@ class Sinkhorn(torch.nn.Module):
         Returns:
             torch.Tensor: The computed Sinkhorn loss.
         """
-        x = x**2
-        y = y**2
-
-        wx = torch.sum(x, dim=1, keepdim=True)[0]
-        wy = torch.sum(y, dim=1, keepdim=True)[0]
-
-        x = x / wx
-        y = y / wy
-
         loss = 0
-        for i in range(x.shape[0]):
-            loss += SamplesLoss("sinkhorn", p=2, blur=0.00005)(x[i], y[i]).mean()
+
+        for _x, _y in zip(x, y):
+            _x = _x**2
+            _y = _y**2
+
+            wx = torch.sum(_x, dim=0, keepdim=True)[0]
+            wy = torch.sum(_y, dim=0, keepdim=True)[0]
+
+            _x = _x / wx
+            _y = _y / wy
+
+            for i in range(x.shape[0]):
+                loss += SamplesLoss("sinkhorn", p=2, blur=0.00005)(_x, _y).mean()
+            
         return loss
 
 class Traveltime(torch.nn.Module):

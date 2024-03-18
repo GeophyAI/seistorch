@@ -43,17 +43,17 @@ for shot in range(nshots):
     dmask[shot] = mask
 
 shot_no = 50
-# plt.imshow(dmask[0].squeeze(), aspect="auto")
-# plt.show()
+plt.imshow(dmask[0].squeeze(), aspect="auto")
+plt.show()
 
-show.wiggle([obs[shot_no], 
-             obs[shot_no]*dmask[0], 
-             ini[shot_no]*dmask[0]], 
-             ["r", "b", "g"], 
-             ["observed", "Masked obs", "Masked Init"], 
+show.wiggle([obs[shot_no]*dmask[shot], 
+             ini[shot_no]]*dmask[shot], 
+             ["r", "b",], 
+             ["observed", "initial"], 
              dt=cfg['geom']['dt'],
              dx=cfg['geom']['h'], 
              downsample=20,
+             show=True,
              savepath="masked_data.png")
 
 np.save("datamask.npy", dmask)

@@ -1,8 +1,4 @@
-export PATH=/usr/local/mpich/bin:$PATH && \
-export LD_LIBRARY_PATH=/usr/local/mpich/lib:$LD_LIBRARY_PATH && \
-export LD_LIBRARY_PATH=/home/wangsw/anaconda3/lib:$LD_LIBRARY_PATH && \
-mpirun -f hosts \
-python ../../../../fwi.py config/forward_obs.yml \
+torchrun --nproc_per_node=4 ../../../../seistorch_dist.py config/inversion_tt.yml \
 --opt steepestdescent \
 --loss vp=traveltime \
 --num-batches 1 \

@@ -10,7 +10,9 @@ class Parameters:
                  "acoustic_habc": ["vp"],
                  "elastic":      ["vp", "vs", "rho"],
                  "acoustic1st":  ["vp", "rho"],
-                 "viscoacoustic":["vp", "rho", "Q"],
+                 "viscoacoustic": ["vp", "rho", "Q"],
+                 "vacoustic_habc": ["vp", "Q"],
+                 "acoustic_lsrtm_habc": ["vp", "m"],
                  #"ttielastic":   ["vp", "vs", "rho", "epsilon", "gamma", "delta"],
                  "ttielastic":   ["c11", "c13", "c33", "c15", "c35", "c55", "rho"],
                 }
@@ -29,7 +31,15 @@ class Wavefield:
         return ["h1", "h2"]
     
     @property
+    def acoustic_lsrtm_habc(self, ):
+        return ["h1", "h2", "sh1", "sh2"]
+    
+    @property
     def acoustic_habc(self,):
+        return ["h1", "h2"]
+    
+    @property
+    def vacoustic_habc(self,):
         return ["h1", "h2"]
     
     @property

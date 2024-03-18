@@ -5,4 +5,5 @@ mpirun -f hosts \
 python ../../../../fwi.py config/forward_l2.yml \
 --mode forward \
 --num-batches 10 \
+--filteratfirst
 --use-cuda

@@ -19,7 +19,10 @@ class WaveCell(torch.nn.Module):
         self.backward_func = backward_func
 
         func_name = inspect.getmodule(forward_func).__name__
-        if func_name.split('.')[-1] in ['acoustic', 'acoustic_habc']:
+        if func_name.split('.')[-1] in ['acoustic', 
+                                        'acoustic_habc', 
+                                        'vacoustic_habc', 
+                                        'acoustic_lsrtm_habc']:
             print("Using acoustic checkpointing")
             self.ckpt = ckpt_acoustic
         else:

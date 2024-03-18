@@ -67,6 +67,8 @@ parser.add_argument('--grad-smooth', action='store_true',
                     help='Smooth the gradient or not')
 parser.add_argument('--grad-clip', action='store_true', default=True,
                     help='Clip the gradient or not')
+parser.add_argument('--filteratfirst', action='store_true', 
+                    help='Filter the wavelet at the first step or not')
 parser.add_argument('--clipvalue', type=float, default=0.02)
 parser.add_argument('--source-encoding', action='store_true', default=False,
                     help='PLEASE DO NOT CHANGE THE DEFAULT VALUE.')
@@ -170,9 +172,11 @@ if __name__ == "__main__":
                                                              IMPLICIT, 
                                                              args.grad_clip, 
                                                              args.clipvalue)
-            
-        lpx = seissignal.filter(x.cpu().numpy().copy().reshape(1, -1), freqs=freq)[0]
-        # lpx = seissignal.filter(x.cpu().numpy().copy().reshape(1, -1), freqs='all')[0]
+
+        if args.filteratfirst: 
+            lpx = seissignal.filter(x.cpu().numpy().copy().reshape(1, -1), freqs=freq)[0]
+        else:
+            lpx = seissignal.filter(x.cpu().numpy().copy().reshape(1, -1), freqs='all')[0]
         lpx = torch.unsqueeze(torch.from_numpy(lpx), 0)
 
         optimizers.zero_grad()
@@ -187,6 +191,7 @@ if __name__ == "__main__":
             vp = nn(coords)[0]
             std, mean = 1000., 3000.
             vp = vp * std + mean
+            # vp[0,:] = 1500.
         else:
             vp = None
 
@@ -195,12 +200,16 @@ if __name__ == "__main__":
         obs = TensorList(obs).to(dev)
 
         """Filter the data"""
-        syn = seissignal.filter(syn, freqs=freq, backend='torch')
+        if not args.filteratfirst:
+            syn = seissignal.filter(syn, freqs=freq, backend='torch')
         obs = seissignal.filter(obs, freqs=freq, backend='torch')
 
         """Apply the mask"""
         obs = obs.stack()
         syn = syn.stack()
+
+        np.save(f'{ROOTPATH}/syn_nomask_{rank}.npy', syn.cpu().detach().numpy())
+        np.save(f'{ROOTPATH}/obs_nomask_{rank}.npy', obs.cpu().detach().numpy())
 
         if usemask:
             if obsmask is not None:

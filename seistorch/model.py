@@ -79,7 +79,7 @@ def build_model(config_path,
     forward_func = compile.compile(forward_func)
     backward_func = compile.compile(backward_func)
 
-    forward_func.ACOUSTIC2nd = True if cfg['equation'] in ["acoustic", "acoustic_habc"] else False
+    forward_func.ACOUSTIC2nd = True if cfg['equation'] in ["acoustic", "acoustic_habc", 'vacoustic_habc'] else False
     # Build Cell
     cell = WaveCell(geom, forward_func, backward_func)
     # Build RNN

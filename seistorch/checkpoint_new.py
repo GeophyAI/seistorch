@@ -179,7 +179,6 @@ class CheckpointFunction(torch.autograd.Function):
 
         with torch.enable_grad():
             outputs = ctx.back_function(*inputs)
-
         # if True:
         #     np.save(f"./wf_pml/wf_backward{CheckpointFunction.counts:04d}.npy", 
         #             outputs[0].detach().cpu().numpy())
@@ -198,7 +197,9 @@ class CheckpointFunction(torch.autograd.Function):
             raise RuntimeError(
                 "none of output has requires_grad=True,"
                 " this checkpoint() is not necessary")
+
         torch.autograd.backward(outputs_with_grad, args_with_grad)
+        # outputs are wavefields at previous time steps
 
         # assign boundary values
         outputs = list(outputs)
@@ -211,7 +212,7 @@ class CheckpointFunction(torch.autograd.Function):
         
         grads = tuple(inp.grad if isinstance(inp, torch.Tensor) else None
                       for inp in inputs[:len(ctx.requires_grad_list)])
-
+                
         return (None, None, None, None, None, None) + grads
  
 
