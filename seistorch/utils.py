@@ -542,3 +542,29 @@ def merge_dicts_with_same_keys(dict_list):
     return merged_dict
 
 interp1d = Interp1d.apply
+
+def slice_list(data: List, n: int) -> List:
+    """Slice the list, each part has n elements.
+
+    Args:
+        data (List): The input list.
+        n (int): The number of elements in each part.
+
+    Returns:
+        List: The sliced list.
+    """
+    new_list = []
+    for i in range(0, len(data), n):
+        start = i
+        end = i + n if i + n < len(data) else len(data)
+        new_list.append(data[start:end])
+    return new_list
+
+
+def nestedlist2tensor(nestedlist):
+    """Convert a nested list to a tensor.
+    """
+    if isinstance(nestedlist, list):
+        return torch.stack([nestedlist2tensor(item) for item in nestedlist])
+    else:
+        return nestedlist

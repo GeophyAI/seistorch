@@ -32,13 +32,10 @@ from seistorch.coords import single2batch
 from seistorch.signal import SeisSignal, generate_arrival_mask
 from seistorch.model import build_model
 from seistorch.setup import *
-from seistorch.utils import (DictAction, to_tensor)
-from seistorch.setup import *
+from seistorch.utils import (DictAction, to_tensor, nestedlist2tensor)
 from seistorch.dataset import OBSDataset
 from seistorch.type import TensorList
 from seistorch.process import PostProcess
-from torch.distributed.elastic.multiprocessing.errors import record
-
 
 parser = argparse.ArgumentParser()
 parser.add_argument('config', type=str, 
@@ -69,7 +66,10 @@ parser.add_argument('--grad-clip', action='store_true', default=True,
                     help='Clip the gradient or not')
 parser.add_argument('--filteratfirst', action='store_true', 
                     help='Filter the wavelet at the first step or not')
+parser.add_argument('--obsnofilter', action='store_true', 
+                    help='Do not filter the observed data')
 parser.add_argument('--clipvalue', type=float, default=0.02)
+parser.add_argument('--step-per-epoch', type=int, default=1)
 parser.add_argument('--source-encoding', action='store_true', default=False,
                     help='PLEASE DO NOT CHANGE THE DEFAULT VALUE.')
 
@@ -113,7 +113,7 @@ if __name__ == "__main__":
     MULTISCALES = cfg['geom']['multiscale']
     IMPLICIT = cfg['training']['implicit']['use']
     SCALE_COUNTS = len(MULTISCALES)
-    SHOTS_PER_BATCH = cfg['training']['batch_size'] # USE SHOTS_PER_BATCH for GRADIENT
+    SHOTS_PER_EPOCH = cfg['training']['batch_size'] # USE SHOTS_PER_EPOCH for GRADIENT
     
     if IMPLICIT:
         nn = DistributedDataParallel(model.cell.geom.nn['vp'], device_ids=[rank])
@@ -129,10 +129,12 @@ if __name__ == "__main__":
     cfg['gradient_cut'] = args.grad_cut
     cfg['gradient_smooth'] = args.grad_smooth
 
+    STEP_PER_EPOCH = args.step_per_epoch
+
     if MASTER:
         os.makedirs(ROOTPATH, exist_ok=True)
         seisio.write_cfg(f"{ROOTPATH}/configure.yml", cfg)
-        pbar = tqdm.tqdm(total=EPOCH_PER_SCALE*SCALE_COUNTS)
+        pbar = tqdm.tqdm(total=EPOCH_PER_SCALE)
         writer = SummaryWriter(os.path.join(ROOTPATH, "logs"))
 
     """Load obs data"""
@@ -144,10 +146,10 @@ if __name__ == "__main__":
                       PMLN=cfg['geom']['boundary']['width'], 
                       MULTIPLE=cfg['geom']['multiple'])
 
-    batch_size_per_gpu = SHOTS_PER_BATCH//size
+    SHOTS_PER_GPU = SHOTS_PER_EPOCH//size
     obssampler = DistributedSampler(obs0)
     obsloader = torch.utils.data.DataLoader(obs0, 
-                                            batch_size=batch_size_per_gpu, 
+                                            batch_size=SHOTS_PER_GPU, 
                                             shuffle=False, 
                                             sampler=obssampler)
 
@@ -158,7 +160,6 @@ if __name__ == "__main__":
 
     obsmask, synmask = setup.setup_datamask()
     usemask = obsmask is not None or synmask is not None
-
     """Tranining"""
     for epoch in range(EPOCH_PER_SCALE*SCALE_COUNTS):
         
@@ -179,61 +180,78 @@ if __name__ == "__main__":
             lpx = seissignal.filter(x.cpu().numpy().copy().reshape(1, -1), freqs='all')[0]
         lpx = torch.unsqueeze(torch.from_numpy(lpx), 0)
 
+        # if EPOCH_IS_START:
         optimizers.zero_grad()
         
         obssampler.set_epoch(epoch)
         """Get the data"""
-        obs, src, rec, shots = next(iter(obsloader)) # in grids, no padding
-        super_source, super_probes = single2batch(src, rec, cfg, dev) # padding, in batch
+        _obs, _src, _rec, _shots = next(iter(obsloader)) # in grids, no padding
 
-        if IMPLICIT:
-            coords = model.cell.geom.nn['vp'].coords
-            vp = nn(coords)[0]
-            std, mean = 1000., 3000.
-            vp = vp * std + mean
-            # vp[0,:] = 1500.
-        else:
-            vp = None
+        bps = SHOTS_PER_GPU//STEP_PER_EPOCH # batchsize_per_step
 
-        """Forward modeling"""
-        syn = model(lpx, None, super_source, super_probes, vp=vp)
-        obs = TensorList(obs).to(dev)
+        assert bps > 0, f"Num. of tasks per GPU is {SHOTS_PER_GPU}, but step per epoch is {STEP_PER_EPOCH}."
 
-        """Filter the data"""
-        if not args.filteratfirst:
-            syn = seissignal.filter(syn, freqs=freq, backend='torch')
-        obs = seissignal.filter(obs, freqs=freq, backend='torch')
+        # Loop over the batch
+        for bps_idx in range(STEP_PER_EPOCH):
+            start = bps_idx*bps
+            end = (bps_idx+1)*bps
 
-        """Apply the mask"""
-        obs = obs.stack()
-        syn = syn.stack()
+            obs = _obs[start:end]
+            src = [s[start:end] for s in _src]
+            rec = nestedlist2tensor(_rec)[...,start:end] # (ncoords, nrecs, nshots)
+            shots = _shots[start:end]
 
-        np.save(f'{ROOTPATH}/syn_nomask_{rank}.npy', syn.cpu().detach().numpy())
-        np.save(f'{ROOTPATH}/obs_nomask_{rank}.npy', obs.cpu().detach().numpy())
+            batched_source, batched_probes = single2batch(src, rec, cfg, dev) # padding, in batch
 
-        if usemask:
-            if obsmask is not None:
-                obsM = to_tensor(np.stack(obsmask[shots.cpu().numpy().tolist()], axis=0)).to(syn.device)
-                obs = obs * obsM
-
-            if synmask is not None:
-                synM = to_tensor(np.stack(synmask[shots.cpu().numpy().tolist()], axis=0)).to(syn.device)
+            if IMPLICIT:
+                coords = model.cell.geom.nn['vp'].coords
+                vp = nn(coords)[0]
+                std, mean = 1000., 3000.
+                vp = vp * std + mean
+                # vp[0,:] = 1500.
             else:
-                synM = generate_arrival_mask(syn, top_win=200, down_win=200)
-            
-            syn = syn * synM
+                vp = None
+
+            """Forward modeling"""
+            syn = model(lpx, None, batched_source, batched_probes, vp=vp)
+            obs = TensorList(obs).to(dev)
+
+            """Filter the data"""
+            if not args.filteratfirst:
+                syn = seissignal.filter(syn, freqs=freq, backend='torch')
+            if not args.obsnofilter:
+                obs = seissignal.filter(obs, freqs=freq, backend='torch')
+
+            """Apply the mask"""
+            obs = obs.stack()
+            syn = syn.stack()
+
+            np.save(f'{ROOTPATH}/syn_nomask_{rank}.npy', syn.cpu().detach().numpy())
+            np.save(f'{ROOTPATH}/obs_nomask_{rank}.npy', obs.cpu().detach().numpy())
+
+            if usemask:
+                if obsmask is not None:
+                    obsM = to_tensor(np.stack(obsmask[shots.cpu().numpy().tolist()], axis=0)).to(syn.device)
+                    obs = obs * obsM
+
+                if synmask is not None:
+                    synM = to_tensor(np.stack(synmask[shots.cpu().numpy().tolist()], axis=0)).to(syn.device)
+                else:
+                    synM = generate_arrival_mask(syn, top_win=200, down_win=200)
+                
+                syn = syn * synM
 
 
-        """Compute the loss"""
-        loss = criterions(syn, obs)
+            """Compute the loss"""
+            loss = criterions(syn, obs)
 
-        np.save(f'{ROOTPATH}/syn{rank}.npy', syn.cpu().detach().numpy())
-        np.save(f'{ROOTPATH}/obs{rank}.npy', obs.cpu().detach().numpy())
+            np.save(f'{ROOTPATH}/syn{rank}.npy', syn.cpu().detach().numpy())
+            np.save(f'{ROOTPATH}/obs{rank}.npy', obs.cpu().detach().numpy())
 
-        # adj = torch.autograd.grad(loss, syn)[0]
-        # np.save(f'{ROOTPATH}/adj{rank}.npy', adj.cpu().detach().numpy())
+            # adj = torch.autograd.grad(loss, syn)[0]
+            # np.save(f'{ROOTPATH}/adj{rank}.npy', adj.cpu().detach().numpy())
 
-        loss.backward()
+            loss.backward()
 
         if MASTER:
             if not IMPLICIT:
@@ -269,8 +287,10 @@ if __name__ == "__main__":
                     tensor = model.module.cell.geom.__getattr__(par).grad
                     torch.save(tensor, 
                             f"{ROOTPATH}/grad_{par}_{epoch}.pt")
+            # if EPOCH_IS_DONE:
             pbar.update(1)
-
+            # pbar_in_epoch.n = 0
+            # pbar_in_epoch.update(1)
             writer.add_histogram('Sample Indices', shots, epoch)
             writer.add_scalar('Loss', loss, epoch)
 

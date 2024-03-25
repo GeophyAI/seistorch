@@ -1,8 +1,10 @@
 import torch, tqdm, os
+torch.backends.cudnn.benchmark = True
+torch.cuda.cudnn_enabled = True
+
 import numpy as np
 import matplotlib.pyplot as plt
-import lesio
-from examples.advances.minifwi.utils_torch import imshow, forward, ricker, showgeom, show_gathers, generate_mesh
+from utils_torch import imshow, forward, ricker, showgeom, show_gathers, generate_mesh
 from networks import Siren
 
 seed = 20231201
@@ -24,20 +26,20 @@ dh = 15*unit # m
 srcz = 0 # grid point
 recz = 0 # grid point
 std = 1000*unit # the standard deviation
-mean = 4000*unit # the mean
+mean = 3000*unit # the mean
 savepath = r"results"
 if not os.path.exists(savepath):
     os.makedirs(savepath, exist_ok=True)
 # Training
 criterion = torch.nn.MSELoss()
 lr = 5e-5
-decay = 0.9995
-epochs = 2000
+decay = 0.9999
+epochs = 10000
 
 # Load velocity
 true = np.load("../../models/marmousi_model/true_vp.npy")*unit
 init = np.load("../../models/marmousi_model/linear_vp.npy")
-true = true[::model_scale,::model_scale]
+true = true[24:][::model_scale,::model_scale]
 
 domain = true.shape
 nz, nx = domain
@@ -70,8 +72,6 @@ with torch.no_grad():
 # Show gathers
 show_gathers(rec_obs.cpu().numpy(), figsize=(8, 5))
 
-
-# forward for initial data
 # To GPU
 nn = Siren(in_features=2, 
            out_features=1, 
@@ -80,16 +80,18 @@ nn = Siren(in_features=2,
            outermost_linear=True,
            domain_shape=domain, 
            dh=dh).to(dev)
+
 coords = generate_mesh(domain, dh).to(dev)
 # Configures for training
 opt = torch.optim.Adam(nn.parameters(), lr=lr)
 # lr decay
 scheduler = torch.optim.lr_scheduler.ExponentialLR(opt, gamma=decay)
 history = []
+# closure for training
 def closure():
     opt.zero_grad()
-    rand_size = 10
-    rand_shots = np.random.randint(0, len(src_loc), size=rand_size).tolist()
+    # rand_size = 10
+    # rand_shots = np.random.randint(0, len(src_loc), size=rand_size).tolist()
     vel, _ = nn(coords)
     vel = vel*std+mean
     #rec_syn = forward(wave, vel, np.array(src_loc)[rand_shots], domain, dt, dh, dev, recz=0)
@@ -98,17 +100,21 @@ def closure():
     loss.backward()
     return loss
 
+# training
 for epoch in tqdm.trange(epochs):
     loss = opt.step(closure)
     history.append(loss.item())
     scheduler.step()
     # print(f"Epoch: {epoch}, Loss: {loss}")
-    with torch.no_grad():
-        vel, _ = nn(coords)
-        vel = vel.cpu().detach().numpy()
-        vel = vel*std+mean
-    np.save(f"{savepath}/vel_{epoch:04d}.npy", vel)
-    if epoch % 100 == 0:
+    
+    # show intermediate results every 100 epochs
+    if epoch % 500 == 0:
+        # save intermediate results
+        with torch.no_grad():
+            vel, _ = nn(coords)
+            vel = vel.cpu().detach().numpy()
+            vel = vel*std+mean
+        np.save(f"{savepath}/vel_{epoch:04d}.npy", vel)
         imshow(vel, **kwargs_vel)
         fig,axes=plt.subplots(2, 1, figsize=(5, 6))
         axes[0].plot(history)

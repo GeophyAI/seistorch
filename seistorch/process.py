@@ -76,19 +76,20 @@ class PostProcess:
         for para in self.model.parameters():
             if para.requires_grad:
                 grad = para.grad.cpu().detach()#.numpy()
-                grad = grad * self.modelmask#.to(para.device)
+                if self.commands.grad_cut:
+                    grad = grad * self.modelmask
                 for _ in range(counts):
                     if para.ndim == 2:
                         # Smooth along the z axis
                          grad = gaussian_filter(grad, 
-                                                     sigma['z'], 
-                                                     radius['z'], 
-                                                     axis=axis2d['z'])
+                                                sigma['z'], 
+                                                radius['z'], 
+                                                axis=axis2d['z'])
                          # Smooth along the x axis
                          grad = gaussian_filter(grad, 
-                                                     sigma['x'], 
-                                                     radius['x'], 
-                                                     axis=axis2d['x'])
+                                                sigma['x'], 
+                                                radius['x'], 
+                                                axis=axis2d['x'])
                         #gaussian_filter1d(grad, sigma['z'], axis=axis2d['z'], radius=radius['z'], output=grad)
                         #gaussian_filter1d(grad, sigma['x'], axis=axis2d['x'], radius=radius['x'], output=grad)
                     elif para.ndim == 3:

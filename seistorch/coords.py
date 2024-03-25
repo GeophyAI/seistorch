@@ -123,10 +123,13 @@ def merge_receivers_with_same_keys(receivers):
 
     return reccounts, torch.concatenate(batchindices), super_probes
 
+
 def single2batch(src, rec, cfg, dev):
 
-    rec = [torch.stack(item) for item in rec]
-    rec = torch.stack(rec).permute(2, 0, 1).cpu().numpy().tolist()
+    # rec = [torch.stack(item) for item in rec]
+    # rec = torch.stack(rec).permute(2, 0, 1).cpu().numpy().tolist()
+
+    rec = rec.permute(2, 0, 1).cpu().numpy().tolist()
 
     src = torch.stack(src).cpu().numpy().T.tolist()
 

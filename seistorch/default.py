@@ -17,11 +17,13 @@ class ConfigureCheck:
         self.check_source_receiver_type()
         self.check_path()
         self.check_boundary()
+        
         if self.args is not None:
             if self.args.grad_smooth:
                 self.check_smooth()
             if self.args.grad_cut:
                 self.check_seabed()
+
 
     def check_boundary(self, title='boundary'):
         """Check the boundary parameters.
@@ -80,7 +82,6 @@ class ConfigureCheck:
                 f"Cannot find {geom} file '{self.cfg['geom'][geom]}'"
             
     
-
     def check_smooth(self, 
                      title="smooth", 
                      keys=["counts", "radius", "sigma"]):
@@ -127,6 +128,9 @@ class ConfigureCheck:
 
         # Check receiver type:
         for recev_type in self.cfg['geom']['receiver_type']:
+            if 'lsrtm' in self.cfg['equation']:
+                assert recev_type.startswith('s'), \
+                    f"Receiver type should start with 's' in lsrtm equations."
             assert recev_type in wavefield_names, \
                 f"Valid receiver type are {wavefield_names}, but got '{recev_type}'. Please check your configure file."
 

@@ -66,7 +66,7 @@ def forward(wave, c, src_list, domain, dt, h, dev, recz=0):
     shots = torch.arange(nshots).to(dev)
     srcx, srcz = zip(*src_list)
 
-    for it in tqdm.trange(nt):
+    for it in range(nt):
         # u_now = u_now.clone()
 
         u_now[shots, :, srcz, srcx] += wave[it]
