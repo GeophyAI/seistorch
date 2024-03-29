@@ -6,7 +6,7 @@ name: forward_modeling
 # Data type to use for tensors, either float32 or float64
 dtype: float32
 
-equation: viscoacoustic
+equation: vacoustic_habc
 
 training:
 
@@ -42,7 +42,6 @@ geom:
   truePath:
     vp: ./velocity_model/vp.npy
     vs:
-    rho: ./velocity_model/rho.npy
     Q: ./velocity_model/Q.npy
     #/mnt/data/wangsw/inversion/marmousi_10m/data//velocity/q_const.npy
 
@@ -64,10 +63,10 @@ geom:
   #./geometry/ricker_lowcut5hz.npy
 
   source_type:
-    - p
+    - h1
 
   receiver_type:
-    - p
+    - h2
 
   # Inital Wave speed model from disk_file
   initPath: 
@@ -92,7 +91,7 @@ geom:
   dt: 0.001
 
   # Time samples
-  nt: 1000
+  nt: 1501
 
   # Main frequency of ricker wave
   fm: 10.0
@@ -103,5 +102,6 @@ geom:
   # Total Shots
   Nshots: 999
 
-  pml:
-    N: 50    # PML thickness in number of grid cells
+  boundary:
+    type: habc
+    width: 50    # PML thickness in number of grid cells

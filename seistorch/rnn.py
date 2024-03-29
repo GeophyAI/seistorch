@@ -174,7 +174,7 @@ class WaveRNN(torch.nn.Module):
                                   source=[self.cell.geom.source_type, super_source, x[..., tmpi].view(xi.size(1), -1)])
             
             # if True:
-            #     np.save(f"./wf_pml/wf_foward{i:04d}.npy", wavefield[0].detach().cpu().numpy())
+                # np.save(f"./wf_pml/wf_foward{i:04d}.npy", wavefield[0].detach().cpu().numpy())
 
             # Set the data to vars
             for name, data in zip(wavefield_names, wavefield):

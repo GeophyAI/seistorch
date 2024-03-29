@@ -107,7 +107,7 @@ def _time_step(*args, **kwargs):
 
     temp = torch.fft.ifft2(k*fft_dy, dim=(-2, -1)).real
     # amplitude decay
-    y -= (dt**2*t*vp/2)*temp
+    # y -= (dt**2*t*vp/2)*temp
 
     # habc
     y = habc(y, h1, h2, vp, b, dt, h, maskidx = habc_masks)
@@ -153,6 +153,51 @@ def _time_step_backward_multiple(*args, **kwargs):
 
     with torch.no_grad():
         y = restore_boundaries(y, h_bd, multiple=True)
+    
+    y = src_func(y, src_values, 1)
+
+    return y, h1
+
+
+def _time_step_backward(*args, **kwargs):
+
+    vp, Q = args[0], args[1]
+    h1, h2 = args[2:4]
+    dt, h, b = args[4:7]
+    h_bd, _ = args[-2]
+    src_type, src_func, src_values = args[-1]
+    
+    # vp = vp.unsqueeze(0)
+    # b = b.unsqueeze(0)
+
+    # b = 0
+
+    omega = 5.0
+
+    t_sigma = omega**-1*(torch.sqrt(1+(Q**-2))-Q**-1)
+    t_epslion = (omega**2 * t_sigma)**-1.
+    t = t_epslion/(t_sigma-1e-8) - 1.
+
+    y = 2*h1-h2 + vp**2*_laplacian(h1, h)*dt**2
+    # phase 
+    y -= ((1-torch.sqrt(Q**2+1))*Q**-2)*vp**2*_laplacian(h1, h)*dt**2
+
+    # calculate wavenumber of h1
+    dy = (h1 - h2)*dt**-1
+    fft_dy = torch.fft.fft2(dy, dim=(-2, -1))
+    shape = y.shape[-2:]
+    kx = torch.fft.fftfreq(shape[0], d=h).to(y.device)
+    kz = torch.fft.fftfreq(shape[1], d=h).to(y.device)
+
+    k_x, k_y = torch.meshgrid(kx, kz, indexing='ij')
+    k = torch.sqrt(k_x ** 2 + k_y ** 2)
+
+    temp = torch.fft.ifft2(k*fft_dy, dim=(-2, -1)).real
+    # amplitude
+    y -= (dt**2*t*vp/2)*temp
+
+    with torch.no_grad():
+        y = restore_boundaries(y, h_bd)
     
     y = src_func(y, src_values, 1)
 

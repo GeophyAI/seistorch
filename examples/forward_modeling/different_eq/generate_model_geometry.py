@@ -26,10 +26,10 @@ show = SeisShow()
 # |-----------------------------|
 dtype = np.float32
 nz, nx = 256, 256
-vel = np.ones((nz, nx), dtype=dtype)*1500
-vs = np.ones((nz, nx), dtype=dtype)*1500/1.732
+vel = np.ones((nz, nx), dtype=dtype)*3000
+vs = np.ones((nz, nx), dtype=dtype)*3000/1.732
 rho = np.ones((nz, nx), dtype=dtype)*1000
-Q = np.ones((nz, nx), dtype=dtype)*100
+Q = np.ones((nz, nx), dtype=dtype)*20
 
 # Generate the source and receiver list
 # Please note that in Seistorch, 
@@ -72,6 +72,12 @@ np.save(os.path.join(vel_path, "c33.npy"),c33)
 np.save(os.path.join(vel_path, "c15.npy"),c15)
 np.save(os.path.join(vel_path, "c35.npy"),c35)
 np.save(os.path.join(vel_path, "c55.npy"),c55)
+
+epsilons = np.ones_like(vel)*0.25
+deltas = np.ones_like(vel)*0.1
+
+np.save(os.path.join(vel_path, "epsilon.npy"), epsilons)
+np.save(os.path.join(vel_path, "delta.npy"), deltas)
 
 
 # Save the source and receiver list

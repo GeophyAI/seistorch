@@ -6,7 +6,7 @@ name: forward_modeling
 # Data type to use for tensors, either float32 or float64
 dtype: float32
 
-equation: acoustic
+equation: acoustic_habc
 
 training:
 
@@ -92,10 +92,10 @@ geom:
   dt: 0.001
 
   # Time samples
-  nt: 1000
+  nt: 1501
 
   # Main frequency of ricker wave
-  fm: 10.0
+  fm: 15.0
 
   # Spatial grid step size
   h: 10.0
@@ -103,5 +103,6 @@ geom:
   # Total Shots
   Nshots: 999
 
-  pml:
-    N: 50    # PML thickness in number of grid cells
+  boundary:
+    type: habc
+    width: 50    # PML thickness in number of grid cells

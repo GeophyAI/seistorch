@@ -4,6 +4,7 @@ from .utils import to_tensor
 from .checkpoint_new import checkpoint as ckpt_acoustic
 from .checkpoint import checkpoint as ckpt
 from .habc import bound_mask
+from .eqconfigure import Parameters
 
 class WaveCell(torch.nn.Module):
     """The recurrent neural network cell implementing the scalar wave equation"""
@@ -19,10 +20,7 @@ class WaveCell(torch.nn.Module):
         self.backward_func = backward_func
 
         func_name = inspect.getmodule(forward_func).__name__
-        if func_name.split('.')[-1] in ['acoustic', 
-                                        'acoustic_habc', 
-                                        'vacoustic_habc', 
-                                        'acoustic_lsrtm_habc']:
+        if func_name.split('.')[-1] in Parameters.secondorder_equations():
             print("Using acoustic checkpointing")
             self.ckpt = ckpt_acoustic
         else:

@@ -13,11 +13,23 @@ class Parameters:
                  "viscoacoustic": ["vp", "rho", "Q"],
                  "vacoustic_habc": ["vp", "Q"],
                  "acoustic_lsrtm_habc": ["vp", "m"],
+                 "vti_habc": ["vp", "epsilon", "delta"], 
+                 "vti_habc2": ["vp", "epsilon", "delta"],
+                 "tti_habc": ["vp", "epsilon", "delta"],
                  #"ttielastic":   ["vp", "vs", "rho", "epsilon", "gamma", "delta"],
                  "ttielastic":   ["c11", "c13", "c33", "c15", "c35", "c55", "rho"],
                 }
 
         return paras
+    
+    @staticmethod
+    def secondorder_equations():
+        return ['acoustic', 
+                'acoustic_habc', 
+                'vacoustic_habc', 
+                'vti_habc2',
+                'acoustic_lsrtm_habc', 
+                'tti_habc']
 
 class Wavefield:
     """ 
@@ -31,12 +43,20 @@ class Wavefield:
         return ["h1", "h2"]
     
     @property
+    def acoustic1st(self,):
+        return ["vx", "vz", "p"]
+    
+    @property
     def acoustic_lsrtm_habc(self, ):
         return ["h1", "h2", "sh1", "sh2"]
     
     @property
     def acoustic_habc(self,):
         return ["h1", "h2"]
+    
+    @property
+    def aec(self,):
+        return ["p", "vx", "vz", "txx", "tzz", "txz"]
     
     @property
     def vacoustic_habc(self,):
@@ -47,10 +67,6 @@ class Wavefield:
         return ["vx", "vz", "txx", "tzz", "txz"]
     
     @property
-    def acoustic1st(self,):
-        return ["vx", "vz", "p"]
-    
-    @property
     def elastic(self,):
         return ["vx", "vz", "txx", "tzz", "txz"]
     
@@ -59,8 +75,17 @@ class Wavefield:
         return ["vx", "vz", "p", "r"]
     
     @property
-    def aec(self,):
-        return ["p", "vx", "vz", "txx", "tzz", "txz"]
+    def vti_habc(self,):
+        return ["p1", "p2", "q1", "q2"]
+    
+    @property
+    def vti_habc2(self,):
+        return ["p1", "p2"]
+    @property
+    def tti_habc(self,):
+        return ["p1", "p2"]
+
+
 
 class Shape():
     def __init__(self, cfg, **kwargs):

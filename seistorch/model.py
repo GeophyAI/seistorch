@@ -6,8 +6,9 @@ import torch
 from yaml import load
 
 from .cell import WaveCell
-from .default import ConfigureCheck
 from .compile import SeisCompile
+from .default import ConfigureCheck
+from .eqconfigure import Parameters
 from .geom import WaveGeometryFreeForm
 from .rnn import WaveRNN
 from .utils import set_dtype, update_cfg
@@ -79,7 +80,7 @@ def build_model(config_path,
     forward_func = compile.compile(forward_func)
     backward_func = compile.compile(backward_func)
 
-    forward_func.ACOUSTIC2nd = True if cfg['equation'] in ["acoustic", "acoustic_habc", 'vacoustic_habc'] else False
+    forward_func.ACOUSTIC2nd = True if cfg['equation'] in Parameters.secondorder_equations() else False
     # Build Cell
     cell = WaveCell(geom, forward_func, backward_func)
     # Build RNN
