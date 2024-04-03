@@ -30,6 +30,7 @@ From this version, seistorch will use 'torchrun' to perform distributed full wav
 | Elastic (1st)   | FWI | 10.1190/1.1442147 |
 | TTI-Elastic (1st)  | FWI | * |
 | Acoustic-Elastic coupled (1st) | FWI | 10.1190/geo2015-0535.1 |
+| Velocity-Dilatation-Rotation (1st) | FWI | 10.1190/geo2016-0245.1 | 
 
 Note: 2nd means displacement equations, 1st means velocity-stress equations.
 

@@ -209,7 +209,7 @@ class CheckpointFunction(torch.autograd.Function):
 
         # if True:
         #     np.save(f"./wf_pml/wf_backward{CheckpointFunction.counts:04d}.npy", 
-        #             outputs[0].detach().cpu().numpy())
+        #             outputs[1].detach().cpu().numpy())
 
         outputs_with_grad = []
         args_with_grad = []

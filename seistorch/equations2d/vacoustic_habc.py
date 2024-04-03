@@ -81,7 +81,7 @@ def _time_step(*args, **kwargs):
     
     #vp = vp.unsqueeze(0)
 
-    omega = 5.0
+    omega = 16.5
 
     t_sigma = omega**-1*(torch.sqrt(1+(Q**-2))-Q**-1)
     t_epslion = (omega**2 * t_sigma)**-1.

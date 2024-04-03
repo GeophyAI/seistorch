@@ -22,7 +22,7 @@ nsamples, ntraces, ncomponent = obs[0].shape
 print(f"The data has {nshots} shots, {nsamples} time samples, {ntraces} traces, and {ncomponent} components.")
 
 # Plot the data
-fig, axes = plt.subplots(nrows=1, ncols=nshots, figsize=(12, 4))
+fig, ax = plt.subplots(nrows=1, ncols=nshots, figsize=(6, 4))
 for i in range(nshots):
     vmin, vmax = np.percentile(obs[i], [1, 99])
     kwargs = {"cmap": "seismic", 
@@ -30,10 +30,10 @@ for i in range(nshots):
               "vmin": vmin, 
               "vmax": vmax, 
               "extent": [0, ntraces*cfg['geom']['h'], nsamples*cfg['geom']['dt'], 0]}
-    axes[i].imshow(obs[i][..., 0], **kwargs)
-    axes[i].set_xlabel("x (m)")
-    axes[i].set_ylabel("t (s)")
-    axes[i].set_title(f"Shot {i+1}")
+    ax.imshow(obs[i][..., 1], **kwargs)
+    ax.set_xlabel("x (m)")
+    ax.set_ylabel("t (s)")
+    ax.set_title(f"Shot {i+1}")
 plt.tight_layout()
 plt.savefig("shot_gather.png", dpi=300)
 plt.show()

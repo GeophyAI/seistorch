@@ -8,6 +8,7 @@ class Parameters:
         paras = {"aec":          ["vp", "vs", "rho"], 
                  "acoustic":     ["vp"],
                  "acoustic_habc": ["vp"],
+                 "decouple":     ["vp", "vs", "rho"],
                  "elastic":      ["vp", "vs", "rho"],
                  "acoustic1st":  ["vp", "rho"],
                  "viscoacoustic": ["vp", "rho", "Q"],
@@ -15,6 +16,7 @@ class Parameters:
                  "acoustic_lsrtm_habc": ["vp", "m"],
                  "vti_habc": ["vp", "epsilon", "delta"], 
                  "vti_habc2": ["vp", "epsilon", "delta"],
+                 "vdr":  ["vp", "vs", "rho"], 
                  "tti_habc": ["vp", "epsilon", "delta"],
                  #"ttielastic":   ["vp", "vs", "rho", "epsilon", "gamma", "delta"],
                  "ttielastic":   ["c11", "c13", "c33", "c15", "c35", "c55", "rho"],
@@ -59,6 +61,10 @@ class Wavefield:
         return ["p", "vx", "vz", "txx", "tzz", "txz"]
     
     @property
+    def decouple(self,):
+        return ["vxp", "vxs", "vzp", "vzs", "txxp", "txxs", "tzzp", "tzzs", "txzs"]
+    
+    @property
     def vacoustic_habc(self,):
         return ["h1", "h2"]
     
@@ -81,6 +87,11 @@ class Wavefield:
     @property
     def vti_habc2(self,):
         return ["p1", "p2"]
+    
+    @property
+    def vdr(self,):
+        return ["theta", "omega", "vpx", "vpz", "vsx", "vsz", "vx", "vz"]
+    
     @property
     def tti_habc(self,):
         return ["p1", "p2"]
