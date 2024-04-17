@@ -44,7 +44,7 @@ If you find this work useful for your research, please consider citing our paper
   journal={IEEE Transactions on Geoscience and Remote Sensing}, 
   title={Memory Optimization in RNN-based Full Waveform Inversion using Boundary Saving Wavefield Reconstruction}, 
   year={2023},
-  volume={},
+  volume={61},
   number={},
   pages={1-1},
   doi={10.1109/TGRS.2023.3317529}}

@@ -35,9 +35,9 @@ geom:
 
   In **inversion**: The same `geom` -> `obsPath` parameter specifies the path to the observed seismic data that will be used as a reference for fitting.
 
-- `geom`->`datamask`
+- `geom`->`obsmask` and (`geom`->`synmask`)
 
-  Only works in inversion. Without mask, the loss is calculated by `loss=criterion(syn, obs)`, with `datamask` parameter, the loss is computed by `loss=criterion(syn*datamask, obs*datamask)`. The shape of datamask must be the same as the shape of obs and syn. It's useful when performing wave-equation-based traveltime tomography or reverse time migration.
+  Only works in inversion. Without mask, the loss is calculated by `loss=criterion(syn, obs)`, with `*mask` parameter, the loss is computed by `loss=criterion(syn*synmask, obs*obsask)`. The shape of datamask must be the same as the shape of obs and syn. It's useful when performing wave-equation-based traveltime tomography or reverse time migration.
 
 - `geom`->`truePath`
 
@@ -181,6 +181,11 @@ This type of parameters has a limited set of valid choices, causing errors if se
     - vz
   ```
 
+- `geom`->`boundary`->`type`
+
+  Valid options are `habc` and `pml`. Please note that the `habc` only valid for second-order acoustic equations.
+
+
 ### Scalar parameters
 
 - `seed`
@@ -240,8 +245,8 @@ This type of parameters has a limited set of valid choices, causing errors if se
     ```yaml
     geom:
       multiscale:
-        - 1.0
-        - 3.0
+        - - 1.0
+          - 3.0
         - 5.0
         - all
     ```
@@ -270,9 +275,9 @@ This type of parameters has a limited set of valid choices, causing errors if se
 
     $$actual_shots=min(Nshots, len(sources))$$
 
-- `geom`->`pml`->`N`
+- `geom`->`boundary`->`bwidth`
 
-    The width of the PML boundary.
+    The width of the absorbing boundary conditions.
 
 
 

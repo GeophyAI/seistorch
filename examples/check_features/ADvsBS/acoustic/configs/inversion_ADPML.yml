@@ -1,12 +1,12 @@
 # Random seed for pytorch and all shuffle functions
 seed: 20230503
 
-name: forward_modeling
+name: FWI_AD
 
 # Data type to use for tensors, either float32 or float64
 dtype: float32
 
-equation: elastic
+equation: acoustic
 
 training:
 
@@ -14,35 +14,35 @@ training:
     use: false
     pretrained:
 
-  minibatch:
+  minibatch: true
 
-  batch_size:
+  batch_size: 10
 
   # Number of training epochs
-  N_epochs:
+  N_epochs: 1
 
   # Optimizer learning rate
   lr:
 
   # Decay the learning rate by each of multi-scale
-  scale_decay:
+  scale_decay: 0.85
 
   # decay the lr by each of epochs
-  lr_decay:
+  lr_decay: 0.95
 
   # Filter order
-  filter_ord:
+  filter_ord: 3
 
 geom:
 
   # The observer data
-  obsPath: ./shot_gather.npy
+  obsPath: ./shot_gather.hdf5
 
   # Wave speed model from disk_file for forward modeling
   truePath:
-    vp: ./velocity_model/vp.npy
-    vs: ./velocity_model/vs.npy
-    rho: ./velocity_model/rho.npy
+    vp: ./velocity_model/true.npy
+    vs:
+    rho:
     Q: 
     #/mnt/data/wangsw/inversion/marmousi_10m/data//velocity/q_const.npy
 
@@ -50,13 +50,11 @@ geom:
 
   receivers: ./geometry/receivers.pkl
 
-  seabed:
-
   wavelet:
 
   multiple: false
 
-  boundary_saving: true
+  boundary_saving: false
 
   wavelet_delay: 256
 
@@ -64,21 +62,20 @@ geom:
   #./geometry/ricker_lowcut5hz.npy
 
   source_type:
-    - vz
+    - h1
 
   receiver_type:
-    - vx
-    - vz
+    - h1
 
   # Inital Wave speed model from disk_file
   initPath: 
-    vp:
+    vp: ./velocity_model/init.npy
     vs:
     rho:
     Q:
 
   invlist:
-    vp:
+    vp: true
     vs:
     rho:
     q:
@@ -87,16 +84,16 @@ geom:
   inv_savePath:
 
   multiscale:
-    - 0.0
+    - all
 
   # Time Sampling step
   dt: 0.001
 
   # Time samples
-  nt: 1000
+  nt: 1500
 
   # Main frequency of ricker wave
-  fm: 12.0
+  fm: 5.0
 
   # Spatial grid step size
   h: 10.0
@@ -106,4 +103,4 @@ geom:
 
   boundary:
     type: pml
-    width: 50    # PML thickness in number of grid cells
+    width: 50

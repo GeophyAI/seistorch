@@ -6,43 +6,53 @@ name: forward_modeling
 # Data type to use for tensors, either float32 or float64
 dtype: float32
 
-equation: elastic
+equation: acoustic_lsrtm_habc
 
 training:
+
+  smooth:
+    counts: 5 # the number of smooth times
+    radius: # the radius of smooth in x and z direction
+      x: 1
+      z: 1
+    sigma: # the sigma of smooth in x and z direction
+      x: 1
+      z: 1
 
   implicit:
     use: false
     pretrained:
 
-  minibatch:
+  minibatch: true
 
-  batch_size:
+  batch_size: 20
 
   # Number of training epochs
-  N_epochs:
+  N_epochs: 50
 
   # Optimizer learning rate
-  lr:
+  lr: 0.001
 
   # Decay the learning rate by each of multi-scale
-  scale_decay:
+  scale_decay: 0.85
 
   # decay the lr by each of epochs
-  lr_decay:
+  lr_decay: 0.995
 
   # Filter order
-  filter_ord:
+  filter_ord: 3
 
 geom:
 
   # The observer data
-  obsPath: ./shot_gather.npy
+  obsPath: ./obs.hdf5
 
   # Wave speed model from disk_file for forward modeling
   truePath:
-    vp: ./velocity_model/vp.npy
-    vs: ./velocity_model/vs.npy
-    rho: ./velocity_model/rho.npy
+    m: 
+    vp: 
+    vs:
+    rho:
     Q: 
     #/mnt/data/wangsw/inversion/marmousi_10m/data//velocity/q_const.npy
 
@@ -50,7 +60,7 @@ geom:
 
   receivers: ./geometry/receivers.pkl
 
-  seabed:
+  seabed: ./velocity/seabed.npy
 
   wavelet:
 
@@ -64,21 +74,22 @@ geom:
   #./geometry/ricker_lowcut5hz.npy
 
   source_type:
-    - vz
+    - h1
 
   receiver_type:
-    - vx
-    - vz
+    - sh1
 
   # Inital Wave speed model from disk_file
   initPath: 
-    vp:
+    vp: ./velocity/smooth_vp.npy
+    m: ./velocity/zero_ref.npy
     vs:
     rho:
     Q:
 
   invlist:
-    vp:
+    vp: false
+    m: true
     vs:
     rho:
     q:
@@ -87,23 +98,23 @@ geom:
   inv_savePath:
 
   multiscale:
-    - 0.0
+    - all
 
   # Time Sampling step
   dt: 0.001
 
   # Time samples
-  nt: 1000
+  nt: 4000
 
   # Main frequency of ricker wave
-  fm: 12.0
+  fm: 8.0
 
   # Spatial grid step size
-  h: 10.0
+  h: 20.0
 
   # Total Shots
-  Nshots: 999
+  Nshots: 99
 
   boundary:
-    type: pml
-    width: 50    # PML thickness in number of grid cells
+    type: habc
+    width: 50

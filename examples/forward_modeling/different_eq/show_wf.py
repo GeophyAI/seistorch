@@ -6,14 +6,17 @@ import matplotlib.pyplot as plt
 # elastic = np.load("./wavefield_elastic/wf0800.npy")[0][50:-50, 50:-50]
 # tti = np.load("./wavefield_tti/wf0800.npy")[0][50:-50, 50:-50]
 
-vti = np.load("./wf_pml/wf_foward0700.npy")[0][50:-50, 50:-50]
+vti = np.load("./wf_pml/wf_foward0600.npy")[0][50:-50, 50:-50]
 
 # wf = np.load("./wavefield/wf0800.npy")[0][50:-50, 50:-50]
 # wf[np.where(np.abs(wf)<1e-3)] = 0
 
 vmin,vmax=np.percentile(vti, [2,98])
 fig,ax=plt.subplots(figsize=(4,4))
-plt.imshow(vti, vmin=vmin, vmax=vmax, cmap="seismic")
+plt.imshow(vti, vmin=vmin, vmax=vmax, cmap="seismic", interpolation='bilinear')
+ax.axis('off')
+ax.set_title('Elastic')
+fig.savefig('Elastic.png', dpi=300, bbox_inches='tight')
 plt.show()
 
 plt.plot(vti[:, vti.shape[1]//2])

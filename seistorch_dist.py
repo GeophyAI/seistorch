@@ -190,7 +190,7 @@ if __name__ == "__main__":
         bps = SHOTS_PER_GPU//STEP_PER_EPOCH # batchsize_per_step
 
         assert bps > 0, f"Num. of tasks per GPU is {SHOTS_PER_GPU}, but step per epoch is {STEP_PER_EPOCH}."
-
+        loss_all_batch = 0.
         # Loop over the batch
         for bps_idx in range(STEP_PER_EPOCH):
             start = bps_idx*bps
@@ -240,7 +240,9 @@ if __name__ == "__main__":
                     synM = generate_arrival_mask(syn, top_win=200, down_win=200)
                 
                 syn = syn * synM
-
+                # for special use
+                # synM = generate_arrival_mask(syn, top_win=200, down_win=200)
+                # syn = syn * synM
 
             """Compute the loss"""
             loss = criterions(syn, obs)
@@ -252,6 +254,7 @@ if __name__ == "__main__":
             # np.save(f'{ROOTPATH}/adj{rank}.npy', adj.cpu().detach().numpy())
 
             loss.backward()
+            loss_all_batch += loss.item()
 
         if MASTER:
             if not IMPLICIT:
@@ -291,6 +294,6 @@ if __name__ == "__main__":
             pbar.update(1)
             # pbar_in_epoch.n = 0
             # pbar_in_epoch.update(1)
-            writer.add_histogram('Sample Indices', shots, epoch)
-            writer.add_scalar('Loss', loss, epoch)
+            writer.add_histogram('Sample Indices', _shots, epoch)
+            writer.add_scalar('Loss', loss_all_batch, epoch)
 

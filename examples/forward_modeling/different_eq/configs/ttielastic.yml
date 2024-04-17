@@ -101,7 +101,7 @@ geom:
   nt: 1000
 
   # Main frequency of ricker wave
-  fm: 5.0
+  fm: 12.0
 
   # Spatial grid step size
   h: 10.0
@@ -109,5 +109,6 @@ geom:
   # Total Shots
   Nshots: 999
 
-  pml:
-    N: 50    # PML thickness in number of grid cells
+  boundary:
+    type: pml
+    width: 50    # PML thickness in number of grid cells

@@ -1,3 +1,42 @@
+# Forward modeling
+
+Seistorch now using `mpi4py` library for performing forward modeling (# WILL BE DEPRECATED, USING TORCHRUN INSTEAD). The following files are needed for forward modeling:
+
+- host file
+
+    The host file is used to specify the nodes and gpus u wanna use. It has following format:
+    ```shell
+    ip address:number of processes
+    # The number of processes must be <= gpu device counts
+    ```
+    Example:
+    ```shell
+    192.168.0.1:5
+    192.168.0.2:4
+    192.168.0.2:4
+    ```
+    For the example case, 4 gpu cards per node is used, the reason why the value of the first node reads 5 is that a extra rank is needed for task assignment.
+
+- source and receiver files (in pkl format)
+
+    Please refer to [**Data format**](data_format.md).
+
+
+- configure file (in yml format)
+
+    Please refer to example configure files in `examples/forward_modeling/different_eq/configs/*.yml`
+
+- executable file
+
+    An executable `forward.sh` file looks like:
+    ```forward.sh
+    mpirun -f hosts \
+    python fwi.py configure.yml \
+    --mode forward \
+    --num-batches 1 \
+    --use-cuda
+    ```
+
 # 2d forward modeling in acoustic case
 
 The code of this section locates at `examples/forward_modeling/forward_modeling2d`. This example shows how to run forward modeling with your own model and geometry.

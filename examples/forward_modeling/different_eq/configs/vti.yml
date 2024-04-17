@@ -6,7 +6,7 @@ name: forward_modeling
 # Data type to use for tensors, either float32 or float64
 dtype: float32
 
-equation: elastic
+equation: vti_habc
 
 training:
 
@@ -41,8 +41,10 @@ geom:
   # Wave speed model from disk_file for forward modeling
   truePath:
     vp: ./velocity_model/vp.npy
-    vs: ./velocity_model/vs.npy
-    rho: ./velocity_model/rho.npy
+    epsilon: ./velocity_model/epsilon.npy
+    delta: ./velocity_model/delta.npy
+    vs:
+    rho:
     Q: 
     #/mnt/data/wangsw/inversion/marmousi_10m/data//velocity/q_const.npy
 
@@ -64,11 +66,12 @@ geom:
   #./geometry/ricker_lowcut5hz.npy
 
   source_type:
-    - vz
+    - p1
+    - q1
 
   receiver_type:
-    - vx
-    - vz
+    - p1
+    - q1
 
   # Inital Wave speed model from disk_file
   initPath: 
@@ -82,6 +85,8 @@ geom:
     vs:
     rho:
     q:
+    epsilon:
+    delta:
 
   # Save the results of FWI
   inv_savePath:
@@ -93,10 +98,10 @@ geom:
   dt: 0.001
 
   # Time samples
-  nt: 1000
+  nt: 1501
 
   # Main frequency of ricker wave
-  fm: 12.0
+  fm: 10.0
 
   # Spatial grid step size
   h: 10.0
@@ -105,5 +110,5 @@ geom:
   Nshots: 999
 
   boundary:
-    type: pml
-    width: 50    # PML thickness in number of grid cells
+    type: habc
+    width: 50

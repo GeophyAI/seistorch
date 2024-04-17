@@ -1,6 +1,6 @@
 from .utils import diff_using_roll
 
-def _time_step(*args):
+def _time_step(*args, **kwargs):
 
     #vp, vs, rho, epsilon, gamma, delta = args[0:6]
     c11, c13, c33, c15, c35, c55, rho = args[0:7]
@@ -36,7 +36,7 @@ def _time_step(*args):
     return y_vx, y_vz, y_txx, y_tzz, y_txz
 
 
-def _time_step_backward(*args):
+def _time_step_backward(*args, **kwargs):
     y_vx, y_vz, y_txx, y_tzz, y_txz = None, None, None, None, None
     pass
 

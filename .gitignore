@@ -11,4 +11,5 @@ test
 plot.py
 study
 *.hdf5
-examples/*
+examples/computational_graph/*
+examples/representation

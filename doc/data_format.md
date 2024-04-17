@@ -138,7 +138,7 @@ The length of the list `sources` and `receivers` muet be equal. So, if your rece
 
 The shot gather data is recorded in four dimensions `(nshots, nsamples, ntraces, ncomponents)`. The first dimension represents the number of shots, with each shot's data being in 3D. The second dimension corresponds to the number of time sampling points, the third dimension represents the number of traces (or receivers), and the fourth dimension represents the number of components.
 
-Example: If the configures is set as follows and 20 receivers are used to record the wavefield, the shape of the shot gather is `(10, 2000, 20, 2)`.
+Example: If the configures is set as follows and 20 receivers are used to record the x and z component of velocity, the shape of the shot gather is `(10, 2000, 20, 2)`, which means the data has 10 shots, each trace has 2000 time samples and each shot has 20*2 traces.
 
 ```yaml
 geom:
@@ -151,7 +151,19 @@ geom:
   Nshots: 10
 ```
 
-**Note**: To handle cases where different shots may have a different number of receivers, we use `np.empty(Nshots, np.ndarray)` to create arrays for storing the shot gather data obtained during forward modeling. Therefore, when using `np.load` to load shot gather data, you should set `allow_pickle` to `True` to ensure proper loading.
+**Note**: SUPPORTED FORMAT: `npy`, `hdf5`. 
+
+- For `.npy` format, To handle cases where different shots may have a different number of receivers, we use `np.empty(Nshots, np.ndarray)` to create arrays for storing the shot gather data obtained during forward modeling. Therefore, for npy format, when using `np.load` to load shot gather data, you should set `allow_pickle` to `True` to ensure proper loading.
+
+- For `.hdf5` format, the following codes can be used for creating a seistorch supported data:
+
+    ```python
+    with h5py.File(datapath, 'w') as f:
+        for shot in range(nshots):
+            f.create_dataset(f'shot_{shot}', (nt, nr, nc), dtype='f', chunks=True)
+    ```
+
+For more details, please refer to `seistorch/io.py`.
 
 ## Inverted results
 The inverted results will be saved at the `save-path` which you specified in the commands. The file structure under the "save-path" folder is as follows:

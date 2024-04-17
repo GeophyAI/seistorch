@@ -26,8 +26,8 @@ show = SeisShow()
 # |-----------------------------|
 dtype = np.float32
 nz, nx = 256, 256
-vel = np.ones((nz, nx), dtype=dtype)*3000
-vs = np.ones((nz, nx), dtype=dtype)*3000/1.732
+vel = np.ones((nz, nx), dtype=dtype)*3000.
+vs = np.ones((nz, nx), dtype=dtype)*3000./1.73
 rho = np.ones((nz, nx), dtype=dtype)*1000
 Q = np.ones((nz, nx), dtype=dtype)*20
 
@@ -65,7 +65,7 @@ np.save(os.path.join(vel_path, "vs.npy"), vs)
 np.save(os.path.join(vel_path, "rho.npy"), rho)
 np.save(os.path.join(vel_path, "Q.npy"), Q)
 
-c11, c13, c33, c15, c35, c55 = get_thomsen_parameters(vel, vs, rho, 0.1, 0, 0.08, _theta=45.)
+c11, c13, c33, c15, c35, c55 = get_thomsen_parameters(vel, vs, rho, 0.1, 0, 0.05, _theta=45.)
 np.save(os.path.join(vel_path, "c11.npy"),c11)
 np.save(os.path.join(vel_path, "c13.npy"),c13)
 np.save(os.path.join(vel_path, "c33.npy"),c33)
