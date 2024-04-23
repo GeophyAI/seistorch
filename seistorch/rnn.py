@@ -9,6 +9,7 @@ from .probe import WaveProbe
 from .cell import WaveCell
 from .setup import setup_acquisition
 from .type import TensorList
+from .eqconfigure import Parameters
 
 class WaveRNN(torch.nn.Module):
     def __init__(self, cell, source_encoding=False):
@@ -19,6 +20,7 @@ class WaveRNN(torch.nn.Module):
         #  Check the availability of the type of sources and probes.
         self.source_encoding = source_encoding # short cut
         self.use_implicit = self.cell.geom.use_implicit
+        self.second_order_equation = self.cell.geom.equation in Parameters.secondorder_equations()
 
     def named_parameters(self, prefix: str = '', recurse: bool = True, remove_duplicate: bool = True) -> Iterator[Tuple[str, Parameter]]:
         if self.cell.geom.use_implicit:
@@ -146,7 +148,7 @@ class WaveRNN(torch.nn.Module):
         if super_source is None:
             bidx_source, sourcekeys = self.merge_sources_with_same_keys()
 
-            super_source = WaveSource(bidx_source, **sourcekeys).to(device)
+            super_source = WaveSource(bidx_source, self.second_order_equation, **sourcekeys).to(device)
 
         if super_probes is None:
             reccounts, bidx_receivers, reckeys = self.merge_receivers_with_same_keys()
@@ -156,8 +158,8 @@ class WaveRNN(torch.nn.Module):
 
         super_source.source_encoding = self.source_encoding
 
-        time_offset = 2 if self.cell.geom.equation == "acoustic" else 0
-        
+        time_offset = 3 if self.second_order_equation else 0
+        # print('time_offset', time_offset)
         batched_records = []
         # print(super_source.x, super_source.y)
         # print(super_probes.x, super_probes.y)
@@ -174,7 +176,7 @@ class WaveRNN(torch.nn.Module):
                                   source=[self.cell.geom.source_type, super_source, x[..., tmpi].view(xi.size(1), -1)])
             
             # if True:
-                # np.save(f"./wf_pml/wf_foward{i:04d}.npy", wavefield[1].detach().cpu().numpy())
+                # np.save(f"./wf_pml/wf_foward{i:04d}.npy", wavefield[0].detach().cpu().numpy())
 
             # Set the data to vars
             for name, data in zip(wavefield_names, wavefield):

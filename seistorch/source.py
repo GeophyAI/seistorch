@@ -4,7 +4,7 @@ import inspect
 from .utils import to_tensor
 
 class WaveSource(torch.nn.Module):
-	def __init__(self, bidx=None, **kwargs):
+	def __init__(self, bidx=None, second_order_equation=False, **kwargs):
 
 		super().__init__()
 		self._ndim = len(kwargs)
@@ -17,8 +17,8 @@ class WaveSource(torch.nn.Module):
 		self.bidx = bidx
 		self.forward = self.get_forward_func()
 		self._source_encoding=False
+		self.second_order_equation = second_order_equation
   
-
 	@property
 	def ndim(self,):
 		return self._ndim
@@ -46,35 +46,17 @@ class WaveSource(torch.nn.Module):
 		return getattr(self, f"forward{self.ndim}d")
 
 	def forward2d(self, Y, X, dt=1.0):
-		# No memory leakage problem
-		Y_new = Y.clone()
-
+		Y_new = Y.clone() if self.second_order_equation else Y
 		if not self.source_encoding:
 			for idx in range(self.x.size(0)):
 				Y_new[idx:idx+1, self.y[idx]:self.y[idx]+1, self.x[idx]] += dt*X
-
 		if self.source_encoding:
 			Y_new[..., self.y, self.x] += dt*X
 		return Y_new
 
-	# def forward2d(self, Y, X, dt=1.0):
-	# 	# No memory leakage problem
-		
-	# 	X_expanded = torch.zeros_like(Y, device=Y.device).detach()
-
-	# 	if not self.source_encoding:
-	# 		for idx in range(self.x.size(0)):
-	# 			X_expanded[idx:idx+1, self.y[idx]:self.y[idx]+1, self.x[idx]] = dt*X
-
-	# 	if self.source_encoding:
-	# 		X_expanded[..., self.y, self.x] += dt*X
-
-	# 	return Y + X_expanded
-
-	
 	def forward3d(self, Y, X, dt=1.0):
 		Y_new = Y.clone()
-  
+
 		# for idx in range(self.x.size(0)):
 		# 	Y_new[idx:idx+1, self.x[idx], self.z[idx], self.y[idx]] += dt*X[0]
 		if not self.source_encoding:

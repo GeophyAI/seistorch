@@ -13,7 +13,6 @@ def _time_step(*args, **kwargs):
     # lame_mu = rho*(vs.pow(2))
 
     c = 0.5*dt*d
-
     theta_x = diff_using_roll(theta, 2)
     theta_z = diff_using_roll(theta, 1)
     omega_x = diff_using_roll(omega, 2, False)
@@ -21,8 +20,8 @@ def _time_step(*args, **kwargs):
 
     y_vpx = (1+c)**-1*(vp**2*dt*h**-1*theta_x+(1-c)*vpx)
     y_vpz = (1+c)**-1*(vp**2*dt*h**-1*theta_z+(1-c)*vpz)
-    y_vsx = (1+c)**-1*(vs**2*dt*h**-1*omega_z+(1-c)*vsx)
-    y_vsz = (1+c)**-1*(-vs**2*dt*h**-1*omega_x+(1-c)*vsz)
+    y_vsx = (1+c)**-1*(-vs**2*dt*h**-1*omega_z+(1-c)*vsx)
+    y_vsz = (1+c)**-1*(vs**2*dt*h**-1*omega_x+(1-c)*vsz)
 
     vx = y_vpx+y_vsx
     vz = y_vpz+y_vsz
@@ -33,7 +32,7 @@ def _time_step(*args, **kwargs):
     vz_x = diff_using_roll(vz, 2)
 
     y_theta = (1+c)**-1*(dt*h.pow(-1)*(vx_x+vz_z)+(1-c)*theta)
-    y_omega = (1+c)**-1*(dt*h.pow(-1)*(vx_z-vz_x)+(1-c)*omega)
+    y_omega = (1+c)**-1*(dt*h.pow(-1)*(vz_x-vx_z)+(1-c)*omega)
 
     return y_theta, y_omega, y_vpx, y_vpz, y_vsx, y_vsz, vx, vz
 
