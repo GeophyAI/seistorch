@@ -36,7 +36,7 @@ training:
 geom:
 
   # The observer data
-  obsPath: ./observed.npy
+  obsPath: ./observed.hdf5
 
   # Wave speed model from disk_file for forward modeling
   truePath:
@@ -106,5 +106,6 @@ geom:
   # Total Shots
   Nshots: 99
 
-  pml:
-    N: 50    # PML thickness in number of grid cells
+  boundary:
+    type: pml
+    width: 50    # PML thickness in number of grid cells

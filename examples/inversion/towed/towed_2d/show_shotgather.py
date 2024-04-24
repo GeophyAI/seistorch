@@ -25,7 +25,7 @@ obs = np.load(obsPath, allow_pickle=True)
 nshots = obs.shape[0]
 nsamples, ntraces, ncomponent = obs[0].shape
 
-print(f"The data has {0} shots, {nsamples} time samples, {ntraces} traces, and {ncomponent} components.")
+print(f"The data has {nshots} shots, {nsamples} time samples, {ntraces} traces, and {ncomponent} components.")
 
 # show 5 shots randomly
 showshots = np.random.randint(0, nshots, 5)
