@@ -27,9 +27,9 @@ print(f"The data has {nshots} shots, {nsamples} time samples, {ntraces} traces, 
 shot = 0
 fig, axes = plt.subplots(nrows=2, ncols=2, figsize=(8, 6))
 # show elastic data
-start = 64
-end = 192
-startt = 800
+start = 0
+end = -1
+startt = 0
 show_data = [obsElastic[shot][startt:, start:end, 0]-obsElasticBG[shot][startt:, start:end, 0],
              obsElastic[shot][startt:, start:end, 1]-obsElasticBG[shot][startt:, start:end, 1],
              obsVdr[shot][startt:, start:end, 0]-obsVdrBG[shot][startt:, start:end, 0],

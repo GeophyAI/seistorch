@@ -9,7 +9,7 @@ for i, wffile in enumerate(wffiles):
     if i %200==0:
         wf = np.load(wffile)[:, pmln:-pmln, pmln:-pmln]
         print(wf.shape)
-        vmin,vmax=np.percentile(wf[0], [1, 99])
+        vmin,vmax=np.percentile(wf[0], [2, 98])
         plt.imshow(wf[0],  vmin=vmin, vmax=vmax, 
                 #    interpolation="nearest",
                    cmap="gray")

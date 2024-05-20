@@ -95,10 +95,10 @@ geom:
   dt: 0.001
 
   # Time samples
-  nt: 1500
+  nt: 3000
 
   # Main frequency of ricker wave
-  fm: 10.0
+  fm: 5.0
 
   # Spatial grid step size
   h: 10.0

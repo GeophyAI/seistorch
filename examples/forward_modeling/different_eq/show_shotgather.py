@@ -4,11 +4,11 @@ import matplotlib.pyplot as plt
 from yaml import load
 from yaml import CLoader as Loader
 
-"""
+""" 
 Configures
 """
 config_path = "./configs/acoustic.yml"
-obsPath = "./shot_gather.npy"
+obsPath = "./shot_gather_acoustic.npy"
 
 # Load the configure file
 with open(config_path, 'r') as ymlfile:
@@ -30,7 +30,7 @@ for i in range(nshots):
               "vmin": vmin, 
               "vmax": vmax, 
               "extent": [0, ntraces*cfg['geom']['h'], nsamples*cfg['geom']['dt'], 0]}
-    ax.imshow(obs[i][..., 1], **kwargs)
+    ax.imshow(obs[i][..., 0], **kwargs)
     ax.set_xlabel("x (m)")
     ax.set_ylabel("t (s)")
     ax.set_title(f"Shot {i+1}")

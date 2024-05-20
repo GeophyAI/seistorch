@@ -20,16 +20,17 @@ def write_pkl(path: str, data: list):
 dtype = np.float32
 nz, nx = 400, 600
 layer = int (nz//2)
-vp = np.ones((nz, nx), dtype=dtype)*1500.
+vp = np.ones((nz, nx), dtype=dtype)*2000.
 vp[layer:, :] = 2500.
 
-vs = np.ones((nz, nx), dtype=dtype)*2500/1.73
-vs[0:layer+0, :] = 0.
+vs = np.ones((nz, nx), dtype=dtype)*0.#2000/1.8
+vs[layer:, :] = 2500/1.8
+# vs = vp/1.73
 
-rho = np.ones_like(vp)*2100
+rho = np.ones_like(vp)*1000
 rho[0:layer+0, :] = 1000.
 
-vp_bg = np.ones_like(vp)*1500
+vp_bg = np.ones_like(vp)*1600
 vs_bg = vp_bg/1.5
 
 # Generate the source and receiver list
@@ -39,7 +40,7 @@ vs_bg = vp_bg/1.5
 # This distinction is essential for accurate simulation and interpretation of results.
  
 src_x = np.linspace(int(nx//2),int(nx//2)-1, 1)
-src_z = np.ones_like(src_x)*100
+src_z = np.ones_like(src_x)*1
 
 sources = [[src_x, src_z] for src_x, src_z in zip(src_x.tolist(), src_z.tolist())]
 
@@ -48,7 +49,7 @@ sources = [[src_x, src_z] for src_x, src_z in zip(src_x.tolist(), src_z.tolist()
 #            [0, 1, ..., 255], [5, 5, ..., 5],
 #            ],
 receiver_locx = np.arange(0, nx, 4)
-receiver_locz = np.ones_like(receiver_locx)*100
+receiver_locz = np.ones_like(receiver_locx)*layer
 
 # The receivers are fixed at the bottom of the model (z=5)
 receivers = [[receiver_locx.tolist(), receiver_locz.tolist()]]*len(sources)

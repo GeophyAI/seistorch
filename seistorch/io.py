@@ -79,7 +79,6 @@ class DataLoader:
             if isinstance(key, int):
                 return f[f'{self.dkey}_{key}'][...].copy()
 
-
 class SeisRecord:
 
     def __init__(self, cfg, logger=None):
@@ -441,12 +440,12 @@ class SeisIO:
                 data = np.fromfile(file, dtype="float32")
                 return data
 
-    def read_history(self, path):
+    def read_history(self, path, key='model_error/vp'):
         tb = EventAccumulator(path, size_guidance={'scalars': 0})
         tb.Reload()
-        tb_steps = tb.Scalars('model_error/vp')
+        tb_steps = tb.Scalars(key)
         tb_steps = [i.step for i in tb_steps]
-        tb_loss = tb.Scalars('model_error/vp')
+        tb_loss = tb.Scalars(key)
         tb_loss = [i.value for i in tb_loss]
         return tb_steps, tb_loss
 

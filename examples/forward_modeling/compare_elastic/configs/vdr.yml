@@ -6,7 +6,7 @@ name: forward_modeling
 # Data type to use for tensors, either float32 or float64
 dtype: float32
 
-equation: aec
+equation: vdr
 
 training:
 
@@ -36,12 +36,12 @@ training:
 geom:
 
   # The observer data
-  obsPath: ./shot_gather_elastic_bg.npy
+  obsPath: ./shot_gather_vdr.npy
 
   # Wave speed model from disk_file for forward modeling
   truePath:
-    vp: ./models/vp_bg.npy
-    vs: ./models/vs_bg.npy
+    vp: ./models/vp.npy
+    vs: ./models/vs.npy
     rho: ./models/rho.npy
     Q: 
     #/mnt/data/wangsw/inversion/marmousi_10m/data//velocity/q_const.npy
@@ -64,11 +64,12 @@ geom:
   #./geometry/ricker_lowcut5hz.npy
 
   source_type:
-    - p
+    - theta
 
   receiver_type:
     - vx
     - vz
+    - theta
 
   # Inital Wave speed model from disk_file
   initPath: 
@@ -93,7 +94,7 @@ geom:
   dt: 0.001
 
   # Time samples
-  nt: 1500
+  nt: 3000
 
   # Main frequency of ricker wave
   fm: 5.0

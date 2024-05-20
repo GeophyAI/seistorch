@@ -14,9 +14,9 @@ def _time_step(*args, **kwargs):
 
     c = 0.5*dt*d
     theta_x = diff_using_roll(theta, 2)
-    theta_z = diff_using_roll(theta, 1)
+    theta_z = diff_using_roll(theta, 1, False)
     omega_x = diff_using_roll(omega, 2, False)
-    omega_z = diff_using_roll(omega, 1, False)
+    omega_z = diff_using_roll(omega, 1)
 
     y_vpx = (1+c)**-1*(vp**2*dt*h**-1*theta_x+(1-c)*vpx)
     y_vpz = (1+c)**-1*(vp**2*dt*h**-1*theta_z+(1-c)*vpz)
@@ -27,8 +27,8 @@ def _time_step(*args, **kwargs):
     vz = y_vpz+y_vsz
 
     vx_x = diff_using_roll(vx, 2, False)
-    vz_z = diff_using_roll(vz, 1, False)
-    vx_z = diff_using_roll(vx, 1)
+    vz_z = diff_using_roll(vz, 1)
+    vx_z = diff_using_roll(vx, 1, False)
     vz_x = diff_using_roll(vz, 2)
 
     y_theta = (1+c)**-1*(dt*h.pow(-1)*(vx_x+vz_z)+(1-c)*theta)

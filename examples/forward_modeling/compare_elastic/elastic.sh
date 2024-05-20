@@ -1,5 +1,5 @@
 mpirun -f hosts \
-python ../../../fwi.py elastic.yml \
+python ../../../fwi.py configs/elastic.yml \
 --mode forward \
 --num-batches 5 \
 --use-cuda

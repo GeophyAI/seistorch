@@ -6,7 +6,7 @@ name: forward_modeling
 # Data type to use for tensors, either float32 or float64
 dtype: float32
 
-equation: acoustic_habc
+equation: aec
 
 training:
 
@@ -36,13 +36,13 @@ training:
 geom:
 
   # The observer data
-  obsPath: ./shot_gather_acoustic.npy
+  obsPath: ./shot_gather_aec.npy
 
   # Wave speed model from disk_file for forward modeling
   truePath:
     vp: ./velocity_model/vp.npy
-    vs:
-    rho:
+    vs: ./velocity_model/vs.npy
+    rho: ./velocity_model/rho.npy
     Q: 
     #/mnt/data/wangsw/inversion/marmousi_10m/data//velocity/q_const.npy
 
@@ -64,10 +64,10 @@ geom:
   #./geometry/ricker_lowcut5hz.npy
 
   source_type:
-    - h1
+    - p
 
   receiver_type:
-    - h1
+    - p
 
   # Inital Wave speed model from disk_file
   initPath: 
@@ -104,5 +104,5 @@ geom:
   Nshots: 999
 
   boundary:
-    type: habc
+    type: pml
     width: 50    # PML thickness in number of grid cells
