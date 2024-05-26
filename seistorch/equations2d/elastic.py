@@ -10,13 +10,13 @@ def _time_step(*args, **kwargs):
     dt, h, d = args[8:11]
     lame_lambda = rho*(vp.pow(2)-2*vs.pow(2))
     lame_mu = rho*(vs.pow(2))
-
-    vx_x = diff_using_roll(vx, 2, False)
-    vz_z = diff_using_roll(vz, 1)
-    vx_z = diff_using_roll(vx, 1)
-    vz_x = diff_using_roll(vz, 2)
-
     c = 0.5*dt*d
+
+    vx_x = diff_using_roll(vx, 2)
+    vz_z = diff_using_roll(vz, 1, False)
+    vx_z = diff_using_roll(vx, 1)
+    vz_x = diff_using_roll(vz, 2, False)
+
     # Equation A-8
     y_txx  = (1+c)**-1*(dt*h.pow(-1)*((lame_lambda+2*lame_mu)*vx_x+lame_lambda*vz_z)+(1-c)*txx)
     # Equation A-9
@@ -24,10 +24,10 @@ def _time_step(*args, **kwargs):
     # Equation A-10
     y_txz = (1+c)**-1*(dt*lame_mu*h.pow(-1)*(vz_x+vx_z)+(1-c)*txz)
 
-    txx_x = diff_using_roll(y_txx, 2)
+    txx_x = diff_using_roll(y_txx, 2, False)
     txz_z = diff_using_roll(y_txz, 1, False)
-    tzz_z = diff_using_roll(y_tzz, 1, False)
-    txz_x = diff_using_roll(y_txz, 2, False)
+    tzz_z = diff_using_roll(y_tzz, 1)
+    txz_x = diff_using_roll(y_txz, 2)
 
     # Update y_vx
     y_vx = (1+c)**-1*(dt*rho.pow(-1)*h.pow(-1)*(txx_x+txz_z)+(1-c)*vx)
@@ -66,10 +66,10 @@ def _time_step_backward(*args, **kwargs):
     d = d[compute_region_slice]
 
     # The rest of your computation code...
-    txx_x = diff_using_roll(txx, 2)[compute_region_slice]
+    txx_x = diff_using_roll(txx, 2, False)[compute_region_slice]
     txz_z = diff_using_roll(txz, 1, False)[compute_region_slice]
-    tzz_z = diff_using_roll(tzz, 1, False)[compute_region_slice]
-    txz_x = diff_using_roll(txz, 2, False)[compute_region_slice]
+    tzz_z = diff_using_roll(tzz, 1)[compute_region_slice]
+    txz_x = diff_using_roll(txz, 2)[compute_region_slice]
 
     c = 0.5*dt*d
 
@@ -93,10 +93,10 @@ def _time_step_backward(*args, **kwargs):
     txx, tzz, txz = txx_copy[compute_region_slice], tzz_copy[compute_region_slice], txz_copy[compute_region_slice]
 
     # The rest of your computation code...
-    vx_x = diff_using_roll(vx, 2, False)
-    vz_z = diff_using_roll(vz, 1)
+    vx_x = diff_using_roll(vx, 2)
+    vz_z = diff_using_roll(vz, 1, False)
     vx_z = diff_using_roll(vx, 1)
-    vz_x = diff_using_roll(vz, 2)
+    vz_x = diff_using_roll(vz, 2, False)
 
     c = 0.5*dt*d
     y_txx  = (1+c)**-1*(-dt*h.pow(-1)*((lame_lambda+2*lame_mu)*vx_x+lame_lambda*vz_z)+(1-c)*txx)
@@ -151,10 +151,10 @@ def _time_step_backward_multiple(*args, **kwargs):
     d = d[compute_region_slice]
 
     # The rest of your computation code...
-    txx_x = diff_using_roll(txx, 2)[compute_region_slice]
+    txx_x = diff_using_roll(txx, 2, False)[compute_region_slice]
     txz_z = diff_using_roll(txz, 1, False)[compute_region_slice]
-    tzz_z = diff_using_roll(tzz, 1, False)[compute_region_slice]
-    txz_x = diff_using_roll(txz, 2, False)[compute_region_slice]
+    tzz_z = diff_using_roll(tzz, 1)[compute_region_slice]
+    txz_x = diff_using_roll(txz, 2)[compute_region_slice]
 
     c = 0.5*dt*d
 
@@ -178,10 +178,10 @@ def _time_step_backward_multiple(*args, **kwargs):
     txx, tzz, txz = txx_copy[compute_region_slice], tzz_copy[compute_region_slice], txz_copy[compute_region_slice]
 
     # The rest of your computation code...
-    vx_x = diff_using_roll(vx, 2, False)
-    vz_z = diff_using_roll(vz, 1)
+    vx_x = diff_using_roll(vx, 2)
+    vz_z = diff_using_roll(vz, 1, False)
     vx_z = diff_using_roll(vx, 1)
-    vz_x = diff_using_roll(vz, 2)
+    vz_x = diff_using_roll(vz, 2, False)
 
     c = 0.5*dt*d
     y_txx  = (1+c)**-1*(-dt*h.pow(-1)*((lame_lambda+2*lame_mu)*vx_x+lame_lambda*vz_z)+(1-c)*txx)

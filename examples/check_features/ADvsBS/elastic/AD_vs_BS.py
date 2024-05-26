@@ -1,19 +1,22 @@
 import numpy as np
 import matplotlib.pyplot as plt
+import torch
 
-pmln = 50
+bwitdh = 50
 
-grad_AD_vp = np.load("./results/fwi_classic_AD/gradvpF00E00.npy")[pmln:-pmln, pmln:-pmln]
-grad_AD_vs = np.load("./results/fwi_classic_AD/gradvsF00E00.npy")[pmln:-pmln, pmln:-pmln]
+grad_vp_ADPML = torch.load("./results/fwi_classic_AD/grad_vp_0.pt", 'cpu')[bwitdh:-bwitdh, bwitdh:-bwitdh]
+grad_vs_ADPML = torch.load("./results/fwi_classic_AD/grad_vs_0.pt", 'cpu')[bwitdh:-bwitdh, bwitdh:-bwitdh]
+grad_rho_ADPML = torch.load("./results/fwi_classic_AD/grad_rho_0.pt", 'cpu')[bwitdh:-bwitdh, bwitdh:-bwitdh]
 
-grad_BS_vp = np.load("./results/fwi_classic_BS/gradvpF00E00.npy")[pmln:-pmln, pmln:-pmln]
-grad_BS_vs = np.load("./results/fwi_classic_BS/gradvsF00E00.npy")[pmln:-pmln, pmln:-pmln]
+grad_vp_BSPML = torch.load("./results/fwi_classic_BS/grad_vp_0.pt", 'cpu')[bwitdh:-bwitdh, bwitdh:-bwitdh]
+grad_vs_BSPML = torch.load("./results/fwi_classic_BS/grad_vs_0.pt", 'cpu')[bwitdh:-bwitdh, bwitdh:-bwitdh]
+grad_rho_BSPML = torch.load("./results/fwi_classic_BS/grad_rho_0.pt", 'cpu')[bwitdh:-bwitdh, bwitdh:-bwitdh]
 
-fig, axes= plt.subplots(2, 2, figsize=(8, 8))
-for d, ax, title in zip([grad_AD_vp, grad_AD_vs, 
-                         grad_BS_vp, grad_BS_vs], axes.ravel(), 
-                         ['AD-vp', 'AD-vs', 'BS-vp', 'BS-vs']):
-    vmin, vmax=np.percentile(d, [2, 98])
+fig, axes= plt.subplots(2, 3, figsize=(12, 8))
+for d, ax, title in zip([grad_vp_ADPML, grad_vs_ADPML, grad_rho_ADPML, grad_vp_BSPML, grad_vs_BSPML, grad_rho_BSPML], 
+                        axes.ravel(), 
+                        ['AD-vp', 'AD-vs', 'AD-rho', 'BS-vp', 'BS-vs', 'BS-rho']):
+    vmin, vmax=np.percentile(d, [5, 95])
     ax.imshow(d, cmap='seismic', aspect='auto', vmin=vmin, vmax=vmax)
     ax.set_title(title)
 plt.tight_layout()

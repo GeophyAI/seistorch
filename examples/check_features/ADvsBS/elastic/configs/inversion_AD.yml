@@ -16,7 +16,7 @@ training:
 
   minibatch: false
 
-  batch_size:
+  batch_size: 1
 
   # Number of training epochs
   N_epochs: 1
@@ -36,7 +36,7 @@ training:
 geom:
 
   # The observer data
-  obsPath: ./shot_gather.npy
+  obsPath: ./shot_gather.hdf5
 
   # Wave speed model from disk_file for forward modeling
   truePath:
@@ -78,7 +78,7 @@ geom:
   invlist:
     vp: true
     vs: true
-    rho: false
+    rho: true
     q:
 
   # Save the results of FWI
@@ -102,5 +102,6 @@ geom:
   # Total Shots
   Nshots: 999
 
-  pml:
-    N: 50    # PML thickness in number of grid cells
+  boundary:
+    type: pml
+    width: 50    # PML thickness in number of grid cells

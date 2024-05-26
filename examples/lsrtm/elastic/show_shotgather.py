@@ -8,29 +8,28 @@ import h5py
 """
 Configures
 """
-config_path = "./configs/forward.yml"
-obsPath = "./shot_gather.hdf5"
+config_path = "./forward_obs.yml"
+obsPath = "./obs.hdf5"
 
 # Load the configure file
 with open(config_path, 'r') as ymlfile:
     cfg = load(ymlfile, Loader=Loader)
 
-
 # show 5 shots randomly
-showshots = np.random.randint(0, 1, 5)
+showshots = np.random.randint(0, 93, 4)
 # Plot the data
 fig, axes = plt.subplots(nrows=1, ncols=showshots.size, figsize=(12, 6))
 for ax, shot_no in zip(axes.ravel(), showshots.tolist()):
-    with h5py.File(obsPath, 'r') as f:
-        d = f[f'shot_{shot_no}'][..., 1:2]
-    nsamples, ntraces, nc = d.shape
-    vmin, vmax = np.percentile(d, [2, 98])
+    with h5py.File(obsPath, "r") as f:
+        obs = f[f"shot_{shot_no}"][...]
+    vmin, vmax = np.percentile(obs, [2, 98])
+    nsamples, ntraces, nc = obs.shape
     kwargs = {"cmap": "seismic", 
             "aspect": "auto", 
             "vmin": vmin, 
             "vmax": vmax, 
             "extent": [0, ntraces*cfg['geom']['h'], nsamples*cfg['geom']['dt'], 0]}
-    ax.imshow(d[..., 0], **kwargs)
+    ax.imshow(obs[..., 0], **kwargs)
     ax.set_xlabel("x (m)")
     ax.set_ylabel("t (s)")
     ax.set_title(f"Shot {shot_no}")

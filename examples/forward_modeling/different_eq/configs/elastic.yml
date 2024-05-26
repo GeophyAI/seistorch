@@ -64,7 +64,8 @@ geom:
   #./geometry/ricker_lowcut5hz.npy
 
   source_type:
-    - vz
+    - txx
+    - tzz
 
   receiver_type:
     - vx

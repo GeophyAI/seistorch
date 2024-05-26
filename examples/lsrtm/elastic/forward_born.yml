@@ -6,51 +6,64 @@ name: forward_modeling
 # Data type to use for tensors, either float32 or float64
 dtype: float32
 
-equation: elastic
+equation: elastic_lsrtm
 
 training:
+
+  smooth:
+    counts: 5 # the number of smooth times
+    radius: # the radius of smooth in x and z direction
+      x: 1
+      z: 1
+    sigma: # the sigma of smooth in x and z direction
+      x: 1
+      z: 1
 
   implicit:
     use: false
     pretrained:
 
-  minibatch:
+  minibatch: true
 
-  batch_size:
+  batch_size: 10
 
   # Number of training epochs
-  N_epochs:
+  N_epochs: 50
 
   # Optimizer learning rate
-  lr:
+  lr: 0.001
 
   # Decay the learning rate by each of multi-scale
-  scale_decay:
+  scale_decay: 0.85
 
   # decay the lr by each of epochs
-  lr_decay:
+  lr_decay: 0.995
 
   # Filter order
-  filter_ord:
+  filter_ord: 3
 
 geom:
 
   # The observer data
-  obsPath: ./shot_gather.hdf5
+  obsPath: ./born.hdf5
 
   # Wave speed model from disk_file for forward modeling
   truePath:
-    vp: ./velocity_model/true_vp.npy
-    vs: ./velocity_model/true_vs.npy
-    rho: ./velocity_model/rho.npy
-    Q: 
+    vp: ./velocity/smooth_vp.npy
+    vs: ./velocity/smooth_vs.npy
+    rho: ./velocity/rho.npy
+
+    rrho: ./velocity/true_mvp.npy
+    rvp: ./velocity/true_mvp.npy
+    rvs: ./velocity/true_mvs.npy
+
     #/mnt/data/wangsw/inversion/marmousi_10m/data//velocity/q_const.npy
 
   sources: ./geometry/sources.pkl
 
   receivers: ./geometry/receivers.pkl
 
-  seabed:
+  seabed: /home/shaowinw/seistorch/examples/models/marmousi_model/seabed.npy
 
   wavelet:
 
@@ -64,46 +77,54 @@ geom:
   #./geometry/ricker_lowcut5hz.npy
 
   source_type:
-    - vz
+    - txx
+    - tzz
 
   receiver_type:
-    - vx
-    - vz
+    - svx
+    - svz
 
   # Inital Wave speed model from disk_file
   initPath: 
-    vp:
-    vs:
-    rho:
-    Q:
+    vp: 
+    vs: 
+    rho: 
+    rvp: 
+    rvs: 
+    rrho: 
 
   invlist:
-    vp:
-    vs:
-    rho:
-    q:
+    vp: false
+    vs: false
+    rho: false
+    rvp: false
+    rvs: false
+    rrho: false
 
   # Save the results of FWI
   inv_savePath:
 
   multiscale:
-    - 0.0
+  - 1.0
+  - 3.0
+  - 5.0
+  - all
 
   # Time Sampling step
   dt: 0.001
 
   # Time samples
-  nt: 1500
+  nt: 4000
 
   # Main frequency of ricker wave
-  fm: 5.0
+  fm: 8.0
 
   # Spatial grid step size
-  h: 10.0
+  h: 20.0
 
   # Total Shots
-  Nshots: 999
+  Nshots: 99
 
   boundary:
     type: pml
-    width: 50    # PML thickness in number of grid cells
+    width: 50

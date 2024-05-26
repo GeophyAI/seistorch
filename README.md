@@ -15,6 +15,8 @@ From this version, seistorch will use 'torchrun' to perform distributed full wav
 | Boundary conditions   | HABC([Xie et al.](https://doi.org/10.1093/jge/gxz102))    | PML |
 |Distributed | [torchrun](https://pytorch.org/docs/stable/elastic/run.html) | [mpi4py](https://mpi4py.readthedocs.io/en/stable/mpi4py.html) |
 |Anisotropic FWI| None |
+|LSRTM|Elastic([Feng & Schuster])(10.1190/geo2016-0254.1)|None|
+|LSRTM|Acoustic([Dai et al.])(10.1190/1.3513494)|None|
 
 # Supported equations
 
@@ -28,6 +30,7 @@ From this version, seistorch will use 'torchrun' to perform distributed full wav
 | ViscoAcoustic  (2nd) | FWI | 10.3997/2214-4609.201601578 |
 | ViscoAcoustic2  (2nd) | FWI | 10.3997/2214-4609.201402310 |
 | Elastic (1st)   | FWI | 10.1190/1.1442147 |
+| Elastic (1st)   | LSRTM | 10.1190/geo2016-0254.1 |
 | TTI-Elastic (1st)  | FWI | * |
 | Acoustic-Elastic coupled (1st) | FWI | 10.1190/geo2015-0535.1 |
 | Velocity-Dilatation-Rotation (1st) | FWI | 10.1190/geo2016-0245.1 | 

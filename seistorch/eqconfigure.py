@@ -10,6 +10,7 @@ class Parameters:
                  "acoustic_habc": ["vp"],
                  "decouple":     ["vp", "vs", "rho"],
                  "elastic":      ["vp", "vs", "rho"],
+                 "elastic_lsrtm": ["vp", "vs", "rho", "rvp", "rvs", "rrho"],
                  "acoustic1st":  ["vp", "rho"],
                  "viscoacoustic": ["vp", "rho", "Q"],
                  "vacoustic_habc": ["vp", "Q"],
@@ -75,6 +76,11 @@ class Wavefield:
     @property
     def elastic(self,):
         return ["vx", "vz", "txx", "tzz", "txz"]
+    
+    @property
+    def elastic_lsrtm(self,):
+        return ["vx", "vz", "txx", "tzz", "txz", 
+                "svx", "svz", "stxx", "stzz", "stxz"]
     
     @property
     def viscoacoustic(self,):

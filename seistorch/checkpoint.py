@@ -182,8 +182,8 @@ class CheckpointFunction(torch.autograd.Function):
         with torch.no_grad():
             outputs = ctx.back_function(*inputs)
         # if True:
-        #     np.save(f"./wf_pml/wf_backward{CheckpointFunction.counts:04d}.npy", 
-        #             outputs[0].detach().cpu().numpy())
+            # np.save(f"./wf_pml/wf_backward{CheckpointFunction.counts:04d}.npy", 
+                    # outputs[0].detach().cpu().numpy())
         if isinstance(outputs, torch.Tensor):
             outputs = (outputs,)
 

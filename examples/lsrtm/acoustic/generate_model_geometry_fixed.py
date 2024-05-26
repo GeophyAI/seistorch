@@ -14,7 +14,7 @@ def write_pkl(path: str, data: list):
 # specified in a grid coordinate system, not in real-world distance coordinates. 
 # This distinction is essential for accurate simulation and interpretation of results.
 
-vel = np.load("../models/marmousi_model/true_vp.npy")
+vel = np.load("../../models/marmousi_model/true_vp.npy")
 zero_ref = np.zeros_like(vel)
 init = vel.copy()
 seabed = np.ones_like(vel)
