@@ -50,7 +50,7 @@ geom:
 
   receivers: ./geometry/receivers.pkl
 
-  seabed: ../models/marmousi_model/seabed.npy
+  seabed: ../../../models/marmousi_model/seabed.npy
 
   wavelet:
 
@@ -106,5 +106,6 @@ geom:
   # Total Shots
   Nshots: 999
 
-  pml:
-    N: 50    # PML thickness in number of grid cells
+  boundary:
+    type: pml
+    width: 50    # PML thickness in number of grid cells

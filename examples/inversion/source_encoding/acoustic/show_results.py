@@ -1,11 +1,12 @@
 import numpy as np
 import matplotlib.pyplot as plt
+import torch
 
 npml = 50
 expand = 50
 true = np.load('../../../models/marmousi_model/true_vp.npy')[:,expand:-expand]
 init = np.load('../../../models/marmousi_model/linear_vp.npy')[:,expand:-expand]
-inverted = np.load('./results/paravpF00E49.npy')[npml:-npml, npml+expand:-npml-expand]
+inverted = torch.load('./results/paravpF00E49.npy')['vp'].cpu().detach()[npml:-npml, npml+expand:-npml-expand]
 
 fig, axes=plt.subplots(3,1,figsize=(8,10))
 vmin,vmax=true.min(),true.max()

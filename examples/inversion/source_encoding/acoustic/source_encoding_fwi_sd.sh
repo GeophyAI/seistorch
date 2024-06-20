@@ -1,5 +1,4 @@
-export LD_LIBRARY_PATH=/home/wangsw/anaconda3/lib:$LD_LIBRARY_PATH && \
-python ../../codingfwi.py forward.yml \
+python /home/shaowinw/seistorch/codingfwi.py forward.yml \
 --gpuid 0 \
 --opt steepestdescent \
 --loss vp=cs \
