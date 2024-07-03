@@ -4,11 +4,11 @@ import torch
 
 bwitdh = 50
 
-grad_ADPML = torch.load("./results/fwi_classic_ADPML/grad_0.pt", 'cpu')[bwitdh:-bwitdh, bwitdh:-bwitdh]
-grad_ADHABC = torch.load("./results/fwi_classic_ADHABC/grad_0.pt", 'cpu')[bwitdh:-bwitdh, bwitdh:-bwitdh]
+grad_ADPML = torch.load("./results/fwi_classic_ADPML/grad_vp_0.pt", 'cpu')[bwitdh:-bwitdh, bwitdh:-bwitdh]
+grad_ADHABC = torch.load("./results/fwi_classic_ADHABC/grad_vp_0.pt", 'cpu')[bwitdh:-bwitdh, bwitdh:-bwitdh]
 
-grad_BSPML = torch.load("./results/fwi_classic_BSPML/grad_0.pt", 'cpu')[bwitdh:-bwitdh, bwitdh:-bwitdh]
-grad_HABC = torch.load("./results/fwi_classic_BSHABC/grad_0.pt", 'cpu')[bwitdh:-bwitdh, bwitdh:-bwitdh]
+grad_BSPML = torch.load("./results/fwi_classic_BSPML/grad_vp_0.pt", 'cpu')[bwitdh:-bwitdh, bwitdh:-bwitdh]
+grad_HABC = torch.load("./results/fwi_classic_BSHABC/grad_vp_0.pt", 'cpu')[bwitdh:-bwitdh, bwitdh:-bwitdh]
 
 fig, axes= plt.subplots(2, 2, figsize=(8, 8))
 for d, ax, title in zip([grad_ADPML, grad_BSPML, grad_ADHABC, grad_HABC], 

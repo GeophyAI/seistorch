@@ -6,11 +6,12 @@ rootpath = r'/home/shaowinw/seistorch/examples/newversion/marmousi/results/habc_
 btype = 'habc'
 epoch = 199
 expand = 50
+pml = 50
 vel = torch.load(f'{rootpath}/model_{epoch}.pt', map_location='cpu')['vp']
-grad = torch.load(f'{rootpath}/grad_{epoch}.pt', map_location='cpu')
+grad = torch.load(f'{rootpath}/grad_vp_{epoch}.pt', map_location='cpu')
 
-vel = vel[expand:-expand, expand:-expand]
-grad = grad[expand:-expand, expand:-expand]
+vel = vel[expand:-expand, expand+pml:-expand-pml]
+grad = grad[expand:-expand, expand+pml:-expand-pml]
 print(vel.shape, grad.shape)
 fig, ax = plt.subplots(1,1,figsize=(5,3))
 ax.imshow(vel, vmin=1500, vmax=5500, cmap='seismic', aspect='auto')

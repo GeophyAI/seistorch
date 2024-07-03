@@ -150,6 +150,12 @@ class WaveRNN(torch.nn.Module):
 
             super_source = WaveSource(bidx_source, self.second_order_equation, **sourcekeys).to(device)
 
+        if super_source is not None:
+            # Add source mask
+            super_source.smask = torch.zeros(hidden_state_shape, device=device)
+            for idx in range(super_source.x.size(0)):
+                super_source.smask[idx, super_source.y[idx], super_source.x[idx]] = 1.0
+
         if super_probes is None:
             reccounts, bidx_receivers, reckeys = self.merge_receivers_with_same_keys()
             super_probes = WaveProbe(bidx_receivers, **reckeys).to(device)
