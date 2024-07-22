@@ -13,11 +13,10 @@ class WaveSource(torch.nn.Module):
 		for key, value in kwargs.items():
 			value = None if value is None else to_tensor(value, dtype=torch.int64)
 			self.register_buffer(key, value)
-   
 		self.bidx = bidx
 		self.forward = self.get_forward_func()
 		self._source_encoding=False
-		self.second_order_equation = second_order_equation
+		# self.second_order_equation = second_order_equation
   
 	@property
 	def ndim(self,):
@@ -49,8 +48,8 @@ class WaveSource(torch.nn.Module):
 		Y_new = Y.clone() if self.second_order_equation else Y
 		if not self.source_encoding:
 			Y_new += self.smask * X
-			# for idx in range(self.x.size(0)):
-				# Y_new[idx:idx+1, self.y[idx]:self.y[idx]+1, self.x[idx]] += dt*X
+		# for idx in range(self.x.size(0)):
+			# Y_new[idx:idx+1, self.y[idx]:self.y[idx]+1, self.x[idx]] += dt*X
 		if self.source_encoding:
 			Y_new[..., self.y, self.x] += dt*X
 		return Y_new

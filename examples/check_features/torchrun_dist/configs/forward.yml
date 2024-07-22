@@ -49,7 +49,7 @@ geom:
 
   # Wave speed model from disk_file for forward modeling
   truePath:
-    vp: /home/shaowinw/Desktop/seistorch/examples/models/marmousi_model/true_vp.npy
+    vp: ../../models/marmousi_model/true_vp.npy
     vs:
     rho:
     Q: 
@@ -59,7 +59,7 @@ geom:
 
   receivers: ./geometry/receivers.pkl
 
-  seabed: /home/shaowinw/Desktop/seistorch/examples/models/marmousi_model/seabed.npy
+  seabed: ../../models/marmousi_model/seabed.npy
 
   wavelet:
 
@@ -80,7 +80,7 @@ geom:
 
   # Inital Wave speed model from disk_file
   initPath: 
-    vp: /home/shaowinw/Desktop/seistorch/examples/models/marmousi_model/linear_vp.npy
+    vp: ../../models/marmousi_model/linear_vp.npy
     vs:
     rho:
     Q:
@@ -115,5 +115,6 @@ geom:
   # Total Shots
   Nshots: 99
 
-  pml:
-    N: 50    # PML thickness in number of grid cells
+  boundary:
+    type: pml
+    width: 50    # PML thickness in number of grid cells

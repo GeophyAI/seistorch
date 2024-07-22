@@ -4,7 +4,7 @@ python ../../../../codingfwi.py forward.yml \
 --opt adam \
 --loss vp=l2 \
 --mode inversion \
---batchsize 1 \
+--batchsize 10 \
 --lr vp=10.0 \
 --save-path ./l2_1shot \
 --checkpoint ./none \

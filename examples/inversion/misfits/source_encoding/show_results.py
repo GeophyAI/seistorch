@@ -1,13 +1,14 @@
 import numpy as np
 import matplotlib.pyplot as plt
+import torch
 
 npml = 50
 expand = 50
-loss = "l2_1shot"
+loss = "integration"
 true = np.load('../../../models/marmousi_model/true_vp.npy')[:,expand:-expand]
 init = np.load('../../../models/marmousi_model/linear_vp.npy')[:,expand:-expand]
-inverted = np.load(f'./{loss}/paravpF00E00.npy')[npml:-npml, npml+expand:-npml-expand]
-grad = np.load(f'./{loss}/gradvpF00E00.npy')[npml:-npml, npml+expand:-npml-expand]
+inverted = torch.load(f'./{loss}/model_F00E00.pt')['vp'].cpu().numpy()[npml:-npml, npml+expand:-npml-expand]
+grad = torch.load(f'./{loss}/grad_vp_F00E00.pt').cpu().numpy()[npml:-npml, npml+expand:-npml-expand]
 
 fig, axes=plt.subplots(3,1,figsize=(8,10))
 vmin,vmax=true.min(),true.max()

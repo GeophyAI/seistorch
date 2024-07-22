@@ -814,6 +814,44 @@ class Wasserstein1d(torch.nn.Module):
                 if torch.sum(_x[i])==0 or torch.sum(_y[i])==0:
                                 loss +=0.
                 else:
-                    loss += self.wasserstein_1d(t, _x[i], _y[i], p=2, require_sort=True)
+                    loss += self.wasserstein_1d(t, _x[i], _y[i], p=1, require_sort=True)
 
+        return loss
+    
+class Wasserstein_test(torch.nn.Module):
+
+    def __init__(self):
+        super(Wasserstein_test, self).__init__()
+
+    @property
+    def name(self,):
+        return "w1d_test"
+    
+    def transform(self, x, y, method='abs'):
+        if method == 'abs':
+            return torch.abs(x), torch.abs(y)
+        elif method == 'square':
+            return x**2, y**2
+        elif method == 'sqrt':
+            return torch.sqrt(x**2), torch.sqrt(y**2)
+        elif method == 'linear':
+            min_value = torch.min(x.detach().min(), y.detach().min())
+            min_value = min_value if min_value < 0 else 0
+            return x - 1.1*min_value, y - 1.1*min_value
+        else:
+            raise ValueError('Invalid method')
+        
+    def forward(self, x, y):
+        loss = 0.
+ 
+        for _x, _y in zip(x, y):
+            _x, _y = self.transform(_x, _y, method='square')
+            # normalize
+            _x = _x / (torch.sum(_x, dim=0, keepdim=True)+1e-18)
+            _y = _y / (torch.sum(_y, dim=0, keepdim=True)+1e-18)
+            # calculate cdf
+            cdf_x = torch.cumsum(_x, dim=0)
+            cdf_y = torch.cumsum(_y, dim=0)
+            # calculate the loss
+            loss += torch.sum(torch.abs(cdf_x - cdf_y))
         return loss

@@ -7,8 +7,8 @@ from yaml import CLoader as Loader
 """
 Configures
 """
-config_path = "./forward.yml"
-obsPath = "./shot_gather.npy"
+config_path = "./forward_with_true_vel.yml"
+obsPath = "./obs.npy"
 
 # Load the configure file
 with open(config_path, 'r') as ymlfile:

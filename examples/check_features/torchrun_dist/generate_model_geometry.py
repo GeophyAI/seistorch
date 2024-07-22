@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
 
 import sys
-sys.path.append("/home/shaowinw/Desktop/seistorch")
+sys.path.append("../../../../seistorch")
 from seistorch.show import SeisShow
 
 show = SeisShow()
@@ -20,7 +20,7 @@ def write_pkl(path: str, data: list):
 # specified in a grid coordinate system, not in real-world distance coordinates. 
 # This distinction is essential for accurate simulation and interpretation of results.
 
-vel = np.load("/home/shaowinw/Desktop/seistorch/examples/models/marmousi_model/true_vp.npy")
+vel = np.load("../../models/marmousi_model/true_vp.npy")
 # The depth of the sea is 24*20=480m
 
 nz, nx =  vel.shape

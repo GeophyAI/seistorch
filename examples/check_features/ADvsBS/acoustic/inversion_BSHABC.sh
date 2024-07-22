@@ -1,4 +1,4 @@
-torchrun --nproc_per_node=1 /home/shaowinw/seistorch/seistorch_dist.py configs/inversion_BSHABC.yml  \
+torchrun --nproc_per_node=1 ../../../../seistorch_dist.py configs/inversion_BSHABC.yml  \
 --opt adam \
 --loss vp=l2 \
 --num-batches 1 \

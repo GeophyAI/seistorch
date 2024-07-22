@@ -154,6 +154,7 @@ class WaveRNN(torch.nn.Module):
             # Add source mask
             super_source.smask = torch.zeros(hidden_state_shape, device=device)
             for idx in range(super_source.x.size(0)):
+                if self.source_encoding: idx = 0
                 super_source.smask[idx, super_source.y[idx], super_source.x[idx]] = 1.0
 
         if super_probes is None:
@@ -163,6 +164,7 @@ class WaveRNN(torch.nn.Module):
             reccounts = super_probes.reccounts
 
         super_source.source_encoding = self.source_encoding
+        super_source.second_order_equation = self.second_order_equation
 
         time_offset = 3 if self.second_order_equation else 0
         # print('time_offset', time_offset)

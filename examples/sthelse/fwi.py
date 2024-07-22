@@ -1,7 +1,6 @@
 import torch
 import numpy as np
 import matplotlib.pyplot as plt
-import lesio
 from utils import *
 
 dev = torch.device("cuda" if torch.cuda.is_available() else "cpu")

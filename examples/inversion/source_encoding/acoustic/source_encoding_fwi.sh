@@ -1,9 +1,9 @@
-python /home/shaowinw/seistorch/codingfwi.py forward.yml \
+python ../../../../codingfwi.py forward.yml \
 --gpuid 0 \
 --opt adam \
 --loss vp=l2 \
 --mode inversion \
---batchsize 20 \
+--batchsize 10 \
 --lr vp=10.0 \
 --save-path ./results \
 --checkpoint ./none \

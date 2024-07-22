@@ -1,7 +1,6 @@
 import torch
 import numpy as np
 import matplotlib.pyplot as plt
-import lesio
 import pickle
 from utils_torch import imshow, forward, ricker, showgeom, show_gathers
 

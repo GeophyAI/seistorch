@@ -2,12 +2,12 @@ import torch
 import numpy as np
 import matplotlib.pyplot as plt
 
-epoch = 70
+epoch = 399
 npml = 50
 expand = 50
 
 model = torch.load(f'./results/towed/model_{epoch}.pt', map_location='cpu')
-grad = torch.load(f'./results/towed/grad_{epoch}.pt', map_location='cpu')
+grad = torch.load(f'./results/towed/grad_vp_{epoch}.pt', map_location='cpu')
 
 vp = model['vp'].numpy()[npml:-npml, npml+expand:-npml-expand]
 grad = grad.numpy()[npml:-npml, npml+expand:-npml-expand]

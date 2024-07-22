@@ -6,7 +6,7 @@ name: forward_modeling
 # Data type to use for tensors, either float32 or float64
 dtype: float32
 
-equation: acoustic
+equation: acoustic_habc
 
 training:
 
@@ -14,15 +14,15 @@ training:
     use: false
     pretrained:
 
-  minibatch: true
+  minibatch: false
 
-  batch_size: 10
+  batch_size: 1000
 
   # Number of training epochs
   N_epochs: 50
 
   # Optimizer learning rate
-  lr: 0.001
+  lr: 1.0
 
   # Decay the learning rate by each of multi-scale
   scale_decay: 0.85
@@ -36,11 +36,11 @@ training:
 geom:
 
   # The observer data
-  obsPath: ./observed.npy
+  obsPath: ./syn.npy
 
   # Wave speed model from disk_file for forward modeling
   truePath:
-    vp: ../../../models/marmousi_model/true_vp.npy
+    vp: ./velocity_model/init.npy
     vs:
     rho:
     Q: 
@@ -50,15 +50,13 @@ geom:
 
   receivers: ./geometry/receivers.pkl
 
-  seabed: ../models/marmousi_model/seabed.npy
-
   wavelet:
 
   multiple: false
 
   boundary_saving: true
 
-  wavelet_delay: 256
+  wavelet_delay: 128
 
   wavelet_inverse: false
   #./geometry/ricker_lowcut5hz.npy
@@ -71,7 +69,7 @@ geom:
 
   # Inital Wave speed model from disk_file
   initPath: 
-    vp: ../../../models/marmousi_model/linear_vp.npy
+    vp: ./velocity_model/init.npy
     vs:
     rho:
     Q:
@@ -86,24 +84,24 @@ geom:
   inv_savePath:
 
   multiscale:
-    - 3.0
-    - 5.0
-    - all
+    - - 2.0
+      - 5.0
 
   # Time Sampling step
   dt: 0.001
 
   # Time samples
-  nt: 4000
+  nt: 1200
 
   # Main frequency of ricker wave
-  fm: 5.0
+  fm: 10.0
 
   # Spatial grid step size
-  h: 20.0
+  h: 10.0
 
   # Total Shots
   Nshots: 999
 
-  pml:
-    N: 50    # PML thickness in number of grid cells
+  boundary:
+    type: habc
+    width: 50    # PML thickness in number of grid cells
