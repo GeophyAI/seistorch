@@ -9,14 +9,15 @@ import os
 if not os.path.exists(save_path):
     os.mkdir(save_path)
 
-# 生成Ricker子波
+# Func for Ricker
 def ricker_wavelet(t, f):
     return (1 - 2 * (np.pi * f * t) ** 2) * np.exp(-(np.pi * f * t) ** 2)
 
-# 计算Trval Time
+# Func for calculating travel time
 def calculate_travetime(signal1, signal2, dt=0.002):
     nt = signal2.size
     return (np.argmax(np.convolve(signal1, signal2))-nt)*dt
+
 t1 = np.linspace(-1, 1, 1000, endpoint=False)
 t2 = np.linspace(-0.5, 1.5, 1000, endpoint=False)
 t3 = np.linspace(-1.5, 0.5, 1000, endpoint=False)

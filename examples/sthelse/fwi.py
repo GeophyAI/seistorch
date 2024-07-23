@@ -11,7 +11,7 @@ model_scale = 2 # 1/2
 expand = 50
 expand = int(expand/model_scale)
 delay = 150 # ms
-fm = 8 # Hz
+fm = 3 # Hz
 dt = 0.0019 # s
 nt = 1200 # timesteps
 dh = 20 # m
@@ -25,8 +25,8 @@ lr = 10.
 epochs = 100
 
 # Load velocity
-vel = np.load("/home/wangsw/wangsw/seistorch/examples/models/marmousi_model/true_vp.npy")
-init = np.load("/home/wangsw/wangsw/seistorch/examples/models/marmousi_model/linear_vp.npy")
+vel = np.load("../models/marmousi_model/true_vp.npy")
+init = np.load("../models/marmousi_model/linear_vp.npy")
 vel = vel[::model_scale,::model_scale]
 init = init[::model_scale,::model_scale]
 vel = np.pad(vel, ((pmln, pmln), (pmln, pmln)), mode="edge")
@@ -40,7 +40,18 @@ nz, nx = domain
 
 # load wave
 wave = ricker(np.arange(nt) * dt-delay*dt, f=fm)
-plt.plot(wave.cpu().numpy())
+tt = np.arange(nt) * dt
+plt.plot(tt, wave.cpu().numpy())
+plt.title("Wavelet")
+plt.show()
+# Frequency spectrum
+# Show freq < 10Hz
+freqs = np.fft.fftfreq(nt, dt)[:nt//2]
+amp = np.abs(np.fft.fft(wave.cpu().numpy()))[:nt//2]
+amp = amp[freqs <= 20] 
+freqs = freqs[freqs <= 20]
+plt.plot(freqs, amp)
+plt.title("Frequency spectrum")
 plt.show()
 # Geometry
 srcxs = np.arange(expand+pmln, nx-expand-pmln, 1).tolist()
@@ -81,8 +92,8 @@ def closure():
     loss.backward()
     return loss
 
-for epoch in range(epochs):
+for epoch in tqdm.trange(epochs):
     loss = opt.step(closure)
-    print(f"Epoch: {epoch}, Loss: {loss}")
     if epoch % 10 == 0:
-        imshow(init.cpu().detach().numpy(), vmin=1500, vmax=5500, cmap="seismic", figsize=(5, 3))
+        print(f"Epoch: {epoch}, Loss: {loss.item()}")
+        imshow(init.cpu().detach().numpy()[pmln:-pmln,pmln:-pmln], vmin=1500, vmax=5500, cmap="seismic", figsize=(5, 3))

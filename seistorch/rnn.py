@@ -167,14 +167,10 @@ class WaveRNN(torch.nn.Module):
         super_source.second_order_equation = self.second_order_equation
 
         time_offset = 3 if self.second_order_equation else 0
-        # print('time_offset', time_offset)
         batched_records = []
-        # print(super_source.x, super_source.y)
-        # print(super_probes.x, super_probes.y)
         for i, xi in enumerate(x.chunk(x.size(1), dim=1)):
         
             # Propagate the fields
-            # wavefield = [self.__getattribute__(name) for name in wavefield_names]
             wavefield = [getattr(self, name) for name in wavefield_names]
             tmpi = min(i+time_offset, x.shape[1]-1)
             wavefield = self.cell(wavefield, 

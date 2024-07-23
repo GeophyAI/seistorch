@@ -1,4 +1,4 @@
-torchrun --nproc_per_node=1 \
+torchrun --nproc_per_node=2 \
 ../../../seistorch_dist.py \
 configs/forward.yml \
 --opt adam \
@@ -9,4 +9,5 @@ configs/forward.yml \
 --save-path ./results/towed \
 --grad-cut \
 --grad-smooth \
+--filteratfirst \
 --use-cuda

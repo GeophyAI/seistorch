@@ -80,14 +80,11 @@ def forward(wave, c, b, src_list, domain, dt, h, dev, recz=0, pmln=50):
     h = torch.Tensor([h]).to(dev)
     dt = torch.Tensor([dt]).to(dev)
 
-    for it in tqdm.trange(nt):
-        # u_now = u_now.clone()
+    source_mask = torch.zeros_like(u_now)
+    source_mask[shots, :, srcz, srcx] = 1
 
-        u_now[shots, :, srcz, srcx] += wave[it]
-
-        # for ishot in range(nshots):
-        #     sx, sz = src_list[ishot]
-        #     u_now[ishot, 0, sz, sx] += wave[it]
+    for it in range(nt):
+        u_now += source_mask * wave[it]
         u_next = step(u_pre, u_now, c, dt, h, b)
         u_pre, u_now = u_now, u_next
         rec[:,it, :] = u_now[:, 0, recz, pmln:-pmln]
@@ -98,7 +95,7 @@ def generate_pml_coefficients_2d(domain_shape, N=50, B=100., multiple=False):
 
     R = 10**(-((np.log10(N)-1)/np.log10(2))-3)
     #d0 = -(order+1)*cp/(2*abs_N)*np.log(R) # Origin
-    R = 1e-6; order = 2; cp = 1000.# Mao shibo Master
+    R = 1e-6; order = 2; cp = 1000.
     d0 = (1.5*cp/N)*np.log10(R**-1)
     d_vals = d0 * torch.linspace(0.0, 1.0, N + 1) ** order
     d_vals = torch.flip(d_vals, [0])

@@ -56,7 +56,7 @@ geom:
 
   multiple: false
 
-  boundary_saving: true
+  boundary_saving: false
 
   wavelet_delay: 256
 

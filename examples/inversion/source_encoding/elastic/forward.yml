@@ -41,8 +41,8 @@ geom:
   # Wave speed model from disk_file for forward modeling
   truePath:
     vp: ../../../models/marmousi_model/true_vp.npy
-    vs: ../models/marmousi_model/true_vs.npy
-    rho: ../models/marmousi_model/rho.npy
+    vs: ../../../models/marmousi_model/true_vs.npy
+    rho: ../../../models/marmousi_model/rho.npy
     Q: 
     #/mnt/data/wangsw/inversion/marmousi_10m/data//velocity/q_const.npy
 
@@ -50,7 +50,7 @@ geom:
 
   receivers: ./geometry/receivers.pkl
 
-  seabed: ../models/marmousi_model/seabed.npy
+  seabed: ../../../models/marmousi_model/seabed.npy
 
   wavelet:
 
@@ -73,8 +73,8 @@ geom:
   # Inital Wave speed model from disk_file
   initPath: 
     vp: ../../../models/marmousi_model/linear_vp.npy
-    vs: ../models/marmousi_model/linear_vs.npy
-    rho: ../models/marmousi_model/rho.npy
+    vs: ../../../models/marmousi_model/linear_vs.npy
+    rho: ../../../models/marmousi_model/rho.npy
     Q:
 
   invlist:
@@ -107,5 +107,6 @@ geom:
   # Total Shots
   Nshots: 999
 
-  pml:
-    N: 50    # PML thickness in number of grid cells
+  boundary:
+    type: pml
+    width: 50    # PML thickness in number of grid cells

@@ -2,7 +2,7 @@ import torch
 import numpy as np
 import matplotlib.pyplot as plt
 
-epoch = 399
+epoch = 140
 npml = 50
 expand = 50
 

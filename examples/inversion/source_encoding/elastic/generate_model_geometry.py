@@ -14,16 +14,12 @@ def write_pkl(path: str, data: list):
 # This distinction is essential for accurate simulation and interpretation of results.
 
 vp = np.load("../../../models/marmousi_model/true_vp.npy")
-vs = np.load("../models/marmousi_model/true_vs.npy")
-rho = np.load("../models/marmousi_model/rho.npy")
+vs = np.load("../../../models/marmousi_model/true_vs.npy")
+rho = np.load("../../../models/marmousi_model/rho.npy")
 
 initvp = np.load("../../../models/marmousi_model/linear_vp.npy")
-initvs = np.load("../models/marmousi_model/linear_vs.npy")
+initvs = np.load("../../../models/marmousi_model/linear_vs.npy")
 
-# The depth of the sea is 24*20=480m
-seabed = np.ones_like(vp)
-seabed[0:24] = 0
-np.save("../models/marmousi_model/seabed.npy", seabed)
 nz, nx =  vp.shape
 expand = 50
 # The model is expanded by 50 grid points 

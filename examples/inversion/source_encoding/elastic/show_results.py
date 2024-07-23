@@ -1,16 +1,18 @@
 import numpy as np
 import matplotlib.pyplot as plt
+import torch
 
 npml = 50
 expand = 50
 true_vp = np.load('../../../models/marmousi_model/true_vp.npy')[:,expand:-expand]
-true_vs = np.load('../models/marmousi_model/true_vs.npy')[:,expand:-expand]
+true_vs = np.load('../../../models/marmousi_model/true_vs.npy')[:,expand:-expand]
 
 init_vp = np.load('../../../models/marmousi_model/linear_vp.npy')[:,expand:-expand]
-init_vs = np.load('../models/marmousi_model/linear_vs.npy')[:,expand:-expand]
+init_vs = np.load('../../../models/marmousi_model/linear_vs.npy')[:,expand:-expand]
 
-inverted_vp = np.load('./results/paravpF03E49.npy')[npml:-npml, npml+expand:-npml-expand]
-inverted_vs = np.load('./results/paravsF03E49.npy')[npml:-npml, npml+expand:-npml-expand]
+inverted = torch.load('./results/model_F00E49.pt')
+inverted_vp = inverted['vp'].detach().cpu().numpy()[npml:-npml, npml+expand:-npml-expand]
+inverted_vs = inverted['vs'].detach().cpu().numpy()[npml:-npml, npml+expand:-npml-expand]
 
 nz, nx = true_vp.shape
 vmin_vp, vmax_vp = true_vp.min(), true_vp.max()

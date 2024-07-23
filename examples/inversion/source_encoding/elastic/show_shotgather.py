@@ -37,5 +37,20 @@ for ax, shot_no in zip(axes.ravel(), showshots.tolist()):
     ax.set_ylabel("t (s)")
     ax.set_title(f"Shot Vx {shot_no}")
 plt.tight_layout()
-plt.savefig("shot_gather.png", dpi=300)
+plt.savefig("shot_gatherVx.png", dpi=300)
+plt.show()
+fig, axes = plt.subplots(nrows=1, ncols=showshots.size, figsize=(12, 6))
+for ax, shot_no in zip(axes.ravel(), showshots.tolist()):
+    vmin, vmax = np.percentile(obs[shot_no], [2, 98])
+    kwargs = {"cmap": "seismic", 
+            "aspect": "auto", 
+            "vmin": vmin, 
+            "vmax": vmax, 
+            "extent": [0, ntraces*cfg['geom']['h'], nsamples*cfg['geom']['dt'], 0]}
+    ax.imshow(obs[shot_no][..., 1], **kwargs)
+    ax.set_xlabel("x (m)")
+    ax.set_ylabel("t (s)")
+    ax.set_title(f"Shot Vz {shot_no}")
+plt.tight_layout()
+plt.savefig("shot_gatherVz.png", dpi=300)
 plt.show()

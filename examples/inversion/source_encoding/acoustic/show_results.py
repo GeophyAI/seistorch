@@ -6,8 +6,8 @@ npml = 50
 expand = 50
 true = np.load('../../../models/marmousi_model/true_vp.npy')[:,expand:-expand]
 init = np.load('../../../models/marmousi_model/linear_vp.npy')[:,expand:-expand]
-inverted = torch.load('./results/model_F01E30.pt')['vp'].cpu().detach()[npml:-npml, npml+expand:-npml-expand]
-grad = torch.load('./results/grad_vp_F01E30.pt').cpu().detach()[npml:-npml, npml+expand:-npml-expand]
+inverted = torch.load('./results/model_F03E49.pt')['vp'].cpu().detach()[npml:-npml, npml+expand:-npml-expand]
+grad = torch.load('./results/grad_vp_F03E49.pt').cpu().detach()[npml:-npml, npml+expand:-npml-expand]
 fig, axes=plt.subplots(3,1,figsize=(8,10))
 vmin,vmax=true.min(),true.max()
 kwargs={"cmap":"seismic","aspect":"auto","vmin":vmin,"vmax":vmax}

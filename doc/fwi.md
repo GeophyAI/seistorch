@@ -52,16 +52,10 @@ The code of this section locates at `examples/check_features/ADvsBS`. This exmap
 
 # 2D Source Encoding Acoustic FWI
 
-This chapter primarily focuses on how to perform Seistorch's Source Encoding Full Waveform Inversion (FWI) using the same parameter file as Classic FWI. The difference lies in the utilization of `codingfwi.py` to perform the FWI process with source encoding.
-
-- **Download the velocity model**
-
-    The velocity model we used here is modified from marmousi1. We pad the marmousi1 model at left and right with 50 grids (1km) for better illuminating. You need to download the velocity model from our huggingface repo [seismic inversion](https://huggingface.co/datasets/shaowinw/seismic_inversion/tree/main/marmousi_customer/marmousi_20m) or [model scope repo](https://modelscope.cn/datasets/shaowinw/seismic_inversion/files). Perhaps you just need to run the script `download_vel.sh`.The ground truth model `true_vp.npy` and initial model `linear_vp.npy` are needed to run this example.
-
-    The downloaded two model files should be saved in `./velocity_model`. 
+This chapter primarily focuses on how to perform Seistorch's Source Encoding Full Waveform Inversion (FWI) using the same parameter file as Classic FWI. The difference lies in the utilization of `codingfwi.py` to perform the FWI process with source encoding. The files of this example are in folder `examples/inversion/source_encoding/acoustic`.
 
 - **Generate the acquisition**
-    Once you have done the aboving steps, run the script the `generate_model_geometry.py`. Just like the other examples, it will generate `sources.pkl` and `receivers.pkl` which describes the acquisition of modeling.
+    First you need to run the script the `generate_model_geometry.py`. Just like the other examples, it will generate `sources.pkl` and `receivers.pkl` which describes the acquisition of modeling.
 
     ```shell
     python generate_model_geometry.py
@@ -98,7 +92,7 @@ This chapter primarily focuses on how to perform Seistorch's Source Encoding Ful
 
 # 2D Source Encoding Elastic FWI
 
-In elastic wave-equation based fwi, three model parameters are need for calculating lame parameters, i.e. ***vp***, ***vs*** and ***rho***. In this example, the ***rho*** is set to constant 2000. And the ratio between ***vp*** and ***vs*** is also a constant 1.73 except for the regions of sea with a depth of 500m. We only invert ***vp*** and ***vs*** in this example.
+In elastic wave-equation based fwi, three model parameters are need for calculating lame parameters, i.e. ***vp***, ***vs*** and ***rho***. In this example, the ***rho*** is set to constant 2000. And the ratio between ***vp*** and ***vs*** is also a constant 1.73 except for the regions of sea with a depth of 500m. We only invert ***vp*** and ***vs*** in this example. The files of this example are in folder `examples/inversion/source_encoding/elastic`.
 
 Files of true models all begin with `true_`, while initial models are prefixed with `linear_`. They are all placed in `examples/models/marmousi_model`.
 
@@ -116,6 +110,7 @@ Files of true models all begin with `true_`, while initial models are prefixed w
 - **Running forward modeling**
 
     Type the following commands in your conda environment, the observed data will be generated.
+
     ```shell
     sh forward.sh
     ```
@@ -144,35 +139,47 @@ Files of true models all begin with `true_`, while initial models are prefixed w
     ![Inverted](figures/source_encoding_elastic/Inverted.png "Results")
 
 
-# 2D Batched classic FWI
+# Batched & Distributed FWI
 
-In classic FWI, the computation of seismic data for each shot is typically done in a serial or MPI-parallel manner, meaning each shot is computed individually. However, deep learning frameworks provide us with batch computation capabilities through APIs like `conv2d` and `conv3d`. This allows us to simultaneously compute multiple shots, improving computational efficiency.
+**WARNING: Please make sure there are more than 1 GPU on your machine for running this example successfully. (At least 2 GPU for this example)**
 
-Seistorch also provides batched computation (BC) functionality. The BC is only valid in classic fwi, because source-encoding-based fwi encoded several sources into a super-source.
+In classic FWI codes, the computation of seismic data for each shot is typically done in a serial or MPI-parallel manner, meaning each shot is computed individually. However, deep learning frameworks provide us with batch computation capabilities through APIs like `conv2d` and `conv3d`. This allows us to simultaneously compute multiple shots, improving computational efficiency.
 
-When running `fwi.py` you can specify the number of batches into which all the shots will be distributed by setting the `num-batches` parameter. This allows you to control how the shots are grouped for processing. More details can be seen in [Running commands](running_commands.md).
+In Seistorch, both forward modeling and inversion provide batched computation (BC) functionality, but with different parameters. The BC is only valid for classic fwi, whose gradient are accumulated by multiples shots, while source-encoding-based fwi encoded several sources into a super-source so the gradient is calculated with only a super but single shot.
 
-The source code of this section locates at `examples/check_features/batched_inversion`. Please follow the following steps.
+When running `fwi.py` for **forward modeling** you can specify the number of batches into which all the shots will be distributed by setting the `num-batches` parameter. This allows you to control how the shots are grouped for processing. More details can be seen in [Running commands](running_commands.md).
+
+The source code of this section locates at `examples/check_features/torchrun_dist`. Please follow the following steps.
 
 - **Generate geometry**
 
-    The acquisition of this examples is same as the **2D Source Encoding FWI**. A number of 93 sources and 461 receivers are used.
+    The acquisition of this examples consists of 87 sources and 128 receivers in each shot.
 
     ```shell
     python generate_model_geometry.py
     ```
 
-    ![Model](figures/batched_inversion/model_geometry.png "Model")
+    ![Model](figures/distribute_inversion/geometry.gif "Model")
 
 - **Modeling observed data in a batched manner**
 
-    In the `forward.sh`, we set `--num-batches 10`, it means that ten shot form a batch are computed simultaneously within a single process/on a single GPU. Since we need to calculate `93` shots and only use 1 GPU (the host file is set as: `127.0.0.1:2`), except for the last batch, which has a batch size of `3`, the batch size for all other batches is `10`.
+    In the `forward.sh`, we set `--num-batches 10`, it means that all shots will be separated into `10` bathches for modeling. Since we need to calculate `87` shots and use 2 GPUs (the host file is set as: `127.0.0.1:3`), except for the last batch, which has a batch size of `7`, the batch size for all other batches is `8`.
+    
+    Besides, all batches will be distributed to 2 GPUs equally. That is to say, GPU1 will run 1~5 batches and GPU2 will run the other 6~10 batches.
 
 - **Perform classic fwi**
 
-    In classic fwi, you need to set the `minibatch` in `configure.yml` to `true`, and set a proper `batch_size` which is `10` in our case.
+    For performing classic fwi, you need to set the `minibatch` in `configure.yml` to `true`, and set a proper `batch_size` which is `20` in our case. The number `20` represents the total shots used in one epoch for calculating the gradients. In this example, we use two GPU for fwi, so the `nproc_per_node` in `inversion.sh` need be set to 2.
 
-    In the `inversion.sh` script, we specify `num-batches` as `1`, which bundles ten shots into a single batch for gradient computation. This process is equivalent to separately computing the gradients for 10 shots and then summing them together.
+    ```
+    batch_size: The number of shots used for gradient calculation in a single epoch.
+    The number of shots that each GPU need to perform = batch_size // nproc_per_node
+    The number of shots that each GPU need to perform at each step = batch_size // nproc_per_node // step_per_epoch
+    ```
+
+    In the `inversion.sh` script, we specify `step-per-epoch` as `1`, which bundles ten shots into a single batch for gradient computation on each GPU. This process is equivalent to separately computing the gradients for 10 shots and then summing them together.
+
+    If your model is too large, the number of shots in a single batch may be too large to fit into the GPU memory. There are two ways to solve this problem. One is to reduce the `batch_size` in `configure.yml`, and the other is to increase the `step-per-epoch` in `inversion.sh`. For the latter, the gradient will be accumulated for multiple batches, which will reduce the memory usage.
 
     ```shell
     sh inversion.sh
@@ -180,7 +187,7 @@ The source code of this section locates at `examples/check_features/batched_inve
 
 - **Show the inverted results**
 
-    The inverted resutls will be saved at `examples/batched_inversion/results/fwi_batched`. The following figure shows the final inverted result.
+    The inverted resutls will be saved at `./results`. The following figure shows the final inverted result.
 
     ![Model](figures/batched_inversion/Inverted.png "Model")
 

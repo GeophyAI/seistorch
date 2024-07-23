@@ -46,12 +46,13 @@ class WaveSource(torch.nn.Module):
 
 	def forward2d(self, Y, X, dt=1.0):
 		Y_new = Y.clone() if self.second_order_equation else Y
+		
 		if not self.source_encoding:
 			Y_new += self.smask * X
-		# for idx in range(self.x.size(0)):
-			# Y_new[idx:idx+1, self.y[idx]:self.y[idx]+1, self.x[idx]] += dt*X
+
 		if self.source_encoding:
 			Y_new[..., self.y, self.x] += dt*X
+
 		return Y_new
 
 	def forward3d(self, Y, X, dt=1.0):
