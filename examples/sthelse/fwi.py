@@ -22,7 +22,7 @@ recz = 5+pmln # grid point
 # Training
 criterion = torch.nn.MSELoss()
 lr = 10.
-epochs = 100
+epochs = 200
 
 # Load velocity
 vel = np.load("../models/marmousi_model/true_vp.npy")
@@ -63,7 +63,7 @@ reczs = (np.ones_like(recxs) * recz).tolist()
 rec_loc = list(zip(recxs, reczs))
 
 # show geometry
-showgeom(vel, src_loc, rec_loc, figsize=(5, 4))
+showgeom(vel[pmln:-pmln,pmln:-pmln], src_loc, rec_loc, figsize=(5, 4))
 print(f"The number of sources: {len(src_loc)}")
 print(f"The number of receivers: {len(rec_loc)}")
 
@@ -91,9 +91,15 @@ def closure():
     loss = criterion(rec_syn, rec_obs[rand_shots])
     loss.backward()
     return loss
-
+Loss = []
 for epoch in tqdm.trange(epochs):
     loss = opt.step(closure)
+    Loss.append(loss.item())
     if epoch % 10 == 0:
         print(f"Epoch: {epoch}, Loss: {loss.item()}")
         imshow(init.cpu().detach().numpy()[pmln:-pmln,pmln:-pmln], vmin=1500, vmax=5500, cmap="seismic", figsize=(5, 3))
+        plt.show()
+plt.plot(Loss)
+plt.xlabel("Epoch")
+plt.ylabel("Loss")
+plt.show()

@@ -10,23 +10,28 @@ From this version, seistorch will use 'torchrun' to perform distributed full wav
 | Others   | Not test yet   |
 
 # If you are interested in ...
-## FWI with automatic differentiation
-But you are a beginner of both FWI and pytorch, please refer to the [examples/easy_fwi](examples/sthelse/) folder. It provides a straightforward implementation of the simplest acoustic wave equation, allowing users to grasp the fundamental concepts of FWI.
-## Physical Informed Neural Networks (PINN)
-You wants to know something about how to train a neural network with physical constraints, please refer to the [examples/pinn](examples/pinn/) folder.
-## Neural Representation of Velocity Model(Implicit FWI)
-You want to know how to use neural network to represent the velocity model, please refer to the [examples/implicit_nn](examples/check_features/implicitNN_easy/) folder.
-## Simulation with Seistorch
-Please refer to the [examples/forward_modeling](examples/forward_modeling/different_eq/) folder.
-## Perform FWI with Seistorch
-Please refer to the [examples/source_encoding](examples/inversion/source_encoding/) folder or [examples/classic_fwi](examples/inversion/towed/towed_2d/).
-## Perform LSRTM with Seistorch
-Please refer to the [examples/lsrtm](examples/lsrtm/) folder.
-## Popular loss functions in FWI
-Please refer to the [examples/loss_functions](examples/inversion/misfits/) folder or refer to the source code in seistorch [seistorch/loss.py](seistorch/loss.py).
-## Optimizers in FWI
-You want to know how to use different optimizers for fwi with seistorch, please refer to the [examples/optimizers](examples/inversion/optimizers/) folder.
+| Traditional | Codes | Related Papers | Notes |
+| :----------- | ----------- | :-----------: | :----- |
+|FWI by Pytorch|[click](examples/sthelse)|-|Stand alone|
+|Simulations|[click](examples/forward_modeling/different_eq)|[10.1109/TGRS.2023.3317529](https://doi.org/10.1109/TGRS.2023.3317529)|Seistorch|
+|Acoustic LSRTM|[click](examples/lsrtm)|[10.1190/1.3513494](https://doi.org/10.1190/1.3513494)|Seistorch|
+|Elastic LSRTM|[click](examples/lsrtm)|[10.1190/geo2016-0254.1](https://doi.org/10.1190/geo2016-0254.1)|Seistorch|
+|Acoustic FWI|[click](examples/inversion/source_encoding/acoustic)|-|Seistorch, Source Encoding|
+|Elastic FWI|[click](examples/inversion/source_encoding/elastic)|-|Seistorch|
 
+| FWI+NeuralNetworks | Codes | Related Papers | Notes |
+| :----------- | ----------- | :-----------: | :----- |
+|PINN|[click](examples/pinn)|[10.1029/2021JB023120](https://doi.org/10.1029/2021JB023120)|Stand alone|
+|Model Reparameterization|[click](examples/check_features/implicitNN)|[10.1029/2022JB025964](https://doi.org/10.1029/2022JB025964)|Stand alone|
+|Siamese|[click](examples/nn_embedded_fwi/siamesefwi)|[10.1029/2024JH000227](https://doi.org/10.1029/2024JH000227)|Stand alone|
+
+| Misfits | Examples | Related Papers | Notes |
+| :----------- | ----------- | :-----------: | :----- |
+|Optimal Transport|[click](examples/inversion/misfits/ot)|[10.1029/2022JB025493](https://doi.org/10.1029/2022JB025493)<br>[10.1190/GEO2017-0264.1](https://doi.org/10.1190/GEO2017-0264.1)|-|
+|Envelope|[click](examples/inversion/misfits/envelope)|[10.1016/j.jappgeo.2014.07.010](https://doi.org/10.1016/j.jappgeo.2014.07.010)|-|
+|Traveltime|[click](examples/inversion/misfits/travel_time_misfit)|[10.3997/2214-4609.202410170](https://doi.org/10.3997/2214-4609.202410170)|Differentiable|
+|Cosine Similarity|[click](examples/inversion/misfits/cs)|[10.1111/j.1365-2478.2012.01079.x](https://doi.org/10.1111/j.1365-2478.2012.01079.x)<br>[10.1093/gji/ggw485](https://doi.org/10.1093/gji/ggw485)<br>|Global correlation<br>Normalized zero-lag cross-correlation|
+|L1|[click](examples/inversion/misfits/l1)|||
 # New features:
 | Type | New | Old |
 | :----------- | ----------- | :-----------: |

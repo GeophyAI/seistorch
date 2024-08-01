@@ -5,7 +5,7 @@ def abs(d):
     return torch.abs(d)
 
 def both_nonnegative(d1, d2, type='abs'):
-    valid_types = ['abs', 'square', 'linear']
+    valid_types = ['abs', 'square', 'linear', 'envelope', 'exp']
     assert type in valid_types, f"type must be one of {valid_types}"
     if type=='abs':
         return torch.abs(d1), torch.abs(d2)
@@ -15,6 +15,11 @@ def both_nonnegative(d1, d2, type='abs'):
         dmin = min(torch.min(d1), torch.min(d2))
         value = dmin if dmin<0 else 0
         return d1-value, d2-value
+    elif type=='exp':
+        beta = 1.1
+        return torch.exp(beta*d1), torch.exp(beta*d2)
+    elif type=='envelope':
+        return envelope(d1), envelope(d2)
 
 def envelope(d):
     return torch.abs(hilbert(d))
@@ -30,7 +35,7 @@ def hilbert(data):
         torch.Tensor: The Hilbert transform of the input data tensor.
     """
 
-    nt, _, _ = data.shape
+    nt, _, _ = data.shape #(nsamples, ntraces, nchannels)
     # nfft = 2 ** (nt - 1).bit_length()
     nfft = nt # the scipy implementation uses this
 

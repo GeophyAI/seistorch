@@ -223,7 +223,16 @@ def generate_arrival_mask_np(d, top_win=200, down_win=200, swin=100, lwin=500, o
             mask[idx, :down, tno] = 1
     return mask
 
+def filter(data, dt=0.001, freqs=[2,5], forder=3, btype='highpass', axis=1):
+      
+    wn = [2*freq/(1/dt) for freq in list(freqs)]
+    wn = wn[0] if len(wn)==1 else wn
 
+    # call _filter_
+    b, a = signal.butter(forder, Wn=wn, btype=btype)
+
+    filtered_data = signal.filtfilt(b, a, data, axis=axis).astype(np.float32)
+    return filtered_data
 # def gaussian_filter(input_tensor, sigma, radius, axis=-1):
 #     """
 #     Function that applies Gaussian filter to a tensor along a given axis.

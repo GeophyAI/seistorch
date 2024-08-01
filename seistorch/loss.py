@@ -134,21 +134,27 @@ class Envelope(torch.nn.Module):
     """
     A custom PyTorch module that computes the envelope-based mean squared error loss between
     two input tensors (e.g., predicted and observed seismograms).
+    Reference:
+    [1]: 10.1016/j.jappgeo.2014.07.010
     """
 
-    def __init__(self, reduction='sum', criterion='l2'):
+    def __init__(self, method='square'):
         """
         Initialize the parent class.
         """
         super(Envelope, self).__init__()
-        self.loss = {'l1':torch.nn.L1Loss(reduction=reduction), 
-                     'l2':torch.nn.MSELoss(reduction=reduction)}[criterion]
-
+        self.method = method
+        self.loss = {'subtract': lambda x, y: envelope(x)-envelope(y), # eq.5
+                     'square': lambda x, y: envelope(x)**2-envelope(y)**2, # eq.6
+                     'log': lambda x, y: torch.log(envelope(x)/envelope(y))}# eq.7
+        
+        # The log method does not work
     @property
     def name(self,):
         return "envelope"
 
     def forward(self, x, y):
+        inner_method = self.loss[self.method]
         """
         Compute the envelope-based mean squared error loss for the given input tensors x and y.
 
@@ -161,103 +167,8 @@ class Envelope(torch.nn.Module):
         """
         loss = 0
         for i in range(x.shape[0]):
-            #loss += self.envelope_loss(x[i], y[i])
-            loss += self.loss(envelope(x[i])**2, envelope(y[i])**2)
+            loss += 0.5*torch.sum(inner_method(x[i], y[i])**2)
         return loss
-
-# class ImplicitLoss(torch.nn.Module):
-
-#     def __init__(self):
-#         super().__init__()
-#         self.vgg = vgg19(pretrained=True).features.cuda()
-#         # self.feature_extractor = torch.nn.Sequential(*list(vgg.features)[:35]).cuda()
-#         #self.feature_extractor.eval()
-
-#         # Define the downsampling layer
-#         self.pool = torch.nn.AvgPool2d(kernel_size=(4, 4), stride=(2, 2))
-
-#     @property
-#     def name(self,):
-#         return "implicit"
-
-#     def get_features(self, image, model, layers=None):
-#         if layers is None:
-#             layers = {'0':'conv1_1',
-#                       '5':'conv2_1',
-#                       '10':'conv3_1',
-#                       '19':'conv4_1',
-#                       '21':'conv4_2', # content repr
-#                       '28':'conv5_1',}
-
-#         features = {}
-#         x = image
-#         for name, layer in model._modules.items():
-#             x = layer(x)
-#             if name in layers:
-#                 features[layers[name]] = x
-            
-#         return features
-
-#     def to_rgb(self, x):
-#         x_mono = x.mean(dim=-1, keepdim=True)  # Take the mean along the channel dimension to get a single-channel image
-        
-#         x_rgb = x_mono.repeat(1, 1, 1, 3)  # Repeat the single-channel image along the channel dimension to get a three-channel image
-        
-#         x_rgb = x_rgb.permute(0, 3, 1, 2)
-#         # Apply the pooling operation to downsample the data
-#         x_rgb = self.pool(x_rgb)
-
-#         return x_rgb
-
-#     def gram_matrix(self, tensor):
-#         _, d, h, w = tensor.size()
-#         tensor = tensor.view(d, h*w)
-#         return torch.mm(tensor, tensor.t()) #gram
-    
-#     def forward(self, x, y):
-
-#         # Normalize along the batch dimension
-#         # x = x / torch.max(torch.abs(x), dim=0, keepdim=True).values
-#         # y = y / torch.max(torch.abs(y), dim=0, keepdim=True).values
-
-#         # Compute the feature maps
-#         x = self.to_rgb(x)
-#         y = self.to_rgb(y)
-
-#         # get features
-#         x_features = self.get_features(x, self.vgg)
-#         y_features = self.get_features(y, self.vgg)
-
-#         # calculate content loss
-#         content_loss = torch.mean((x_features['conv4_2'] - y_features['conv4_2'])**2)
-#         # calculate grams
-#         style_grams = {layer:self.gram_matrix(y_features[layer]) for layer in y_features}
-
-#         # weights for style layers 
-#         style_weights = {'conv1_1':1.,
-#                         'conv2_1':1.,
-#                         'conv3_1':1.,
-#                         'conv4_1':1.,
-#                         'conv5_1':1.}
-# 		# calculate style loss
-#         style_loss = 0
-
-#         for layer in style_weights:
-#             target_feature = x_features[layer]
-#             _, d, h, w = target_feature.shape
-
-#             # target gram
-#             target_gram = self.gram_matrix(target_feature)
-
-#             # style gram
-#             style_gram = style_grams[layer]
-
-#             # style loss for curr layer
-#             layer_style_loss = style_weights[layer] * torch.mean((target_gram - style_gram)**2)
-
-#             style_loss += layer_style_loss / (d * h * w)
-
-#         return content_loss#+style_loss
 
 class InstantaneousPhase(torch.nn.Module):
     """Yuan et. al, <The exponentiated phase measurement, 
@@ -396,8 +307,9 @@ class L2(torch.nn.Module):
 class NormalizedIntegrationMethod(torch.nn.Module):
     """Donno et.al, doi: 10.3997/2214-4609.20130411
     """
-    def __init__(self, criterion='l2', reduction='sum'):
+    def __init__(self, criterion='l2', reduction='sum', method='square'):
         super(NormalizedIntegrationMethod, self).__init__()
+        self.method = method
         self.loss = {'l1':torch.nn.L1Loss(reduction=reduction), 
                      'l2':torch.nn.MSELoss(reduction=reduction)}[criterion]
 
@@ -406,30 +318,30 @@ class NormalizedIntegrationMethod(torch.nn.Module):
         return "nim"
     
     def forward(self, x, y):
-        # ensure non-negative eq. (1.2)
-        x = square(x) 
-        y = square(y)
+        loss = 0.
+        for _x, _y in zip(x, y):
+            # ensure non-negative eq. (1.2)
+            _x, _y = both_nonnegative(_x, _y, type=self.method)
 
-        # weights of each trace
-        wx = torch.sum(x, dim=1, keepdim=True)[0]
-        wy = torch.sum(y, dim=1, keepdim=True)[0]
+            # weights of each trace
+            _x = _x/torch.sum(_x, dim=0, keepdim=True)
+            _y = _y/torch.sum(_y, dim=0, keepdim=True)
 
-        # intergration # eq. (1.2)
-        x = integrate(x) 
-        y = integrate(y)
+            # intergration # eq. (1.2)
+            _x = torch.cumsum(_x, dim=0)
+            _y = torch.cumsum(_y, dim=0)
 
-        # ensure equals to one at the end
-        # the denominator in equation (1.2) is wrong
-        # x = x/wx
-        # y = y/wy
-        # the denominator should be the maximum value of the trace
-        # so that the value at the end is one
-        x = x / x.max() 
-        y = y / y.max()
+            # ensure equals to one at the end
+            # the denominator in equation (1.2) is wrong
+            # x = x/wx
+            # y = y/wy
+            # the denominator should be the maximum value of the trace
+            # so that the value at the end is one
+            # x = x / x.max() 
+            # y = y / y.max()
 
-
-        # compute the loss
-        loss = self.loss(x, y)
+            # compute the loss
+            loss += self.loss(_x, _y)
         return loss
     
 class Phase(torch.nn.Module):
@@ -511,14 +423,14 @@ class Phase(torch.nn.Module):
     
     def forward(self, x, y):
         """
-        Compute the envelope-based mean squared error loss for the given input tensors x and y.
+        Compute the phase-based mean squared error loss for the given input tensors x and y.
 
         Args:
             x (torch.Tensor): The first input tensor.
             y (torch.Tensor): The second input tensor.
 
         Returns:
-            torch.Tensor: The computed envelope-based mean squared error loss.
+            torch.Tensor: The computed phase-based mean squared error loss.
         """
         loss = 0
         for i in range(x.shape[0]):
@@ -659,14 +571,15 @@ class Traveltime(torch.nn.Module):
         loss, _ = self.compute_loss(x, y)
         return loss
 
-class Wasserstein1d(torch.nn.Module):
+class Wasserstein(torch.nn.Module):
     # Source codes refer to ot.lp.solver_1d.wasserstein
-    def __init__(self):
-        super(Wasserstein1d, self).__init__()
+    def __init__(self, method='linear'):
+        self.method = method
+        super(Wasserstein, self).__init__()
 
     @property
     def name(self,):
-        return "w1d"
+        return "wd"
     
     def argsort(self, a, axis=-1):
         sorted, indices = torch.sort(a, dim=axis)
@@ -762,6 +675,16 @@ class Wasserstein1d(torch.nn.Module):
 
         assert p >= 1, "The OT loss is only valid for p>=1, {p} was given".format(p=p)
 
+        # if require_sort:
+        #     u_sorter = self.argsort(t, 0)
+        #     u_values = self.take_along_axis(u_values, u_sorter, 0)
+
+        #     v_sorter = self.argsort(v_values, 0)
+        #     v_values = self.take_along_axis(v_values, v_sorter, 0)
+
+        #     u_weights = self.take_along_axis(u_weights, u_sorter, 0)
+        #     v_weights = self.take_along_axis(v_weights, v_sorter, 0)
+
         u_cumweights = torch.cumsum(u_weights, 0)
         v_cumweights = torch.cumsum(v_weights, 0)
 
@@ -790,7 +713,7 @@ class Wasserstein1d(torch.nn.Module):
         nt, nr, nc = x[0].shape
 
         # Enforce non-negative
-        x, y = both_nonnegative(x, y, type='linear')
+        x, y = both_nonnegative(x, y, type=self.method)
 
         # Enforce sum to one on the support
         x = norm(x, dim=1, ntype='sumis1')
@@ -814,20 +737,21 @@ class Wasserstein1d(torch.nn.Module):
                 if torch.sum(_x[i])==0 or torch.sum(_y[i])==0:
                                 loss +=0.
                 else:
-                    loss += self.wasserstein_1d(t, _x[i], _y[i], p=1, require_sort=True)
+                    loss += self.wasserstein_1d(t, _x[i], _y[i], p=2, require_sort=True)
 
         return loss
     
-class Wasserstein_test(torch.nn.Module):
+class Wasserstein1d(torch.nn.Module):
 
-    def __init__(self):
-        super(Wasserstein_test, self).__init__()
+    def __init__(self, method='linear'):
+        self.method = method
+        super(Wasserstein1d, self).__init__()
 
     @property
     def name(self,):
-        return "w1d_test"
+        return "w1d"
     
-    def transform(self, x, y, method='abs'):
+    def transform(self, x, y, method='softplus'):
         if method == 'abs':
             return torch.abs(x), torch.abs(y)
         elif method == 'square':
@@ -838,20 +762,61 @@ class Wasserstein_test(torch.nn.Module):
             min_value = torch.min(x.detach().min(), y.detach().min())
             min_value = min_value if min_value < 0 else 0
             return x - 1.1*min_value, y - 1.1*min_value
+        elif method == 'softplus':
+            beta = 0.2
+            return torch.log(torch.exp(beta*x)+1), torch.log(torch.exp(beta*y)+1)
+        elif method == 'envelope':
+            return envelope(x), envelope(y)
+        elif method == 'exp':
+            beta = 1.
+            return torch.exp(beta*x), torch.exp(beta*y)
         else:
             raise ValueError('Invalid method')
         
+    # def gaussian_kernel(self, x, x_i, bandwidth):
+    #     a = torch.sqrt(torch.tensor(2 * np.pi)).to(x_i.device)
+    #     b = torch.exp(-0.5 * ((x - x_i) / bandwidth) ** 2)
+    #     return (1 / (bandwidth * a)) * b
+        
+    # def gaussian_kde(self, signal, bandwidth, x_grid):
+    #     return self.gaussian_kernel(x_grid, signal, bandwidth)
+
     def forward(self, x, y):
         loss = 0.
- 
+        # Not sure the following is correct
         for _x, _y in zip(x, y):
-            _x, _y = self.transform(_x, _y, method='square')
+            # From others
+            _x, _y = self.transform(_x, _y, method=self.method)
             # normalize
             _x = _x / (torch.sum(_x, dim=0, keepdim=True)+1e-18)
             _y = _y / (torch.sum(_y, dim=0, keepdim=True)+1e-18)
             # calculate cdf
             cdf_x = torch.cumsum(_x, dim=0)
             cdf_y = torch.cumsum(_y, dim=0)
+            abs_diff = torch.abs(cdf_x - cdf_y)**2
             # calculate the loss
-            loss += torch.sum(torch.abs(cdf_x - cdf_y))
+            loss += abs_diff.sum()
         return loss
+    
+# from ot.lp import wasserstein_1d
+# class Wasserstein_OT(torch.nn.Module):
+#     def __init__(self, method='linear'):
+#         self.method = method
+#         super(Wasserstein_OT, self).__init__()
+
+#     @property
+#     def name(self,):
+#         return "wdot"
+    
+#     def forward(self, x, y):
+#         loss = 0.
+#         t = torch.arange(x.shape[1], dtype=x.dtype, device=x.device)
+#         t = t.unsqueeze(1).unsqueeze(2)
+#         for _x, _y in zip(x, y):
+#             _x, _y = both_nonnegative(_x, _y, self.method)
+#             # normalize
+#             _x = _x / (torch.sum(_x, dim=0, keepdim=True)+1e-18)
+#             _y = _y / (torch.sum(_y, dim=0, keepdim=True)+1e-18)
+#             # Not sure the following is correct
+#             loss += wasserstein_1d(t, t, _x, _y, p=2)
+#         return loss
