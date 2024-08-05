@@ -10,6 +10,7 @@ From this version, seistorch will use 'torchrun' to perform distributed full wav
 | Others   | Not test yet   |
 
 # If you are interested in ...
+### Traditional methods
 | Traditional | Codes | Related Papers | Notes |
 | :----------- | ----------- | :-----------: | :----- |
 |FWI by Pytorch|[click](examples/sthelse)|-|Stand alone|
@@ -18,13 +19,14 @@ From this version, seistorch will use 'torchrun' to perform distributed full wav
 |Elastic LSRTM|[click](examples/lsrtm)|[10.1190/geo2016-0254.1](https://doi.org/10.1190/geo2016-0254.1)|Seistorch|
 |Acoustic FWI|[click](examples/inversion/source_encoding/acoustic)|-|Seistorch, Source Encoding|
 |Elastic FWI|[click](examples/inversion/source_encoding/elastic)|-|Seistorch|
-
+|Joint FWI&LSRTM|[click](examples/inversion/joint_fwi_lsrtm)|[10.1109/TGRS.2024.3349608](https://doi.org/10.1109/TGRS.2024.3349608)|Seistorch|
+### Inversion with Neural Networks
 | FWI+NeuralNetworks | Codes | Related Papers | Notes |
 | :----------- | ----------- | :-----------: | :----- |
 |PINN|[click](examples/pinn)|[10.1029/2021JB023120](https://doi.org/10.1029/2021JB023120)|Stand alone|
 |Model Reparameterization|[click](examples/check_features/implicitNN)|[10.1029/2022JB025964](https://doi.org/10.1029/2022JB025964)|Stand alone|
-|Siamese|[click](examples/nn_embedded_fwi/siamesefwi)|[10.1029/2024JH000227](https://doi.org/10.1029/2024JH000227)|Stand alone|
-
+|Siamese FWI|[click](examples/nn_embedded_fwi/siamesefwi)|[10.1029/2024JH000227](https://doi.org/10.1029/2024JH000227)|Stand alone|
+### Misfit functions
 | Misfits | Examples | Related Papers | Notes |
 | :----------- | ----------- | :-----------: | :----- |
 |Optimal Transport|[click](examples/inversion/misfits/ot)|[10.1029/2022JB025493](https://doi.org/10.1029/2022JB025493)<br>[10.1190/GEO2017-0264.1](https://doi.org/10.1190/GEO2017-0264.1)|-|
@@ -45,9 +47,11 @@ From this version, seistorch will use 'torchrun' to perform distributed full wav
 
 | EQUATIONS | USAGE | REFERENCES|
 | :-------------- | :-----------: | :------------------|
-| Acoustic (2nd) | FWI | * |
-| Acoustic (2nd) | LSRTM | 10.1190/1.3513494 |
+| Scalar Acoustic (2nd) | FWI | * |
+| Scalar Acoustic (2nd) | LSRTM | 10.1190/1.3513494 |
 | Acoustic (1st) | FWI | * |
+|Variable Density (2nd)| FWI | * |
+| Joint FWI & LSRTM|FWI+LSRTM |10.1109/TGRS.2024.3349608|
 | qP VTI (2nd) | FWI | 10.1190/geo2022-0292.1 |
 | qP TTI (2nd) | FWI | 10.1190/geo2022-0292.1 |
 | ViscoAcoustic  (2nd) | FWI | 10.3997/2214-4609.201601578 |

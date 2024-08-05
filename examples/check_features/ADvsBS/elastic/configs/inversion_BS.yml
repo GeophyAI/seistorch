@@ -44,7 +44,7 @@ geom:
     vs: ./velocity_model/true_vs.npy
     rho: ./velocity_model/rho.npy
     Q: 
-    #/mnt/data/wangsw/inversion/marmousi_10m/data//velocity/q_const.npy
+    
 
   sources: ./geometry/sources.pkl
 

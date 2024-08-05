@@ -18,7 +18,7 @@ def _laplacian(y, h, kernel):
     return conv2d(y, operator, padding=padding).squeeze(1)
 
 def gradient(y, h, kernel):
-    operator = h ** (-1) * kernel.to(y.device)
+    operator = (2*h) ** (-1) * kernel.to(y.device)
     y = y.unsqueeze(1)
     return conv2d(y, operator, padding=padding).squeeze(1)
 
@@ -95,8 +95,8 @@ def _time_step_backward(*args, **kwargs):
     # 10.1190/geo2022-0292.1 EQ(22)
     pnext = 2*p1-p2 + vp2dt2*((1+2*eps)+sd)*nabla_x + vp2dt2*(1+sd)*nabla_z
 
-    with torch.no_grad():
-        pnext = restore_boundaries(pnext, h_bd)
+    # with torch.no_grad():
+    pnext = restore_boundaries(pnext, h_bd)
 
     pnext = src_func(pnext, src_values, 1)
 
@@ -138,8 +138,8 @@ def _time_step_backward_multiple(*args, **kwargs):
     # 10.1190/geo2022-0292.1 EQ(22)
     pnext = 2*p1-p2 + vp2dt2*((1+2*eps)+sd)*nabla_x + vp2dt2*(1+sd)*nabla_z
 
-    with torch.no_grad():
-        pnext = restore_boundaries(pnext, h_bd, multiple=True)
+    # with torch.no_grad():
+    pnext = restore_boundaries(pnext, h_bd, multiple=True)
 
     pnext = src_func(pnext, src_values, 1)
 

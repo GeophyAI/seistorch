@@ -57,7 +57,7 @@ geom:
     rvp: ./velocity/true_mvp.npy
     rvs: ./velocity/true_mvs.npy
 
-    #/mnt/data/wangsw/inversion/marmousi_10m/data//velocity/q_const.npy
+    
 
   sources: ./geometry/sources.pkl
 

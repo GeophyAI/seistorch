@@ -43,7 +43,7 @@ geom:
     vp: ./velocity_model/vp.npy
     vs:
     Q: ./velocity_model/Q.npy
-    #/mnt/data/wangsw/inversion/marmousi_10m/data//velocity/q_const.npy
+    
 
   sources: ./geometry/sources.pkl
 

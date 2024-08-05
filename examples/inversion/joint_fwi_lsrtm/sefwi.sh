@@ -1,0 +1,11 @@
+python ../../../codingfwi.py configs/inversion.yml \
+--gpuid 0 \
+--opt adam \
+--loss vp=l2 rx=l2 rz=l2 \
+--mode inversion \
+--batchsize 10 \
+--lr vp=10.0 rx=0.0002 rz=0.0002 \
+--save-path ./results \
+--checkpoint ./none \
+--grad-cut \
+--use-cuda

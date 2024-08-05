@@ -151,8 +151,8 @@ def _time_step_backward_multiple(*args, **kwargs):
     # amplitude
     y -= (dt**2*t*vp/2)*temp
 
-    with torch.no_grad():
-        y = restore_boundaries(y, h_bd, multiple=True)
+    # with torch.no_grad():
+    y = restore_boundaries(y, h_bd, multiple=True)
     
     y = src_func(y, src_values, 1)
 
@@ -196,8 +196,8 @@ def _time_step_backward(*args, **kwargs):
     # amplitude
     y -= (dt**2*t*vp/2)*temp
 
-    with torch.no_grad():
-        y = restore_boundaries(y, h_bd)
+    # with torch.no_grad():
+    y = restore_boundaries(y, h_bd)
     
     y = src_func(y, src_values, 1)
 

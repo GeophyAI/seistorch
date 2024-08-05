@@ -47,7 +47,7 @@ geom:
     c55: ./velocity_model/c55.npy
     c15: ./velocity_model/c15.npy
     c35: ./velocity_model/c35.npy
-    #/mnt/data/wangsw/inversion/marmousi_10m/data//velocity/q_const.npy
+    
 
   sources: ./geometry/sources.pkl
 

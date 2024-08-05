@@ -18,7 +18,7 @@ def _laplacian(y, h, kernel):
     return conv2d(y, operator, padding=padding).squeeze(1)
 
 def gradient(y, h, kernel):
-    operator = h ** (-1) * kernel.to(y.device)
+    operator = (2*h) ** (-1) * kernel.to(y.device)
     y = y.unsqueeze(1)
     return conv2d(y, operator, padding=padding).squeeze(1)
 

@@ -7,8 +7,8 @@ from yaml import CLoader as Loader
 """ 
 Configures
 """
-config_path = "./configs/acoustic.yml"
-obsPath = "./shot_gather_acoustic.npy"
+config_path = "./configs/acoustic_rho.yml"
+obsPath = "./shot_gather_acoustic_rho.npy"
 
 # Load the configure file
 with open(config_path, 'r') as ymlfile:

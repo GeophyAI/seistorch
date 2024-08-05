@@ -50,9 +50,9 @@ def _time_step_backward(*args, **kwargs):
     vp2_nabla_sh0 = vp**2*_laplacian(sh1, h)
     sh0 = 2*sh1-sh2 + vp2_nabla_sh0*dt**2 + m*vp2_nabla_p0*dt**2
 
-    with torch.no_grad():
-        p0 = restore_boundaries(p0, h_bd)
-        sh0 = restore_boundaries(sh0, sh_bd)
+    # with torch.no_grad():
+    p0 = restore_boundaries(p0, h_bd)
+    sh0 = restore_boundaries(sh0, sh_bd)
 
     p0 = src_func(p0, src_values, 1)
 
@@ -77,9 +77,9 @@ def _time_step_backward_multiple(*args, **kwargs):
     vp2_nabla_sh0 = vp**2*_laplacian(sh1, h)
     sh0 = 2*sh1-sh2 + vp2_nabla_sh0*dt**2 + m*vp2_nabla_p0*dt**2
 
-    with torch.no_grad():
-        p0 = restore_boundaries(p0, h_bd, multiple=True)
-        sh0 = restore_boundaries(sh0, sh_bd, multiple=True)
+    # with torch.no_grad():
+    p0 = restore_boundaries(p0, h_bd, multiple=True)
+    sh0 = restore_boundaries(sh0, sh_bd, multiple=True)
 
     p0 = src_func(p0, src_values, 1)
 

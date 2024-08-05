@@ -8,13 +8,15 @@ class Parameters:
         paras = {"aec":          ["vp", "vs", "rho"], 
                  "acoustic":     ["vp"],
                  "acoustic_habc": ["vp"],
+                 "acoustic_rho_habc": ["vp", "rho"],
+                 "acoustic_fwim_habc": ["vp", "rx", "rz"],
+                 "acoustic_lsrtm_habc": ["vp", "m"],
+                 "acoustic1st":  ["vp", "rho"],
                  "decouple":     ["vp", "vs", "rho"],
                  "elastic":      ["vp", "vs", "rho"],
                  "elastic_lsrtm": ["vp", "vs", "rho", "rvp", "rvs", "rrho"],
-                 "acoustic1st":  ["vp", "rho"],
                  "viscoacoustic": ["vp", "rho", "Q"],
                  "vacoustic_habc": ["vp", "Q"],
-                 "acoustic_lsrtm_habc": ["vp", "m"],
                  "vti_habc": ["vp", "epsilon", "delta"], 
                  "vti_habc2": ["vp", "epsilon", "delta"],
                  "vdr":  ["vp", "vs", "rho"], 
@@ -29,9 +31,11 @@ class Parameters:
     def secondorder_equations():
         return ['acoustic', 
                 'acoustic_habc', 
+                'acoustic_rho_habc',
                 'vacoustic_habc', 
                 'vti_habc2',
                 'acoustic_lsrtm_habc', 
+                'acoustic_fwim_habc',
                 'tti_habc']
 
 class Wavefield:
@@ -45,6 +49,10 @@ class Wavefield:
     def acoustic(self,):
         return ["h1", "h2"]
     
+    @property
+    def acoustic_rho_habc(self,):
+        return ["h1", "h2"]
+
     @property
     def acoustic1st(self,):
         return ["vx", "vz", "p"]
@@ -60,6 +68,10 @@ class Wavefield:
     @property
     def aec(self,):
         return ["p", "vx", "vz", "txx", "tzz", "txz"]
+    
+    @property
+    def acoustic_fwim_habc(self,):
+        return ["h1", "h2"]
     
     @property
     def decouple(self,):

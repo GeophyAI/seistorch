@@ -68,7 +68,7 @@ def generate_convolution_kernel(spatial_order, direction='all', nocenter=False):
 
 
 spatial_order = 2
-device = "cuda"
+device = "cuda" if torch.cuda.is_available() else Exception("No cuda device found")
 kernel = generate_convolution_kernel(spatial_order).unsqueeze(0).unsqueeze(0).to(device)
 kernelx = generate_convolution_kernel(spatial_order, direction='x').unsqueeze(0).unsqueeze(0).to(device)
 kernely = generate_convolution_kernel(spatial_order, direction='y').unsqueeze(0).unsqueeze(0).to(device)
@@ -76,5 +76,17 @@ kernely = generate_convolution_kernel(spatial_order, direction='y').unsqueeze(0)
 # kernely_nc = generate_convolution_kernel(spatial_order, direction='y', nocenter=True).unsqueeze(0).unsqueeze(0).to(device)
 kernelx_nc = torch.tensor([[[[0.0, 0.0, 0.0], [-1.0, 0.0, 1.0], [0.0, 0.0, 0.0]]]]).to(device)
 kernely_nc = torch.tensor([[[[0.0, -1.0, 0.0], [0.0, 0.0, 0.0], [0.0, 1.0, 0.0]]]]).to(device)
+
+kernelx_gc_pos = torch.tensor([[[[0.0, 0.0, 0.0], [0.0, -1.0, 1.0], [0.0, 0.0, 0.0]]]]).to(device)
+kernelx_gc_neg = torch.tensor([[[[0.0, 0.0, 0.0], [-1.0, 1.0, 0.0], [0.0, 0.0, 0.0]]]]).to(device)
+
+kernely_gc_pos = torch.tensor([[[[0.0, 0.0, 0.0], [0.0, -1.0, 0.0], [0.0, 1.0, 0.0]]]]).to(device)
+kernely_gc_neg = torch.tensor([[[[0.0, -1.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 0.0]]]]).to(device)
+
+kernelx_gc_pos2 = torch.tensor([[[[0.0, 0.0, 0.0], [0.0, 1.0, 1.0], [0.0, 0.0, 0.0]]]]).to(device)
+kernelx_gc_neg2 = torch.tensor([[[[0.0, 0.0, 0.0], [1.0, 1.0, 0.0], [0.0, 0.0, 0.0]]]]).to(device)
+
+kernely_gc_pos2 = torch.tensor([[[[0.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 1.0, 0.0]]]]).to(device)
+kernely_gc_neg2 = torch.tensor([[[[0.0, 1.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 0.0]]]]).to(device)
 
 padding = kernel.shape[-1]//2
