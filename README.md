@@ -14,26 +14,28 @@ From this version, seistorch will use 'torchrun' to perform distributed full wav
 | Traditional | Codes | Related Papers | Notes |
 | :----------- | ----------- | :-----------: | :----- |
 |FWI by Pytorch|[click](examples/sthelse)|-|Stand alone|
-|Simulations|[click](examples/forward_modeling/different_eq)|[10.1109/TGRS.2023.3317529](https://doi.org/10.1109/TGRS.2023.3317529)|Seistorch|
-|Acoustic LSRTM|[click](examples/lsrtm)|[10.1190/1.3513494](https://doi.org/10.1190/1.3513494)|Seistorch|
-|Elastic LSRTM|[click](examples/lsrtm)|[10.1190/geo2016-0254.1](https://doi.org/10.1190/geo2016-0254.1)|Seistorch|
+|Simulations|[click](examples/forward_modeling/different_eq)|[Wang et al., 2023](https://doi.org/10.1109/TGRS.2023.3317529)|Seistorch|
+|Acoustic LSRTM|[click](examples/lsrtm)|[Dai et al., 2010](https://doi.org/10.1190/1.3513494)|Seistorch|
+|Elastic LSRTM|[click](examples/lsrtm)|[Feng & Schuster, 2017](https://doi.org/10.1190/geo2016-0254.1)|Seistorch|
 |Acoustic FWI|[click](examples/inversion/source_encoding/acoustic)|-|Seistorch, Source Encoding|
 |Elastic FWI|[click](examples/inversion/source_encoding/elastic)|-|Seistorch|
-|Joint FWI&LSRTM|[click](examples/inversion/joint_fwi_lsrtm)|[10.1109/TGRS.2024.3349608](https://doi.org/10.1109/TGRS.2024.3349608)|Seistorch|
+|Joint FWI&LSRTM|[click](examples/inversion/joint_fwi_lsrtm)|[Wu et al., 2024](https://doi.org/10.1109/TGRS.2024.3349608)|Seistorch|
 ### Inversion with Neural Networks
 | FWI+NeuralNetworks | Codes | Related Papers | Notes |
 | :----------- | ----------- | :-----------: | :----- |
-|PINN|[click](examples/pinn)|[10.1029/2021JB023120](https://doi.org/10.1029/2021JB023120)|Stand alone|
-|Model Reparameterization|[click](examples/check_features/implicitNN)|[10.1029/2022JB025964](https://doi.org/10.1029/2022JB025964)|Stand alone|
-|Siamese FWI|[click](examples/nn_embedded_fwi/siamesefwi)|[10.1029/2024JH000227](https://doi.org/10.1029/2024JH000227)|Stand alone|
+|PINN|[click](examples/pinn)|[Majid et al., 2022](https://doi.org/10.1029/2021JB023120)|Stand alone|
+|Implicit FWI|[click](examples/nn_embedded_fwi/model_representation/implicit_acoustic)|[Sun et al., 2023](https://doi.org/10.1029/2022JB025964)|Stand alone <br> Model Reparameterization(Acoustic)|
+|Elastic Parameters decouple|[click](examples/nn_embedded_fwi/model_representation/implicit_elastic)|-|Stand alone <br> Model Reparameterization(Elastic)|
+|Siamese FWI|[click](examples/nn_embedded_fwi/siamesefwi)|[Omar et al., 2024](https://doi.org/10.1029/2024JH000227)|Stand alone|
 ### Misfit functions
 | Misfits | Examples | Related Papers | Notes |
 | :----------- | ----------- | :-----------: | :----- |
-|Optimal Transport|[click](examples/inversion/misfits/ot)|[10.1029/2022JB025493](https://doi.org/10.1029/2022JB025493)<br>[10.1190/GEO2017-0264.1](https://doi.org/10.1190/GEO2017-0264.1)|-|
-|Envelope|[click](examples/inversion/misfits/envelope)|[10.1016/j.jappgeo.2014.07.010](https://doi.org/10.1016/j.jappgeo.2014.07.010)|-|
-|Traveltime|[click](examples/inversion/misfits/travel_time_misfit)|[10.3997/2214-4609.202410170](https://doi.org/10.3997/2214-4609.202410170)|Differentiable|
-|Cosine Similarity|[click](examples/inversion/misfits/cs)|[10.1111/j.1365-2478.2012.01079.x](https://doi.org/10.1111/j.1365-2478.2012.01079.x)<br>[10.1093/gji/ggw485](https://doi.org/10.1093/gji/ggw485)<br>|Global correlation<br>Normalized zero-lag cross-correlation|
+|Optimal Transport|[click](examples/inversion/misfits/ot)|[Yang & Ma, 2023](https://doi.org/10.1029/2022JB025493)<br>[Yang & Enguist](https://doi.org/10.1190/GEO2017-0264.1)|-|
+|Envelope|[click](examples/inversion/misfits/envelope)|[Chi et al., 2014](https://doi.org/10.1016/j.jappgeo.2014.07.010) <br> [Wu et al., 2014](https://doi.org/10.1190/GEO2013-0294.1)|-|
+|Traveltime|[click](examples/inversion/misfits/travel_time_misfit)|[Wang et al., 2024](https://doi.org/10.3997/2214-4609.202410170)|Differentiable|
+|Cosine Similarity|[click](examples/inversion/misfits/cs)|[Choi & Alkhalifah, 2012](https://doi.org/10.1111/j.1365-2478.2012.01079.x)<br>[Liu et al., 2016](https://doi.org/10.1093/gji/ggw485)<br>|Global correlation<br>Normalized zero-lag cross-correlation|
 |L1|[click](examples/inversion/misfits/l1)|||
+|Local coherence|[click](examples/inversion/misfits/localcoherence)|[Yu et al., 2023](https://doi.org/10.1109/TGRS.2023.3263501)||
 # New features:
 | Type | New | Old |
 | :----------- | ----------- | :-----------: |
@@ -45,24 +47,29 @@ From this version, seistorch will use 'torchrun' to perform distributed full wav
 
 # Supported equations
 
-| EQUATIONS | USAGE | REFERENCES|
-| :-------------- | :-----------: | :------------------|
-| Scalar Acoustic (2nd) | FWI | * |
-| Scalar Acoustic (2nd) | LSRTM | 10.1190/1.3513494 |
-| Acoustic (1st) | FWI | * |
-|Variable Density (2nd)| FWI | * |
-| Joint FWI & LSRTM|FWI+LSRTM |10.1109/TGRS.2024.3349608|
-| qP VTI (2nd) | FWI | 10.1190/geo2022-0292.1 |
-| qP TTI (2nd) | FWI | 10.1190/geo2022-0292.1 |
-| ViscoAcoustic  (2nd) | FWI | 10.3997/2214-4609.201601578 |
-| ViscoAcoustic2  (2nd) | FWI | 10.3997/2214-4609.201402310 |
-| Elastic (1st)   | FWI | 10.1190/1.1442147 |
-| Elastic (1st)   | LSRTM | 10.1190/geo2016-0254.1 |
-| TTI-Elastic (1st)  | FWI | * |
-| Acoustic-Elastic coupled (1st) | FWI | 10.1190/geo2015-0535.1 |
-| Velocity-Dilatation-Rotation (1st) | FWI | 10.1190/geo2016-0245.1 | 
+| EQUATIONS | USAGE | REFERENCES| EQUATION CODES |
+| :-------------- | :-----------: | :------------------| :-----------: |
+| Scalar Acoustic (2nd) | FWI | * | [PML version](seistorch/equations2d/acoustic.py) <br> [HABC version](seistorch/equations2d/acoustic_habc.py) |
+| Scalar Acoustic (2nd) | LSRTM | [Dai et al., 2010](https://doi.org/10.1190/1.3513494) | [click](seistorch/equations2d/acoustic_habc.py) |
+| Acoustic (1st) | FWI | * | [click](/root/seistorch/seistorch/equations2d/acoustic1st.py) |
+|Variable Density (2nd)| FWI | [Whitmore et al., 2020](https://doi.org/10.3997/2214-4609.202010332) | [click](seistorch/equations2d/acoustic_rho_habc.py) |
+| Joint FWI & LSRTM| FWI+LSRTM | [Wu et al., 2024](https://doi.org/10.1109/TGRS.2024.3349608) | [click](seistorch/equations2d/acoustic_fwim_habc.py) |
+| qP VTI (2nd) | FWI | [Liang et al., 2024](https://doi.org/10.1190/geo2022-0292.1) | [click](seistorch/equations2d/tti_habc.py) |
+| qP TTI (2nd) | FWI | [Liang et al., 2024](https://doi.org/10.1190/geo2022-0292.1) | [click](seistorch/equations2d/vti_habc2.py) |
+| ViscoAcoustic  (2nd) | FWI | [Li et al., 2016](https://doi.org/10.3997/2214-4609.201601578) | [click](seistorch/equations2d/vacoustic_habc.py) |
+| VTI  (2nd) | FWI | [Zhou et al., 2006](https://doi.org/10.3997/2214-4609.201402310) | [click](seistorch/equations2d/vti_habc.py) |
+| Elastic (1st)   | FWI | [Virieux, 1986](https://doi.org/10.1190/1.1442147) | [click](seistorch/equations2d/elastic.py) |
+| Elastic (1st)   | LSRTM | [Feng & Schuster, 2017](https://doi.org/10.1190/geo2016-0254.1) | [click](seistorch/equations2d/elastic_lsrtm.py) |
+| TTI-Elastic (1st)  | FWI | * | [click](seistorch/equations2d/ttielastic.py) |
+| Acoustic-Elastic coupled (1st) | FWI | [Yu et al., 2016](https://doi.org/10.1190/geo2015-0535.1) | [click](seistorch/equations2d/aec.py) |
+| Velocity-Dilatation-Rotation (1st) | FWI | [Tang et al., 2016](https://doi.org/10.1190/geo2016-0245.1) | [click](seistorch/equations2d/vdr.py) |
 
 Note: 2nd means displacement equations, 1st means velocity-stress equations.
+
+# To do list
+- [SH- and Love-wave FWI(Dokter et al., 2017)](https://doi.org/10.1111/1365-2478.12549)
+- [Local-Coherence misfit(Yu et al., 2023)](https://doi.org/10.1109/TGRS.2023.3263501)[Done on 2024.08.08]
+
 
 # Citation
 

@@ -1,8 +1,8 @@
-import torch, tqdm
+import torch
 import numpy as np
 import matplotlib.pyplot as plt
-from torch import nn
-from torch.nn import functional as F
+import os
+import pickle   
 
 def imshow(data, vmin=None, vmax=None, cmap=None, figsize=(10, 10)):
     plt.figure(figsize=figsize)
@@ -10,52 +10,32 @@ def imshow(data, vmin=None, vmax=None, cmap=None, figsize=(10, 10)):
     plt.colorbar()
     plt.show()
 
-def generate_mesh(mshape, dh=1):
-    '''Generates a flattened grid of (x,y,...) coordinates in a range of -1 to 1.
-    sidelen: int
-    dim: int'''
-    tensors_for_meshgrid = []
-    for size in mshape:
-        tensors_for_meshgrid.append(torch.linspace(-1, 1, steps=size))
-        # tensors_for_meshgrid.append(torch.linspace(0, size*dh/1000, steps=size))
-    mgrid = torch.stack(torch.meshgrid(*tensors_for_meshgrid, indexing='ij'), dim=-1)
-    mgrid = mgrid.reshape(-1, len(mshape))
-    return mgrid
-
 def show_gathers(rec, size=3, figsize=(8, 5), savepath=''):
     randno = np.random.randint(0, rec.shape[0], size=size)
     fig,axes=plt.subplots(1, randno.shape[0], figsize=figsize)
+
+    if size==1:
+        axes=[axes]
+
     for i, ax in enumerate(axes):
-        vmin,vmax=np.percentile(rec[i], [2, 98])
+        vmin,vmax=np.percentile(rec[i], [1, 99])
         kwargs=dict(vmin=vmin, vmax=vmax, cmap="seismic", aspect="auto")
         ax.imshow(rec[randno[i]], **kwargs)
         ax.set_title(f"shot {randno[i]}")
     plt.tight_layout()
     if savepath:
-        plt.savefig(savepath, dpi=300)
+        plt.savefig(savepath, dpi=300, bbox_inches="tight")
     plt.show()
 
-def showgeom(vel, src_loc, rec_loc, figsize=(10, 10)):
+def showgeom(vel, src_loc, rec_loc, figsize=(10, 10), savepath=''):
     plt.figure(figsize=figsize)
     plt.imshow(vel, vmin=vel.min(), vmax=vel.max(), cmap="seismic", aspect="auto")
     plt.colorbar()
     plt.scatter(*zip(*src_loc), c="r", marker="v", s=100, label="src")
     plt.scatter(*zip(*rec_loc), c="b", marker="^", s=10, label="rec")
     plt.legend()
-    plt.show()
-
-def show_freq_spectrum(data, dt=0.001, end_freq=25, title='Frequency Spectrum'):
-    plt.figure(figsize=(5, 3))
-    freqs = np.fft.fftfreq(data.shape[0], dt)
-    amp = np.sum(np.abs(np.fft.fft(data, axis=0)), axis=(1,2))
-    freqs = freqs[:len(freqs)//2]
-    amp = amp[:len(amp)//2]
-    amp = amp[freqs<end_freq]
-    freqs = freqs[freqs<end_freq]
-    plt.plot(freqs, amp)
-    plt.xlabel("Frequency (Hz)")
-    plt.ylabel("Amplitude")
-    plt.title(title)
+    if savepath:
+        plt.savefig(savepath, dpi=300, bbox_inches="tight")
     plt.show()
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -158,68 +138,7 @@ def _corners(domain_shape, abs_N, d, dx, dy, multiple=False):
 
     return d
 
-# class SiameseCNN(nn.Module):
-#     def __init__(self):
-#         super(SiameseCNN, self).__init__()
-#         self.conv_layers = nn.ModuleList([
-#             nn.Conv2d(1, 4, kernel_size=3, padding=1),
-#             # nn.Conv2d(1, 1, kernel_size=3, padding=1),
-#             # nn.Conv2d(2, 4, kernel_size=3, padding=1),
-#             # nn.Conv2d(4, 4, kernel_size=3, padding=1),
-#             # nn.Conv2d(4, 2, kernel_size=3, padding=1),
-#             nn.Conv2d(4, 4, kernel_size=3, padding=1)
-#         ])
-#         self.skip_layers = nn.ModuleList([
-#             nn.Conv2d(1, 4, kernel_size=3, padding=1),
-#             # nn.Conv2d(1, 2, kernel_size=3, padding=1),
-#             # nn.Conv2d(1, 4, kernel_size=3, padding=1),
-#             # nn.Conv2d(1, 4, kernel_size=3, padding=1),
-#             # nn.Conv2d(1, 1, kernel_size=3, padding=1),
-#             nn.Conv2d(1, 4, kernel_size=3, padding=1)
-#         ])
-        
-
-#     def forward(self, x):
-#         xin = x.clone()
-#         # for idx in range(len(self.conv_layers)-1):
-#         #     x1 = self.conv_layers[idx](x)
-#         #     x1 = F.leaky_relu(x1)
-#         #     x2 = self.skip_layers[idx](xin)
-#         #     x2 = F.leaky_relu(x2)
-#         #     x = x1 + x2
-#         # x = self.conv_layers[-1](x) + self.skip_layers[-1](xin)
-#         for idx in range(len(self.conv_layers)-1):
-#             x = self.conv_layers[idx](x)
-#             x = F.relu(x)
-#         x = self.conv_layers[-1](x) + self.skip_layers[-1](xin)
-#         return x
-
-class SiameseCNN(nn.Module):
-    def __init__(self, init='kaiming'):
-        super(SiameseCNN, self).__init__()
-        self.conv_layers = nn.ModuleList([
-            nn.Conv2d(1, 4, kernel_size=3, padding=1),
-            nn.Conv2d(4, 1, kernel_size=3, padding=1),
-        ])
-        # initialize weights
-        # initialize weights
-        if init == 'kaiming':
-            for conv in self.conv_layers:
-                nn.init.kaiming_normal_(conv.weight.data)
-        elif init == 'xavier':
-            for conv in self.conv_layers:
-                nn.init.xavier_normal_(conv.weight.data)
-        elif init == 'normal':
-            for conv in self.conv_layers:
-                nn.init.normal_(conv.weight.data)
-        else:
-            raise NotImplementedError
-
-    def forward(self, x):
-        for idx in range(len(self.conv_layers)-1):
-            x = self.conv_layers[idx](x)
-            x = nn.MaxPool2d(2, stride=2)(x)
-            x = F.relu(x)
-        x = self.conv_layers[-1](x)
-        return x
-    
+def write_pkl(path: str, data: list):
+    # Open the file in binary mode and write the list using pickle
+    with open(path, 'wb') as f:
+        pickle.dump(data, f)

@@ -69,12 +69,12 @@ def forward(wave, c, b, src_list, domain, dt, h, dev, recz=0, pmln=50):
     nt = wave.shape[0]
     nz, nx = domain
     nshots = len(src_list)
-    u_pre = torch.zeros(nshots, 1, *domain).to(dev)
-    u_now = torch.zeros(nshots, 1, *domain).to(dev)
-    rec = torch.zeros(nshots, nt, nx-2*pmln).to(dev)
+    u_pre = torch.zeros(nshots, 1, *domain, device=dev)
+    u_now = torch.zeros(nshots, 1, *domain, device=dev)
+    rec = torch.zeros(nshots, nt, nx-2*pmln, device=dev)
     b = b.unsqueeze(0).to(dev)
     c = c.unsqueeze(0)
-    shots = torch.arange(nshots).to(dev)
+    shots = torch.arange(nshots, device=dev)
     srcx, srcz = zip(*src_list)
 
     h = torch.Tensor([h]).to(dev)

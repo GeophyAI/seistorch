@@ -20,6 +20,6 @@ recz = 5+pmln # grid point
 vmin = 1000.
 vmax = 5500.
 lr_vel = 20.
-lr_cnn = 0.001
+lr_cnn = 0.000
 EPOCHS = 200
 show_every = 10

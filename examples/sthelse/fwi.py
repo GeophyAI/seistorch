@@ -1,11 +1,14 @@
 import torch
+
+torch.cuda.cudnn_enabled = True
+torch.backends.cudnn.benchmark = True
+
 import numpy as np
 import matplotlib.pyplot as plt
 from utils import *
 
 dev = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-torch.cuda.cudnn_enabled = True
-torch.backends.cudnn.benchmark = True
+
 # configure
 model_scale = 2 # 1/2
 expand = 50
@@ -22,7 +25,7 @@ recz = 5+pmln # grid point
 # Training
 criterion = torch.nn.MSELoss()
 lr = 10.
-epochs = 200
+epochs = 20
 
 # Load velocity
 vel = np.load("../models/marmousi_model/true_vp.npy")
@@ -63,7 +66,7 @@ reczs = (np.ones_like(recxs) * recz).tolist()
 rec_loc = list(zip(recxs, reczs))
 
 # show geometry
-showgeom(vel[pmln:-pmln,pmln:-pmln], src_loc, rec_loc, figsize=(5, 4))
+showgeom(vel, src_loc, rec_loc, figsize=(5, 4))
 print(f"The number of sources: {len(src_loc)}")
 print(f"The number of receivers: {len(rec_loc)}")
 

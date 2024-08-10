@@ -7,7 +7,8 @@ import torch.nn.functional as F
 from seistorch.signal import differentiable_trvaletime_difference as dtd
 from geomloss import SamplesLoss
 from seistorch.transform import *
-
+from torchvision.transforms.functional import gaussian_blur
+from seistorch.signal import local_coherence as lc
 # try:
 #     from torchvision.models import vgg19
 # except:
@@ -302,6 +303,46 @@ class L2(torch.nn.Module):
         loss = 0.
         for _x, _y in zip(x, y):
             loss += torch.nn.MSELoss(reduction='sum')(_x, _y)
+        return loss
+
+class LocalCoherence(torch.nn.Module):
+    def __init__(self, wt=101, wx=11, sigma_tau=21.0, sigma_hx=11.0):
+        super(LocalCoherence, self).__init__()
+        self.wt = wt
+        self.wx = wx
+        self.sigma_tau = sigma_tau
+        self.sigma_hx = sigma_hx
+        self.half_window_tau = wt // 2
+        self.half_window_hx = wx // 2
+        self.gaussian_kernel = self.create_gaussian_kernel(wt, wx, sigma_tau, sigma_hx)
+        self.average_kernel = self.create_average_kernel(wt, wx)
+
+    @property
+    def name(self,):
+        return "lc"
+
+    def create_gaussian_kernel(self, wt, wx, sigma_tau, sigma_hx):
+        """Create a 2D Gaussian kernel."""
+        xx = torch.arange(wt)-wt//2
+        yy = torch.arange(wx)-wx//2
+        kernel_T = torch.exp(- (xx**2 / (2*sigma_tau**2)))
+        kernel_X = torch.exp(- (yy**2 / (2*sigma_hx**2)))
+        kernel_T = kernel_T / kernel_T.sum()
+        kernel_X = kernel_X / kernel_X.sum()
+        window = kernel_T.unsqueeze(1).mm(kernel_X.t().unsqueeze(0))
+        return window.view(1, 1, wt, wx).to(torch.float32)
+
+    def create_average_kernel(self, wt, wx):
+        """Create a 2D average kernel."""
+        kernel = torch.ones(wt, wx) / (wt * wx)
+        return kernel.view(1, 1, wt, wx).to(torch.float32)
+    
+    def forward(self, x, y):
+        
+        cs = lc(x, y, wt=self.wt, wx=self.wx, sigma_tau=self.sigma_tau, sigma_hx=self.sigma_hx)
+
+        loss = (1 - cs).mean()
+        
         return loss
 
 class NormalizedIntegrationMethod(torch.nn.Module):

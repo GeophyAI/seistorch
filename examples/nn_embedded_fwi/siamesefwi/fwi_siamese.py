@@ -9,6 +9,8 @@ torch.backends.cudnn.benchmark = True
 torch.manual_seed(seed)
 # Load velocity
 vel = np.load("../../models/marmousi_model/linear_vp.npy")
+true = np.load("../../models/marmousi_model/true_vp.npy")
+true = true[:, expand:-expand][::model_scale, ::model_scale]
 vel = vel[:, expand:-expand][::model_scale, ::model_scale]
 vel = np.pad(vel, ((pmln, pmln), (pmln, pmln)), mode="edge")
 pmlc = generate_pml_coefficients_2d(vel.shape, N=pmln, multiple=False)
@@ -34,6 +36,7 @@ sources = [[src_x, src_z] for src_x, src_z in zip(src_x.tolist(), src_z.tolist()
 obs = np.load("obs.npy")
 obs = torch.from_numpy(obs).float().to(dev)
 LOSS = []
+MERROR = []
 kwargs = dict(wave=wave, b=pmlc, src_list = np.array(sources), domain=domain, dt=dt, h=dh, dev=dev, recz=recz, pmln=pmln)
 kwargs_imshow = dict(vmin=vmin, vmax=vmax, aspect='auto', cmap='seismic', extent=[0, (nx-2*pmln)*dh, (nz-2*pmln)*dh, 0])
 for epoch in tqdm.trange(EPOCHS):
@@ -52,7 +55,8 @@ for epoch in tqdm.trange(EPOCHS):
     vel.grad[:water_grid] = 0.
     opt.step()
     LOSS.append(loss.item())
-
+    inverted = vel.cpu().detach().numpy()[pmln:-pmln, pmln:-pmln]
+    MERROR.append(np.sum((true - inverted)**2))
     if epoch % show_every == 0: 
 
         latent_obs = latent_obs.detach().cpu().numpy().squeeze()
@@ -96,7 +100,6 @@ for epoch in tqdm.trange(EPOCHS):
         # plt.show()
 
         print(f"Epoch: {epoch}, Loss: {loss.item()}")
-        inverted = vel.cpu().detach().numpy()[pmln:-pmln, pmln:-pmln]
         plt.imshow(inverted, **kwargs_imshow)
         plt.show()
 
@@ -107,4 +110,4 @@ plt.show()
 
 torch.save(siamese, "siamese.pth")
 np.save("inverted_by_siamese.npy", vel.cpu().detach().numpy()[pmln:-pmln, pmln:-pmln])
-
+np.save("model_error_by_siamese.npy", np.array(MERROR))

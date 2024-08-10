@@ -15,7 +15,6 @@ def highpass(data, dt=0.001, freqs=[2,5], forder=3, btype='highpass', axis=1):
     return filtered_data
 
 
-
 def show_freq_spectrum(data, dt=0.001, end_freq=25, title='Frequency Spectrum'):
     plt.figure(figsize=(5, 3))
     freqs = np.fft.fftfreq(data.shape[1], dt)
@@ -48,6 +47,5 @@ vmin, vmax = np.percentile(filtered_data[0], [1, 99])
 plt.imshow(filtered_data[0], vmin=vmin, vmax=vmax, aspect='auto', cmap='seismic')
 plt.title('Filtered Data')
 plt.show()
-
 
 np.save("obs_filtered.npy", filtered_data)

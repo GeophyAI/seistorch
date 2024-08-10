@@ -5,6 +5,7 @@ from scipy import signal
 from joblib import Parallel, delayed
 from scipy.integrate import cumulative_trapezoid
 from torchaudio.functional import filtfilt
+from torchvision.transforms.functional import gaussian_blur
 
 class SeisSignal:
 
@@ -197,6 +198,24 @@ def batch_sta_lta_torch(traces, sta_len, lta_len, threshold_on=0.5, threshold_of
 
     return fa_time.squeeze().int()
 
+def differentiable_trvaletime_difference(input, beta=1):
+    *_, n = input.shape
+    input = F.softmax(beta * input, dim=-1)
+    indices = torch.linspace(0, 1, n).to(input.device)
+    result = torch.sum((n - 1) * input * indices, dim=-1)
+    return result
+
+def filter(data, dt=0.001, freqs=[2,5], forder=3, btype='highpass', axis=1):
+      
+    wn = [2*freq/(1/dt) for freq in list(freqs)]
+    wn = wn[0] if len(wn)==1 else wn
+
+    # call _filter_
+    b, a = signal.butter(forder, Wn=wn, btype=btype)
+
+    filtered_data = signal.filtfilt(b, a, data, axis=axis).astype(np.float32)
+    return filtered_data
+
 def generate_arrival_mask(d, top_win=200, down_win=200):
     mask = torch.zeros_like(d)
     nb, nt, nr, nc = mask.shape
@@ -223,78 +242,6 @@ def generate_arrival_mask_np(d, top_win=200, down_win=200, swin=100, lwin=500, o
             mask[idx, :down, tno] = 1
     return mask
 
-def filter(data, dt=0.001, freqs=[2,5], forder=3, btype='highpass', axis=1):
-      
-    wn = [2*freq/(1/dt) for freq in list(freqs)]
-    wn = wn[0] if len(wn)==1 else wn
-
-    # call _filter_
-    b, a = signal.butter(forder, Wn=wn, btype=btype)
-
-    filtered_data = signal.filtfilt(b, a, data, axis=axis).astype(np.float32)
-    return filtered_data
-# def gaussian_filter(input_tensor, sigma, radius, axis=-1):
-#     """
-#     Function that applies Gaussian filter to a tensor along a given axis.
-
-#     Args:
-#     - input_tensor: Input tensor
-#     - sigma: Standard deviation of the Gaussian filter
-#     - radius: Radius of the Gaussian filter
-#     - axis: Axis along which the Gaussian filter is applied
-
-#     Returns:
-#     - output_tensor: Output tensor
-#     """
-#     dev = input_tensor.device
-#     ndim = input_tensor.ndim
-#     # chech odd or even
-#     if radius % 2 == 0:
-#         kernel_size = radius+1
-#     else:
-#         kernel_size = radius
-
-#     # Generate the Gaussian kernel
-#     kernel = torch.tensor(
-#         np.exp(-(np.arange(kernel_size) - kernel_size // 2)**2 / (2 * sigma**2)),
-#         dtype=torch.float32,
-#         device=dev,
-#     )
-#     kernel = kernel / kernel.sum()
-
-#     # Reshape the kernel
-#     kernel = kernel.view(1, 1, -1)
-
-#     # Pad the input tensor
-#     padding = kernel_size // 2
-
-#     # Apply the Gaussian filter
-#     if ndim == 1:
-#         result = F.conv1d(input_tensor.unsqueeze(0).unsqueeze(0), kernel, padding=padding, stride=1)
-#     elif ndim == 2:
-#         if axis == 0:
-#             kernel = kernel.view(1, 1, -1, 1)
-#             padding = (padding, 0)
-#         elif axis == 1:
-#             kernel = kernel.view(1, 1, 1, -1)
-#             padding = (0, padding)
-#         result = F.conv2d(input_tensor.unsqueeze(0).unsqueeze(0), kernel, padding=padding, stride=1)
-#     elif ndim == 3:
-#         if axis == 0:
-#             kernel = kernel.view(1, 1, 1, -1, 1)
-#             padding = (0, padding, 0)
-#         elif axis == 1:
-#             kernel = kernel.view(1, 1, 1, 1, -1)
-#             padding = (0, 0, padding)
-#         elif axis == 2:
-#             kernel = kernel.view(1, 1, -1, 1, 1)
-#             padding = (padding, 0, 0)
-#         result = F.conv3d(input_tensor.unsqueeze(0).unsqueeze(0), kernel, padding=padding, stride=1)
-#     else:
-#         raise ValueError("Unsupported number of dimensions. Only 1D, 2D, and 3D are supported.")
-
-#     return result.squeeze(0).squeeze(0)
-
 def gaussian_filter(input_tensor, sigma, radius, axis=-1):
     """
     Function that applies Gaussian filter to a tensor along a given axis.
@@ -312,9 +259,9 @@ def gaussian_filter(input_tensor, sigma, radius, axis=-1):
     ndim = input_tensor.ndim
     # chech odd or even
     if radius % 2 == 0:
-        kernel_size = radius+1
+        kernel_size = 2*radius+1
     else:
-        kernel_size = radius
+        kernel_size = 2*radius
 
     dev = input_tensor.device
     # Generate the Gaussian kernel
@@ -382,6 +329,58 @@ def generate_mask(fa_time, nt, nr, N):
 
     return mask
 
+def integrate(d):
+    return cumulative_trapezoid(d, dx=1, initial=0)
+
+def local_coherence(x, y, wt=101, wx=11, sigma_tau=21.0, sigma_hx=11.0):
+    """Local coherence between two batched seismic data
+
+    Args:
+        x (torch.Tensor): A torch.Tensor. shape: (batch_size, time_samples, num_traces, num_channels)
+        y (torch.Tensor): Other torch.Tensor with the same shape as x.
+        wt (int, optional): Width of window along time axis. Defaults to 101.
+        wx (int, optional): Width of window along trace axis. Defaults to 11.
+        sigma_tau (float, optional): Sigma of gaussian kernel. Defaults to 21.0.
+        sigma_hx (float, optional): Sigma of gaussian kernel. Defaults to 11.0.
+
+    Returns:
+        Tensor: The local coherence between x and y with shape (batch_size, time_samples, num_traces, channels)
+    """
+    half_window_tau = wt // 2
+    half_window_hx = wx // 2
+    # Permute the tensors to (batch_size, num_channels, time_samples, num_traces)
+    syn = x.permute(0, 3, 1, 2)
+    obs = y.permute(0, 3, 1, 2)
+    
+    # Convolve with Gaussian kernel
+    window_syn = gaussian_blur(syn, (wt, wx), (sigma_tau, sigma_hx))
+    window_obs = gaussian_blur(obs, (wt, wx), (sigma_tau, sigma_hx))
+
+    # Remove the mean
+    # akernel = average_kernel.to(dev)
+    # window_syn = window_syn - F.conv2d(window_syn, akernel, padding=(self.half_window_tau, self.half_window_hx))
+    # window_obs = window_obs - F.conv2d(window_obs, akernel, padding=(self.half_window_tau, self.half_window_hx))
+    
+    # Compute the local coherence
+    # Unfold the tensors to get sliding windows
+    window_syn_unf = F.unfold(window_syn, (wt, wx), padding=(half_window_tau, half_window_hx))
+    window_obs_unf = F.unfold(window_obs, (wt, wx), padding=(half_window_tau, half_window_hx))
+
+    # Compute cosine similarity
+    cs = F.cosine_similarity(window_syn_unf, window_obs_unf, dim=1, eps=1e-8)
+    cs = cs.view(*syn.shape)
+    return cs
+
+
+def normalize_trace_max(d):
+    """Normalize the trace by its maximum value
+
+    Args:
+        d (Tensor): A torch.Tensor.
+    """
+    w = torch.max(torch.abs(d), dim=0, keepdim=True)[0]
+    return d / w
+
 def pick_first_arrivals(d, *args, **kwargs):
     _, ntraces, nchannels = d.shape
     fa_times = []
@@ -422,22 +421,3 @@ def travel_time_diff(x, y, dt=0.001, eps=0):
         return (torch.argmax(cc)-nt+1)*dt
     else:
         return 0
-
-def differentiable_trvaletime_difference(input, beta=1):
-    *_, n = input.shape
-    input = F.softmax(beta * input, dim=-1)
-    indices = torch.linspace(0, 1, n).to(input.device)
-    result = torch.sum((n - 1) * input * indices, dim=-1)
-    return result      
-
-def normalize_trace_max(d):
-    """Normalize the trace by its maximum value
-
-    Args:
-        d (Tensor): A torch.Tensor.
-    """
-    w = torch.max(torch.abs(d), dim=0, keepdim=True)[0]
-    return d / w
-
-def integrate(d):
-    return cumulative_trapezoid(d, dx=1, initial=0)
