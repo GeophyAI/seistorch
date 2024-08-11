@@ -36,6 +36,8 @@ From this version, seistorch will use 'torchrun' to perform distributed full wav
 |Cosine Similarity|[click](examples/inversion/misfits/cs)|[Choi & Alkhalifah, 2012](https://doi.org/10.1111/j.1365-2478.2012.01079.x)<br>[Liu et al., 2016](https://doi.org/10.1093/gji/ggw485)<br>|Global correlation<br>Normalized zero-lag cross-correlation|
 |L1|[click](examples/inversion/misfits/l1)|||
 |Local coherence|[click](examples/inversion/misfits/localcoherence)|[Yu et al., 2023](https://doi.org/10.1109/TGRS.2023.3263501)||
+|Instantaneous Phase|[click](examples/inversion/misfits/ip)|[Bozdag et al., 2011](https://doi.org/10.1111/j.1365246X.2011.04970.x) <br> [Yuan et al., 2020](https://doi.org/10.1093/gji/ggaa063)||
+
 # New features:
 | Type | New | Old |
 | :----------- | ----------- | :-----------: |

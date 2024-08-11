@@ -79,6 +79,9 @@ The following figure shows the gradient profile at depth 500m.
 
 ![Spectrum](figures/Gradient_line.png)
 
+We also compared the adjoint sources of the envelope-based loss function calculated by automatic differentiation and the mathematical formula (eq. 14, 15 and 16 in [original paper](http://dx.doi.org/10.1016/j.jappgeo.2014.07.010)). The results are shown below. The two adjoint sources (Squared difference-based loss, eq. 15) are consistent.
+
+![Spectrum](figures/Adj_compare.png)
 
 
 

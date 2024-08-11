@@ -29,7 +29,7 @@ def hilbert(data):
     Compute the Hilbert transform of the input data tensor.
 
     Args:
-        data (torch.Tensor): The input data tensor.
+        data (torch.Tensor): The input data tensor with shape (nsamples, ntraces, nchannels).
 
     Returns:
         torch.Tensor: The Hilbert transform of the input data tensor.

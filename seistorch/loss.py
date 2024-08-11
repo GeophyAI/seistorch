@@ -9,6 +9,7 @@ from geomloss import SamplesLoss
 from seistorch.transform import *
 from torchvision.transforms.functional import gaussian_blur
 from seistorch.signal import local_coherence as lc
+from seistorch.signal import instantaneous_phase as ip
 # try:
 #     from torchvision.models import vgg19
 # except:
@@ -197,14 +198,12 @@ class InstantaneousPhase(torch.nn.Module):
         Returns:
             torch.Tensor: The instantaneous phase of the input data tensor.
         """
-        # Compute the Hilbert transform along the time axis
-        hilbert_transform = hilbert(d).real
-        
         # Compute the instantaneous phase
-        #instantaneous_phase = torch.arctan(hilbert_transform.real/(d+1e-16))
-        instantaneous_phase = torch.arctan2(hilbert_transform, d+1e-16)
+        hilbert_d = hilbert(d)
+        imag, real = hilbert_d.imag, hilbert_d.real
+        instantaneous_phase = torch.arctan2(imag, real)
         return instantaneous_phase
-    
+
     def instantaneous_phase_diff(self, x, y):
         """
         Compute the instantaneous phase difference between x and y.
@@ -216,36 +215,109 @@ class InstantaneousPhase(torch.nn.Module):
         Returns:
             torch.Tensor: The computed instantaneous phase difference.
         """
-        phi_x = self.instantaneous_phase(x)
-        phi_y = self.instantaneous_phase(y)
+        env_x = torch.abs(hilbert(x))
+        factor1 = env_x**2
+        phi_x = self.instantaneous_phase(x*factor1.detach())
+        phi_y = self.instantaneous_phase(y*factor1.detach())
 
         # Compute the phase difference
         phase_difference = phi_x - phi_y
 
-        # Wrap the phase difference to [-pi, pi]
-        phase_difference = torch.remainder(phase_difference + torch.pi, 2 * torch.pi) - torch.pi
-
-        return phase_difference
-    
-    def instantaneous_phase_diff2(self, x, y):
-
-        hx = hilbert(x).real
-        hy = hilbert(y).real
-
-        numerator = x*hy-y*hx
-        denominator = x*y+hx*hy
-
-        # phase_difference = torch.arctan2(numerator, denominator+1e-16)
-        phase_difference = torch.atan(numerator/(denominator+1e-16))
         return phase_difference
     
     def forward(self, x, y):
         loss = 0.
         for _x, _y in zip(x, y):
-            # 3.5 Instantaneous phase: measurement challenges: Equation 12
-            # loss += torch.mean(torch.square(self.instantaneous_phase_diff2(_x, _y)))
-            # 3.3 Instantaneous phase: Equation 9~10
-            loss += torch.mean(torch.square(self.instantaneous_phase_diff(_x, _y)))
+            loss += torch.sum(0.5*self.instantaneous_phase_diff(_x, _y)**2)
+        return loss
+
+class __InstantaneousPhase__(torch.autograd.Function):
+    """Yuan et. al, <The exponentiated phase measurement, 
+    and objective-function hybridization for adjoint waveform tomography>
+    10.1093/gji/ggaa063
+    Seisflow implementation: https://github.com/adjtomo/seisflows/blob/master/seisflows/plugins/preprocess/adjoint.py
+    """
+    @staticmethod
+    def forward(ctx, x, y):
+        loss = 0.
+        ctx.save_for_backward(x, y)
+        for _x, _y in zip(x, y):
+            env_x = torch.abs(hilbert(_x))
+            factor1 = env_x**2
+            phi_x = ip(_x*factor1.detach())
+            phi_y = ip(_y*factor1.detach())
+            loss += torch.sum(0.5*(phi_x-phi_y)**2)
+        return loss
+    
+    @staticmethod
+    def backward(ctx, grad_output):
+        syn, obs = ctx.saved_tensors
+        adj = torch.zeros_like(syn)
+        for batch in range(syn.shape[0]):
+            _syn = syn[batch]
+            _obs = obs[batch]
+
+            hilbert_syn = hilbert(_syn)
+            r = torch.real(hilbert_syn)
+            i = torch.imag(hilbert_syn)
+            phi_syn = torch.arctan2(i, r)
+
+            hilbert_obs = hilbert(_obs)
+            r = torch.real(hilbert_obs)
+            i = torch.imag(hilbert_obs)
+            phi_obs = torch.arctan2(i, r)
+
+            phi_rsd = phi_syn - phi_obs
+
+            adj[batch] = phi_rsd*(hilbert_syn.imag)+hilbert(phi_rsd*_syn).imag
+
+        return adj*grad_output, None
+    
+class InstantaneousPhase2(torch.nn.Module):
+    def __init__(self):
+        super(InstantaneousPhase2, self).__init__()
+
+    @property
+    def name(self,):
+        return "ip2"
+    
+    def forward(self, x, y):
+        loss = __InstantaneousPhase__.apply(x, y)
+        return loss
+
+class ExpInstantaneousPhase(torch.nn.Module):
+
+    def __init__(self):
+        """
+        Initialize the parent class.
+        """
+        super(ExpInstantaneousPhase, self).__init__()
+
+    @property
+    def name(self,):
+        return "eip"
+    
+    def forward(self, x, y):
+        loss = 0.
+        for _x, _y in zip(x, y):
+            nsamples, ntraces, nchannels = _x.shape
+            for i in range(ntraces):
+                for j in range(nchannels):
+
+                    this_x = _x[:, i:i+1, j:j+1]
+                    this_y = _y[:, i:i+1, j:j+1]
+
+                    analy_x = hilbert(this_x)
+                    analy_y = hilbert(this_y)
+
+                    Ax = torch.abs(analy_x)#+1e-8
+                    Ay = torch.abs(analy_y)#+1e-8
+
+                    part1 = (this_x/Ax + this_y/Ay)**2
+                    part2 = (analy_x.imag/Ax + analy_y.imag/Ay)**2
+                    
+                    loss -= torch.mean(part1+part2)
+
         return loss
 
 class Integration(torch.nn.Module):

@@ -56,7 +56,7 @@ python forward.py
 # train the neural network
 python ifwi.py
 ```
-# Example 2: 2D elastic case
+# Example 2: 2D elastic case ($v_p$ and $v_s$)
 In this case, we will investigate the model representation FWI for decoupling Lamé parameters. The designed vp and vs models are shown in the following figure:
 
 ![elastic models](figures/elastic2_true.png)
@@ -110,10 +110,37 @@ The extracted vertical slices from x=32(in grid) in $v_p$ and  x=96(in grid) $v_
 
 **Note**: For reproducibility, the following is the command to run the example (you'd better run it in an interactive window because there are some figures to show):
 ```bash
+# 0. Change to the example directory
+cd implicit_elastic
 # 1. Generate the ground truth model
 python generate_model.py
 # 2. Simulate and save the observed data
 python forward.py
 # 3. Train the neural network
 python ifwi2.py
+```
+
+# Example 3: 2D elastic case ($v_p$, $v_s$ and $\rho$)
+In this case, we design a model with three parameters, $v_p$, $v_s$ and $\rho$. The designed models are shown in the following figure:
+
+![Ground truth](figures/elastic3_true.png)
+
+The inversion is similar to the previous case, but we need to use three networks to represent three parameters. All the networks have the same number of layers and neurons. The configure file and inversion codes can be found in `implicit_elastic3/configure.py` and `implicit_elastic3/ifwi3.py`.
+
+The inverted models after 2000 epochs are shown in the following figure:
+
+![Inverted](figures/elastic3_3networks_2000.png)
+
+The inverted $v_p$ and $v_s$ models are very close to the true ones. The $\rho$ model has some artifacts, especially in the anomaly area.
+
+You can reproduce the results by running the following commands:
+```bash
+# 0. Change to the example directory
+cd implicit_elastic3
+# 1. Generate the ground truth model
+python generate_model.py
+# 2. Simulate and save the observed data
+python forward.py
+# 3. Train the neural network
+python ifwi3.py
 ```

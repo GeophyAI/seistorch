@@ -2,6 +2,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 import os
 from configure import *
+
+os.makedirs("models", exist_ok=True)
 # Generate a anormaly model, which is a circle with a different velocity
 def generate_anomaly_model(nx, nz, radius, center, bg_velocity, circle_velocity):
     model = np.ones((nz, nx)) * bg_velocity

@@ -5,6 +5,8 @@ from scipy import signal
 from joblib import Parallel, delayed
 from scipy.integrate import cumulative_trapezoid
 from torchaudio.functional import filtfilt
+from seistorch.transform import hilbert
+
 from torchvision.transforms.functional import gaussian_blur
 
 class SeisSignal:
@@ -332,6 +334,22 @@ def generate_mask(fa_time, nt, nr, N):
 def integrate(d):
     return cumulative_trapezoid(d, dx=1, initial=0)
 
+def instantaneous_phase(data):
+    """
+    Compute the instantaneous phase of the input data tensor.
+
+    Args:
+        data (torch.Tensor): The input data tensor with shape (time_samples, num_traces, num_channels).
+
+    Returns:
+        torch.Tensor: The instantaneous phase of the input data tensor.
+    """
+    # Compute the instantaneous phase
+    hilbert_d = hilbert(data)
+    imag, real = hilbert_d.imag, hilbert_d.real
+    ip = torch.arctan2(imag, real)
+    return ip
+
 def local_coherence(x, y, wt=101, wx=11, sigma_tau=21.0, sigma_hx=11.0):
     """Local coherence between two batched seismic data
 
@@ -370,7 +388,6 @@ def local_coherence(x, y, wt=101, wx=11, sigma_tau=21.0, sigma_hx=11.0):
     cs = F.cosine_similarity(window_syn_unf, window_obs_unf, dim=1, eps=1e-8)
     cs = cs.view(*syn.shape)
     return cs
-
 
 def normalize_trace_max(d):
     """Normalize the trace by its maximum value

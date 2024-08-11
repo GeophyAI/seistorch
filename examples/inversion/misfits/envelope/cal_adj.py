@@ -19,17 +19,20 @@ def freq_spectrum(d, dt, end_Freq=25):
     amp = amp[freqs<end_Freq]
     freqs = freqs[freqs<end_Freq]
     return freqs, amp
+def read_hdf5(file, shot_no):
+    import h5py
+    with h5py.File(file, 'r') as f:
+        data = f[f'shot_{shot_no}'][:]
+    return data
 
-obs = np.load('observed.npy', allow_pickle=True)
-syn = np.load('initial.npy', allow_pickle=True)
-nshots = obs.shape[0]
-nsamples, ntraces, nchannels = syn[0].shape
-print(f"nshots: {nshots}, nsamples: {nsamples}, ntraces: {ntraces}")
+obs = read_hdf5('observed.hdf5', 5)
+syn = read_hdf5('initial.hdf5', 5)
+nsamples, ntraces, nchannels = syn.shape
+print(f"nsamples: {nsamples}, ntraces: {ntraces}")
 
 # show the observed and synthetic data
-shot_no = 3
-observed = obs[shot_no]
-synthetic = syn[shot_no]
+observed = obs
+synthetic = syn
 fig, axes = plt.subplots(1, 2, figsize=(6, 3))
 vmin, vmax = np.percentile(observed, [1, 99])
 kwargs = dict(vmin=vmin, vmax=vmax, cmap='gray_r', aspect='auto')
@@ -120,20 +123,22 @@ plt.tight_layout()
 plt.savefig('figures/adj_freq_spectrum.png', dpi=300, bbox_inches='tight')
 plt.show()
 
-### Calculate the adjoint source by hand v.s. by AD
-
+## Calculate the adjoint source by hand v.s. by AD
 # factor1 = (syn_envelope-obs_envelope)/syn_envelope
-# # factor2 = 2*(syn_envelope**2-obs_envelope**2)
-# fs2 = factor1*(syn[shot_no]-hilbert(syn[shot_no], axis=0).imag)
+# eq 15 in paper http://dx.doi.org/10.1016/j.jappgeo.2014.07.010
+factor2 = syn_envelope**2-obs_envelope**2
+fs2 = factor2*syn-hilbert(factor2*hilbert(syn, axis=0).imag, axis=0).imag
 
-# fig, axes = plt.subplots(1, 2, figsize=(6, 3))
-# vmin, vmax = np.percentile(adj_envelope, [1, 99])
-# axes[0].imshow(adj_envelope, vmin=vmin, vmax=vmax, cmap='gray_r', aspect='auto')
-# axes[0].set_title('Adj cal by AD')
-# vmin, vmax = np.percentile(fs2, [1, 99])
-# axes[1].imshow(fs2, vmin=vmin, vmax=vmax, cmap='gray_r', aspect='auto')
-# axes[1].set_title('Adj cal by hand')
-# plt.tight_layout()
-# plt.show()
+adj_envelope = adj_envelope_square
 
+fig, axes = plt.subplots(1, 2, figsize=(6, 3))
+vmin, vmax = np.percentile(adj_envelope, [1, 99])
+axes[0].imshow(adj_envelope, vmin=vmin, vmax=vmax, cmap='gray_r', aspect='auto')
+axes[0].set_title('Adj cal by AD')
+vmin, vmax = np.percentile(fs2, [1, 99])
+axes[1].imshow(fs2, vmin=vmin, vmax=vmax, cmap='gray_r', aspect='auto')
+axes[1].set_title('Adj cal by hand')
+plt.tight_layout()
+plt.savefig('figures/Adj_compare.png', dpi=300, bbox_inches='tight')
+plt.show()
 

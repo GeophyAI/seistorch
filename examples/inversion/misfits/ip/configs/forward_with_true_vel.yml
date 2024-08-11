@@ -1,0 +1,107 @@
+# Random seed for pytorch and all shuffle functions
+seed: 20230503
+
+name: forward_modeling
+
+# Data type to use for tensors, either float32 or float64
+dtype: float32
+
+equation: acoustic_habc
+
+training:
+
+  implicit:
+    use: false
+    pretrained:
+
+  minibatch: false
+
+  batch_size: 1000
+
+  # Number of training epochs
+  N_epochs: 50
+
+  # Optimizer learning rate
+  lr: 1.0
+
+  # Decay the learning rate by each of multi-scale
+  scale_decay: 0.85
+
+  # decay the lr by each of epochs
+  lr_decay: 0.995
+
+  # Filter order
+  filter_ord: 3
+
+geom:
+
+  # The observer data
+  obsPath: ./obs.hdf5
+
+  # Wave speed model from disk_file for forward modeling
+  truePath:
+    vp: ./velocity_model/true.npy
+    vs:
+    rho:
+    Q: 
+    
+
+  sources: ./geometry/sources.pkl
+
+  receivers: ./geometry/receivers.pkl
+
+  wavelet:
+
+  multiple: false
+
+  boundary_saving: true
+
+  wavelet_delay: 128
+
+  wavelet_inverse: false
+  #./geometry/ricker_lowcut5hz.npy
+
+  source_type:
+    - h1
+
+  receiver_type:
+    - h1
+
+  # Inital Wave speed model from disk_file
+  initPath: 
+    vp: ./velocity_model/init.npy
+    vs:
+    rho:
+    Q:
+
+  invlist:
+    vp: true
+    vs:
+    rho:
+    q:
+
+  # Save the results of FWI
+  inv_savePath:
+
+  multiscale:
+    - - 2.0
+      - 5.0
+
+  # Time Sampling step
+  dt: 0.001
+
+  # Time samples
+  nt: 1200
+
+  # Main frequency of ricker wave
+  fm: 10.0
+
+  # Spatial grid step size
+  h: 10.0
+
+  # Total Shots
+  Nshots: 999
+
+  boundary:
+    type: habc
+    width: 50    # PML thickness in number of grid cells
