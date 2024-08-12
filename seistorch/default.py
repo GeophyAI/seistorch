@@ -24,7 +24,6 @@ class ConfigureCheck:
             if self.args.grad_cut:
                 self.check_seabed()
 
-
     def check_boundary(self, title='boundary'):
         """Check the boundary parameters.
         """
@@ -54,7 +53,7 @@ class ConfigureCheck:
     def check_dict(self, key, dict):
         assert key in dict.keys(), \
             f"{key} is not in the config file."
-        
+
     def check_equation(self, title="equation"):
 
         modelPath = self.cfg['VEL_PATH']
@@ -82,8 +81,7 @@ class ConfigureCheck:
         for geom in geoms:
             assert os.path.exists(self.cfg['geom'][geom]), \
                 f"Cannot find {geom} file '{self.cfg['geom'][geom]}'"
-            
-    
+
     def check_smooth(self, 
                      title="smooth", 
                      keys=["counts", "radius", "sigma"]):
@@ -118,7 +116,7 @@ class ConfigureCheck:
         for key in smooth["sigma"].keys():
             assert isinstance(smooth["sigma"][key], (int, float)), \
                 f"sigma {key} should be float."
-            
+     
     def check_source_receiver_type(self,):
         
         wavefield_names = Wavefield(self.cfg['equation']).wavefields

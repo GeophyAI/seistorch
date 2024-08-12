@@ -27,8 +27,8 @@ class Loss:
     def __call__(self, *args, **kwargs):
         return self.loss(*args, **kwargs)
 
-    def loss(self, cfg):
-        loss_obj = self._get_loss_object()
+    def loss(self, cfg, *args, **kwargs):
+        loss_obj = self._get_loss_object(**kwargs)
         loss_obj.cfg = cfg
 
         if isinstance(loss_obj, torch.autograd.Function):
@@ -36,13 +36,12 @@ class Loss:
 
         return loss_obj
 
-    def _get_loss_object(self,):
+    def _get_loss_object(self, **kwargs):
         loss_classes = [c for c in globals().values() if isinstance(c, type) and issubclass(c, torch.nn.Module)]
         loss_classes.extend([c for c in globals().values() if isinstance(c, type) and issubclass(c, torch.autograd.Function)])
-
         for loss_class in loss_classes:
             if hasattr(loss_class, "name") and getattr(loss_class(), "name") == self.loss_name:
-                return loss_class()
+                return loss_class(**kwargs)
         raise ValueError(f"Cannot find loss named {self.loss_name}")
 
 class CosineSimilarity(torch.nn.Module):
@@ -69,6 +68,45 @@ class CosineSimilarity(torch.nn.Module):
         """
         loss = 0.
         for _x, _y in zip(x, y):
+            nt = _x.shape[0]
+            # Reshape x and y to (time_samples, num_traces * num_channels)
+            x_reshaped = _x.view(nt, -1)
+            y_reshaped = _y.view(nt, -1)
+            # Compute cosine similarity along the ? dimension
+            similarity = F.cosine_similarity(x_reshaped, y_reshaped, dim=0, eps=1e-10)
+            # Compute the mean difference between similarity and 1
+            loss += torch.mean(1-similarity)
+
+        return loss
+
+class EnvelopeCosineSimilarity(torch.nn.Module):
+    """The cosine similarity (Normalized cross correlation) loss function.
+    """
+
+    def __init__(self):
+        super(CosineSimilarity, self).__init__()
+
+    @property
+    def name(self,):
+        return "ecs"
+
+    def forward(self, x, y):
+        """
+        Compute the similarity loss based on cosine similarity.
+
+        Args:
+            x: input data, tensor of shape (time_samples, num_traces, num_channels)
+            y: target data, tensor of shape (time_samples, num_traces, num_channels)
+
+        Returns:
+            A tensor representing the similarity loss.
+        """
+        loss = 0.
+        for _x, _y in zip(x, y):
+            
+            _x = envelope(_x)
+            _y = envelope(_y)
+
             nt = _x.shape[0]
             # Reshape x and y to (time_samples, num_traces * num_channels)
             x_reshaped = _x.view(nt, -1)
@@ -910,7 +948,27 @@ class Wasserstein1d(torch.nn.Module):
             # calculate the loss
             loss += abs_diff.sum()
         return loss
-    
+
+class Weighted(torch.nn.Module):
+    def __init__(self, loss_names=[], weights=[], cfg=None, **kwargs):
+        self.weights = weights
+        super(Weighted, self).__init__()
+        self.loss = []
+        for loss_name in loss_names:
+            self.loss.append(Loss(loss_name).loss(cfg))
+
+    @property
+    def name(self,):
+        return "weighted"
+
+    def forward(self, x, y):
+        loss = 0.
+        for _loss, _weight in zip(self.loss, self.weights):
+            loss += _weight*_loss(x, y)
+        return loss
+
+
+
 # from ot.lp import wasserstein_1d
 # class Wasserstein_OT(torch.nn.Module):
 #     def __init__(self, method='linear'):

@@ -44,17 +44,31 @@ class SeisSetup:
         Returns:
             torch.nn.module: The specified loss function.
         """
-        ACOUSTIC = self.cfg['equation'] == 'acoustic'
         # The parameters needed to be inverted
         loss_names = set(self.args.loss.values())
-        MULTI_LOSS = len(loss_names) > 1
-        if not MULTI_LOSS or ACOUSTIC:
+        multi_loss = len(loss_names) > 1
+        weighted_loss = all([isinstance(v, (float, int)) for v in self.args.loss.values()])
+        source_encoding = self.args.source_encoding
+
+        if not multi_loss and not weighted_loss:
             self.logger.print("Only one loss function is used.")
             criterions = Loss(list(loss_names)[0]).loss(self.cfg)
-        else:
+        if multi_loss and source_encoding:
             criterions = {k:Loss(v).loss(self.cfg) for k,v in self.args.loss.items()}
             self.logger.print(f"Multiple loss functions are used:\n {criterions}")
+        if weighted_loss and not source_encoding:
+            kwargs = dict(loss_names=self.args.loss.keys(), weights=self.args.loss.values())
+            criterions = Loss('weighted').loss(self.cfg, **kwargs)
+        print(criterions)
         return criterions
+    
+    def setup_weighted_criteria(self, ):
+        # The parameters needed to be inverted
+        loss_names = set(self.args.loss.values())
+        multi_loss = len(loss_names) > 1
+        if multi_loss:
+            criterions = {k:Loss(v).loss(self.cfg) for k,v in self.args.loss.items()}
+            self.logger.print(f"Multiple loss functions are used:\n {criterions}")
 
     def setup_device(self, rank):
         """Setup the device for the model
