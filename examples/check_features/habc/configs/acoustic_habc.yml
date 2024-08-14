@@ -105,7 +105,4 @@ geom:
 
   boundary:
     type: habc
-    width: 30
-
-  pml:
-    N: 50    # PML thickness in number of grid cells
+    width: 50

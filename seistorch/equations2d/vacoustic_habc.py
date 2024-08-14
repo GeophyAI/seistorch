@@ -107,7 +107,7 @@ def _time_step(*args, **kwargs):
 
     temp = torch.fft.ifft2(k*fft_dy, dim=(-2, -1)).real
     # amplitude decay
-    # y -= (dt**2*t*vp/2)*temp
+    y -= (dt**2*t*vp/2)*temp
 
     # habc
     y = habc(y, h1, h2, vp, b, dt, h, maskidx = habc_masks)

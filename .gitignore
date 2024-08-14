@@ -12,4 +12,4 @@ plot.py
 study
 *.hdf5
 examples/computational_graph/*
-examples/representation
+examples/nn_embedded_fwi/model_representation/implicit_visacoustic

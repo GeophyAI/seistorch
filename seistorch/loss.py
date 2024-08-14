@@ -84,7 +84,7 @@ class EnvelopeCosineSimilarity(torch.nn.Module):
     """
 
     def __init__(self):
-        super(CosineSimilarity, self).__init__()
+        super(EnvelopeCosineSimilarity, self).__init__()
 
     @property
     def name(self,):

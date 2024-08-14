@@ -10,6 +10,7 @@ From this version, seistorch will use 'torchrun' to perform distributed full wav
 | Others   | Not test yet   |
 
 # If you are interested in ...
+I reproduced the results of the following papers using Seistorch and some stand alone codes. If you are interested in these topics, please refer to the following links:
 ### Traditional methods
 | Traditional | Codes | Related Papers | Notes |
 | :----------- | ----------- | :-----------: | :----- |
@@ -43,11 +44,12 @@ From this version, seistorch will use 'torchrun' to perform distributed full wav
 # New features:
 | Type | New | Old |
 | :----------- | ----------- | :-----------: |
+|Weighted loss|Inspired by [Song et al., 2023](https://doi.org/10.1109/TGRS.2023.3300127)||
 | Boundary conditions   | HABC([Xie et al.](https://doi.org/10.1093/jge/gxz102))    | PML |
 |Distributed FWI| [torchrun](https://pytorch.org/docs/stable/elastic/run.html) | [mpi4py](https://mpi4py.readthedocs.io/en/stable/mpi4py.html) |
 |Anisotropic FWI| None |
-|LSRTM|Elastic([Feng & Schuster])(10.1190/geo2016-0254.1)|None|
-|LSRTM|Acoustic([Dai et al.])(10.1190/1.3513494)|None|
+|LSRTM|Elastic [Feng & Schuster](10.1190/geo2016-0254.1)|None|
+|LSRTM|Acoustic [Dai et al.](10.1190/1.3513494)|None|
 
 # Supported equations
 
@@ -71,6 +73,7 @@ From this version, seistorch will use 'torchrun' to perform distributed full wav
 Note: 2nd means displacement equations, 1st means velocity-stress equations.
 
 # To do list
+- [qP-wave LSRTM](https://doi.org/10.1190/geo2019-0320.1)
 - [SH- and Love-wave FWI(Dokter et al., 2017)](https://doi.org/10.1111/1365-2478.12549)
 - [Local-Coherence misfit(Yu et al., 2023)](https://doi.org/10.1109/TGRS.2023.3263501)[Done on 2024.08.08]
 
