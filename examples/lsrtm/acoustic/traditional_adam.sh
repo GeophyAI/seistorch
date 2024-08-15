@@ -1,4 +1,4 @@
-torchrun --nproc_per_node=1 --master-port 2222 /home/shaowinw/seistorch/seistorch_dist.py lsrtm.yml  \
+torchrun --nproc_per_node=1 ../../../../seistorch/seistorch_dist.py lsrtm.yml  \
 --opt adam \
 --loss m=l2 \
 --lr m=0.01 \

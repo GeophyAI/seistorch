@@ -15,9 +15,9 @@ where $c_{ij}$ is the model parameter at the $i$-th row and $j$-th column. The w
 
 Actually, we can use a neural network to represent these model parameters, which is called the model representation. For example, we can map coordinates $(x,y,z)$ to the model parameters $(c_{11},c_{12},c_{13})$ by a neural network. The model representation can be written as
 $$
-\mathbf c = F(x,y,z;\bm \theta)
+\mathbf c = F(x,y,z; \theta)
 $$
-where $F$ is the neural network, $(x,y,z)$ are the spatial coordinates, and $\bm \theta$ are the parameters of the neural network.
+where $F$ is the neural network, $(x,y,z)$ are the spatial coordinates, and $\theta$ are the parameters of the neural network.
 
 For conventional FWI, the objective function is defined as:
 $$
@@ -27,9 +27,9 @@ where $\mathbf m$ is the model parameter, $d_{\text{obs}}$ is the observed data,
 
 And for model representation FWI, the objective function is defined as:
 $$
-J(\bm \theta) = \frac{1}{2} \sum_{s,r}^{} \left\| d_{\text{obs}}^i - d_{\text{syn}}(F(\mathbf x;\bm \theta))^i \right\|^2
+J(\theta) = \frac{1}{2} \sum_{s,r}^{} \left\| d_{\text{obs}}^i - d_{\text{syn}}(F(\mathbf x;\theta))^i \right\|^2
 $$
-where $F$ is the neural network, $\mathbf x$ is the spatial coordinates, and $\bm \theta$ are the parameters of the neural network. The solver needed parameters can be calculated by input the coordinates $\mathbf x=(x,y,z)$ to the neural network $F$.
+where $F$ is the neural network, $\mathbf x$ is the spatial coordinates, and $\theta$ are the parameters of the neural network. The solver needed parameters can be calculated by input the coordinates $\mathbf x=(x,y,z)$ to the neural network $F$.
 # Example 1: 2D acoustic case
 In this example, we use a simple anomaly model to demonstrate the model representation FWI. The model is shown in the following figure:
 
@@ -67,7 +67,7 @@ Both designed vp and vs model has as a circle anomaly, the difference is the cen
 The neural network is randomly initialized as the previous example. We use a single network to represent two parameters. The true-value of $v_p$ and $v_s$ can be obtained by denormalizing the output of the neural network with a standard and mean value.
 
 $$
-v_p, v_s = F(\mathbf x;\bm \theta) * std + mean
+v_p, v_s = F(\mathbf x;\theta) * std + mean
 $$
 
 The inverted models after 4000 epochs are shown in the following figure:
@@ -90,10 +90,10 @@ python ifwi.py
 In this case, we use two networks to represent two parameters. The first network is used to represent $v_p$ and the second network is used to represent $v_s$. Both networks have the same number of layers and neurons.
 
 $$
-v_p = F^1(\mathbf x;\bm \theta_1)*std_{v_p} + mean_{v_p}
+v_p = F^1(\mathbf x;\theta_1)*std_{v_p} + mean_{v_p}
 $$
 $$
-v_s = F^2(\mathbf x;\bm \theta_2)*std_{v_s} + mean_{v_s}
+v_s = F^2(\mathbf x;\theta_2)*std_{v_s} + mean_{v_s}
 $$
 
 The configure file and inversion script can be found in `configure2.py` and `ifwi2.py`.

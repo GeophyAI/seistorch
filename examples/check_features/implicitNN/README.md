@@ -17,6 +17,6 @@ where $c_{ij}$ is the model parameter at the $i$-th row and $j$-th column. The w
 
 Actually, we can use a neural network to represent these model parameters, which is called the model representation. For example, we can map coordinates $(x,y,z)$ to the model parameters $(c_{11},c_{12},c_{13})$ by a neural network. The model representation can be written as
 $$
-\mathbf c = F(x,y,z;\bm \theta)
+\mathbf c = F(x,y,z; \theta)
 $$
-where $F$ is the neural network, $(x,y,z)$ are the spatial coordinates, and $\bm \theta$ are the parameters of the neural network.
+where $F$ is the neural network, $(x,y,z)$ are the spatial coordinates, and $\theta$ are the parameters of the neural network.

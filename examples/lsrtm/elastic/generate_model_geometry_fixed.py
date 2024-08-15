@@ -32,8 +32,8 @@ for i in range(1):
     init_vp[0:24] = 1500.
     init_vs[0:24] = 1500./1.73
 
-true_mvp = 2*(vp-init_vp)/init_vp
-true_mvs = 2*(vs-init_vs)/init_vs
+true_mvp = (vp-init_vp)/vp
+true_mvs = (vs-init_vs)/vs
 
 rho = np.ones_like(vp)*1000.0
 

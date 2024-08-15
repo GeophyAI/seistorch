@@ -63,7 +63,7 @@ geom:
 
   receivers: ./geometry/receivers.pkl
 
-  seabed: /home/shaowinw/seistorch/examples/models/marmousi_model/seabed.npy
+  seabed: ./velocity/seabed.npy
 
   wavelet:
 
