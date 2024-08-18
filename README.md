@@ -28,6 +28,7 @@ I reproduced the results of the following papers using Seistorch and some stand 
 |Implicit FWI|[click](examples/nn_embedded_fwi/model_representation/implicit_acoustic)|[Sun et al., 2023](https://doi.org/10.1029/2022JB025964)|Stand alone <br> Model Reparameterization(Acoustic)|
 |Elastic Parameters decouple|[click](examples/nn_embedded_fwi/model_representation/implicit_elastic)|-|Stand alone <br> Model Reparameterization(Elastic)|
 |Siamese FWI|[click](examples/nn_embedded_fwi/siamesefwi)|[Omar et al., 2024](https://doi.org/10.1029/2024JH000227)|Stand alone|
+|Elastic Parameters decouple|[click](examples/nn_embedded_fwi/model_representation/encoder_decoder)|[Dhara & Sen](https://doi.org/10.1109/TGRS.2023.3294427)|Stand alone <br> Model Reparameterization(Elastic)|
 ### Misfit functions
 | Misfits | Examples | Related Papers | Notes |
 | :----------- | ----------- | :-----------: | :----- |
@@ -75,7 +76,6 @@ Note: 2nd means displacement equations, 1st means velocity-stress equations.
 # To do list
 - [qP-wave LSRTM](https://doi.org/10.1190/geo2019-0320.1)
 - [SH- and Love-wave FWI(Dokter et al., 2017)](https://doi.org/10.1111/1365-2478.12549)
-- [Local-Coherence misfit(Yu et al., 2023)](https://doi.org/10.1109/TGRS.2023.3263501)[Done on 2024.08.08]
 
 
 # Citation

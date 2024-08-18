@@ -10,7 +10,7 @@ from torch.optim import lr_scheduler
 os.makedirs("figures", exist_ok=True)
 os.makedirs("results", exist_ok=True)
 
-dev = torch.device("cuda:2" if torch.cuda.is_available() else "cpu")
+dev = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 torch.cuda.cudnn_enabled = True
 torch.backends.cudnn.benchmark = True
 

@@ -13,11 +13,13 @@ c_{m1} & c_{m2} & \cdots & c_{mn}
 $$
 where $c_{ij}$ is the model parameter at the $i$-th row and $j$-th column. The wave equation is then solved on this grid-based model.
 
-Actually, we can use a neural network to represent these model parameters, which is called the model representation. For example, we can map coordinates $(x,y,z)$ to the model parameters $(c_{11},c_{12},c_{13})$ by a neural network. The model representation can be written as
+Actually, we can use a neural network to represent these model parameters, which is called the **model representation**. For example, we can map coordinates $(x,y,z)$ to the model parameters $(c_{11},c_{12},c_{13})$ by a neural network. The model representation can be written as
 $$
 \mathbf c = F(x,y,z; \theta)
 $$
-where $F$ is the neural network, $(x,y,z)$ are the spatial coordinates, and $\theta$ are the parameters of the neural network.
+where $F$ is the neural network, $(x,y,z)$ are the spatial coordinates, and $\theta$ are the parameters of the neural network. 
+
+**NOTE: The input of the neural network can also be replaced by other elements, such as the frequency, azimuth, well data, migration image, data([Dhara & Sen, 2023](https://doi.org/10.1109/TGRS.2023.3294427)), fixed vectors([He & Wang, 2021](https://doi.org/10.1190/geo2019-0382.1), [Wu & McMechan](https://doi.org/10.1190/GEO2018-0224.1)) etc, in addition to the spatial coordinates.**
 
 For conventional FWI, the objective function is defined as:
 $$
@@ -29,7 +31,14 @@ And for model representation FWI, the objective function is defined as:
 $$
 J(\theta) = \frac{1}{2} \sum_{s,r}^{} \left\| d_{\text{obs}}^i - d_{\text{syn}}(F(\mathbf x;\theta))^i \right\|^2
 $$
-where $F$ is the neural network, $\mathbf x$ is the spatial coordinates, and $\theta$ are the parameters of the neural network. The solver needed parameters can be calculated by input the coordinates $\mathbf x=(x,y,z)$ to the neural network $F$.
+where $F$ is the neural network, $\mathbf x$ is the input of the network, and $\theta$ are the parameters of the neural network. The solver needed parameters can be calculated by input $\mathbf x$ to the neural network $F$.
+
+**Note on priori info.:** There are several approaches for incorporating the priori information into this method. For example, we can pre-train the neural network with the priori information, or we can use the output of the neural network as a update of the initial model, or we can build the connection explicitly (by governing equations)/implicitly (by another network) between different parameters.
+
+# About examples
+
+In example 1, 2 and 3, the input of the network is the **spatial coordinates**, and the output are wave-equation needed model parameters.
+
 # Example 1: 2D acoustic case
 In this example, we use a simple anomaly model to demonstrate the model representation FWI. The model is shown in the following figure:
 
@@ -125,7 +134,18 @@ In this case, we design a model with three parameters, $v_p$, $v_s$ and $\rho$. 
 
 ![Ground truth](figures/elastic3_true.png)
 
-The inversion is similar to the previous case, but we need to use three networks to represent three parameters. All the networks have the same number of layers and neurons. The configure file and inversion codes can be found in `implicit_elastic3/configure.py` and `implicit_elastic3/ifwi3.py`.
+The inversion is similar to the previous case, but we need to use three networks to represent three parameters. All the networks have the same number of layers and neurons. The configure file and inversion codes can be found in `implicit_elastic3/configure.py` and `implicit_elastic3/ifwi3.py`. The grid-based model can be decoded by the following equations:
+
+
+$$
+v_p = F^1(\mathbf x;\theta_1)*std_{v_p} + mean_{v_p}
+$$
+$$
+v_s = F^2(\mathbf x;\theta_2)*std_{v_s} + mean_{v_s}
+$$
+$$
+\rho = F^3(\mathbf x;\theta_3)*std_{\rho} + mean_{\rho}
+$$
 
 The inverted models after 2000 epochs are shown in the following figure:
 
