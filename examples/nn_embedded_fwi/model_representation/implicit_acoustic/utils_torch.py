@@ -24,7 +24,7 @@ def show_gathers(rec, size=3, figsize=(8, 5), savepath=''):
         ax.set_title(f"shot {randno[i]}")
     plt.tight_layout()
     if savepath:
-        plt.savefig(savepath, dpi=300, bbox_inches="tight")
+        plt.savefig(savepath)
     plt.show()
 
 def showgeom(vel, src_loc, rec_loc, figsize=(10, 10), savepath=''):

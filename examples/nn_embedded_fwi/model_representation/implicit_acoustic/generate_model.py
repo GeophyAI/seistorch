@@ -23,7 +23,7 @@ ax.set_title("Vp")
 ax.set_xlabel("x(Grid)")
 ax.set_ylabel("z(Grid)")
 plt.tight_layout()
-plt.savefig("model.png", dpi=300, bbox_inches="tight")
+plt.savefig("model.png")
 plt.show()
 
 # Save the model

@@ -98,7 +98,8 @@ for epoch in tqdm.trange(EPOCHS):
         ax.plot(inverted[:,nx//2], 'b', label="Inverted")
         ax.legend()
         plt.tight_layout()
-        plt.savefig(f"figures/{epoch:04d}.png", dpi=300, bbox_inches="tight")
+        # plt.savefig(f"figures/{epoch:04d}.png", dpi=300, bbox_inches="tight")
+        plt.savefig(f"figures/{epoch:04d}.png")
         plt.show()
         np.save(f"results/inverted{epoch:04d}.npy", inverted)
 

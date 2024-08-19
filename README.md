@@ -41,6 +41,7 @@ I reproduced the results of the following papers using Seistorch and some stand 
 |Instantaneous Phase|[click](examples/inversion/misfits/ip)|[Bozdag et al., 2011](https://doi.org/10.1111/j.1365246X.2011.04970.x) <br> [Yuan et al., 2020](https://doi.org/10.1093/gji/ggaa063)||
 |Weighted loss|[click](examples/inversion/misfits/weighted)|[Song et al., 2023](https://doi.org/10.1109/TGRS.2023.3300127)||
 |Envelope Cosine Similarity|*|[Oh and Alkhalifah, 2018](https://doi.org/10.1093/gji/ggy031)|Envelope-based Global Correlation Norm|
+|Soft Dynamic Time warpping|[click](examples/inversion/misfits/sdtw)|[Maghoumi, 2020](https://stars.library.ucf.edu/etd2020/379/)<br>[Maghoumi et al., 2020](https://arxiv.org/abs/2011.09149)||
 
 # New features:
 | Type | New | Old |
