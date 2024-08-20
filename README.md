@@ -16,6 +16,8 @@ I reproduced the results of the following papers using Seistorch and some stand 
 | :----------- | ----------- | :-----------: | :----- |
 |FWI by Pytorch|[click](examples/sthelse)|-|Stand alone|
 |Simulations|[click](examples/forward_modeling/different_eq)|[Wang et al., 2023](https://doi.org/10.1109/TGRS.2023.3317529)|Seistorch|
+|Finite difference method|[click](examples/forward_modeling/pseudospectral)|-|Acoustic|
+|Pseudospectral method|[click](examples/forward_modeling/pseudospectral)|[Kosloff & Baysal](https://doi.org/10.1190/1.1441288)|Acoustic|
 |Acoustic LSRTM|[click](examples/lsrtm)|[Dai et al., 2010](https://doi.org/10.1190/1.3513494)|Seistorch|
 |Elastic LSRTM|[click](examples/lsrtm)|[Feng & Schuster, 2017](https://doi.org/10.1190/geo2016-0254.1)|Seistorch|
 |Acoustic FWI|[click](examples/inversion/source_encoding/acoustic)|-|Seistorch, Source Encoding|

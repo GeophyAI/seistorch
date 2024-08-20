@@ -1,5 +1,6 @@
 # Neural Network for Model Representation
 This example demonstrates how to use a neural network to represent the model parameters in FWI. The neural network is trained to represent the parameters, such as the density and Lamé parameters, in the elastic wave equation. The models are then input to the elastic wave equation to simulate the wave propagation. The neural network is optimized by minimizing the misfit between the observed and predicted data.
+
 # Theory
 Wave equations are mainly solved by finite-difference(FDM) or finite-element(FEM) methods. These methods require a discretized model, i.e. grid-based model. For example, in FDM, the grid-based model $c$ in 2D case can be represented as
 
@@ -23,7 +24,7 @@ $$
 
 where $F$ is the neural network, $(x,y,z)$ are the spatial coordinates, and $\theta$ are the parameters of the neural network. 
 
-**NOTE: The input of the neural network can also be replaced by other elements, such as the frequency, azimuth, well data, migration image, data([Dhara & Sen, 2023](https://doi.org/10.1109/TGRS.2023.3294427)), fixed vectors([He & Wang, 2021](https://doi.org/10.1190/geo2019-0382.1), [Wu & McMechan](https://doi.org/10.1190/GEO2018-0224.1)) etc, in addition to the spatial coordinates.**
+**NOTE**: The input of the neural network can also be replaced by other elements, such as the **frequency**, **azimuth**, **well data**, **migration image**, **shot data**([Dhara & Sen, 2023](https://doi.org/10.1109/TGRS.2023.3294427), [Jiang et al., 2022](https://doi.org/10.1111/1365-2478.13292)), **fixed vectors**([Zhu et al., 2019](https://doi.org/10.1190/GEO2020-0933.1), [He & Wang, 2021](https://doi.org/10.1190/geo2019-0382.1), [Wu & McMechan](https://doi.org/10.1190/GEO2018-0224.1)) etc, in addition to the **spatial coordinates**([Zhu et al., 2019](https://doi.org/10.1190/GEO2020-0933.1), [Sun et al., 2023](https://doi.org/10.1029/2022JB025964)). In general, Image-like data is more suitable for CNN-based networks, spatial coordinates are more sutible for MLP-based networks.
 
 For conventional FWI, the objective function is defined as:
 
@@ -41,7 +42,7 @@ $$
 
 where $F$ is the neural network, $\mathbf x$ is the input of the network, and $\theta$ are the parameters of the neural network. The solver needed parameters can be calculated by input $\mathbf x$ to the neural network $F$.
 
-**Note on priori info.:** There are several approaches for incorporating the priori information into this method. For example, we can pre-train the neural network with the priori information, or we can use the output of the neural network as a update of the initial model, or we can build the connection explicitly (by governing equations)/implicitly (by another network) between different parameters.
+**Note on priori info.:** There are several approaches for incorporating the priori information into this method. For example, we can **pre-train the network with the priori information**([Wu & McMechan, 2019](https://doi.org/10.1190/GEO2018-0224.1), [He & Wang, 2021](https://doi.org/10.1190/GEO2019-0382.1), [Jiang et al., 2022](https://doi.org/10.1111/1365-2478.13292)), or we can use the output of the neural network as a **update over the initial model** ([Dhara A.&Sen M., 2023](https://doi.org/10.1109/TGRS.2023.3294427), [Zhu et al., 2022](https://doi.org/10.1190/GEO2020-0933.1)), or we can build the connection explicitly (by governing equations)/implicitly (by another network) between different parameters.
 
 # About examples
 
@@ -138,12 +139,11 @@ python ifwi2.py
 ```
 
 # Example 3: 2D elastic case ($v_p$, $v_s$ and $\rho$)
-In this case, we design a model with three parameters, $v_p$, $v_s$ and $\rho$. The designed models are shown in the following figure:
+In this case, we design a model with three parameters, $v_p$, $v_s$ and $\rho$. The parameters are linked by the elastic wave equation. The designed models are shown in the following figure:
 
 ![Ground truth](figures/elastic3_true.png)
 
 The inversion is similar to the previous case, but we need to use three networks to represent three parameters. All the networks have the same number of layers and neurons. The configure file and inversion codes can be found in `implicit_elastic3/configure.py` and `implicit_elastic3/ifwi3.py`. The grid-based model can be decoded by the following equations:
-
 
 $$
 v_p = F^1(\mathbf x;\theta_1)*std_{v_p} + mean_{v_p}
@@ -172,3 +172,17 @@ python forward.py
 # 3. Train the neural network
 python ifwi3.py
 ```
+
+# Existed methods
+
+[1] Wu & McMechan, Parametric convolutional neural network-domain full-waveform inversion, 2019, Geophysics ([paper link](https://doi.org/10.1190/GEO2018-0224.1))
+
+[2] He Q.L. & Wang Y.F., Reparameterized full-waveform inversion using deep neural networks, 2021, Geophysics ([paper link](https://doi.org/10.1190/GEO2019-0382.1))
+
+[3] Zhu W.Q., Xu K.L., Darve E., et al., Integrating deep neural networks with full-waveform inversion: Reparameterization, regularization, and uncertainty quantification, 2022, Geophysics ([paper link](https://doi.org/10.1190/GEO2020-0933.1))
+
+[4] Jiang P., Wang Q.Y., Ren Y.X., et al., Full waveform inversion based on inversion network reparameterized velocity, 2022, Geophysical Prospecting ([paper link](https://doi.org/10.1111/1365-2478.13292))
+
+[5] Dhara A. & Sen M. K., Elastic Full Waveform Inversion using a Physics guided deep convolutional encoder-decoder, 2023, IEEE TGRS ([paper link](https://doi.org./10.1109/TGRS.2023.3294427))
+
+[6] Sun J., Innanen K., Zhang T.Z., et al., Implicit Seismic Full Waveform Inversion With Deep Neural Representation, 2023, JGR Solid Earth ([paper link](https://doi.org/10.1029/2022JB025964))
