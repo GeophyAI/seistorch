@@ -9,6 +9,11 @@ This example locates at `examples/rtm/marmousi`, we use a towed acqusition syste
     cd examples/rtm/marmousi
     ```
 
+    Generate the geometry and observed data:
+    ```shell
+    python generate_model_geometry.py
+    ```
+
     Perform forward modeling:
     ```shell
     sh forward.sh
@@ -49,6 +54,3 @@ This example locates at `examples/rtm/marmousi`, we use a towed acqusition syste
 
     The laplace filtered migration sections are shown below:
     ![RTM](figures/reverse_time_migration/RTM.png "RTM")
-
-    If you want to obtain a common image gather, you need to set `--num-batches` to the number of shots `nshots` to get the gradient of each shot. The following figures show the common image gather migrated by a smoothed model and a linear model:
-    ![CIG](figures/reverse_time_migration/CIG.png "CIG")

@@ -11,5 +11,9 @@ test
 plot.py
 study
 *.hdf5
+
 examples/computational_graph/*
 examples/nn_embedded_fwi/model_representation/implicit_visacoustic
+examples/rtm/stand_alone
+examples/random_boundaries
+examples/tools

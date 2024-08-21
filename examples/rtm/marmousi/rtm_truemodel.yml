@@ -16,7 +16,7 @@ training:
 
   minibatch: false
 
-  batch_size: 10
+  batch_size: 87
 
   # Number of training epochs
   N_epochs: 1
@@ -36,13 +36,15 @@ training:
 geom:
 
   # The observer data
-  obsPath: ./observed.npy
+  obsPath: ./observed.hdf5
 
-  datamask: ./datamask.npy
+  obsmask: ./mask.hdf5
 
+  synmask: ./mask.hdf5
+  
   # Wave speed model from disk_file for forward modeling
   truePath:
-    vp: ../../../models/marmousi_model/true_vp.npy
+    vp: ./models/true_vp_for_rtm.npy
     vs:
     rho:
     Q: 
@@ -54,7 +56,7 @@ geom:
 
   # seabed: ../models/marmousi_model/seabed.npy
 
-  wavelet:
+  wavelet: ./wavelet/ricker_for_rtm.npy
 
   multiple: false
 
@@ -73,7 +75,7 @@ geom:
 
   # Inital Wave speed model from disk_file
   initPath: 
-    vp: ../models/marmousi_model/smooth_true_vp_for_rtm.npy
+    vp: ./models/smooth_true_vp_for_rtm.npy
     vs:
     rho:
     Q:
@@ -105,5 +107,6 @@ geom:
   # Total Shots
   Nshots: 87
 
-  pml:
-    N: 50    # PML thickness in number of grid cells
+  boundary:
+    type: pml
+    width: 50    # PML thickness in number of grid cells

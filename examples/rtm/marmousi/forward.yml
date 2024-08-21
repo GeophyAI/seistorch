@@ -36,11 +36,11 @@ training:
 geom:
 
   # The observer data
-  obsPath: ./observed.npy
+  obsPath: ./observed.hdf5
 
   # Wave speed model from disk_file for forward modeling
   truePath:
-    vp: ../../../models/marmousi_model/true_vp.npy
+    vp: ../../models/marmousi_model/true_vp.npy
     vs:
     rho:
     Q: 
@@ -52,7 +52,7 @@ geom:
 
   seabed: ../models/marmousi_model/seabed.npy
 
-  wavelet:
+  wavelet: ./wavelet/ricker_for_forward.npy
 
   multiple: false
 
@@ -71,7 +71,7 @@ geom:
 
   # Inital Wave speed model from disk_file
   initPath: 
-    vp: ../../../models/marmousi_model/linear_vp.npy
+    vp: ../../models/marmousi_model/linear_vp.npy
     vs:
     rho:
     Q:
@@ -103,5 +103,6 @@ geom:
   # Total Shots
   Nshots: 999
 
-  pml:
-    N: 50    # PML thickness in number of grid cells
+  boundary:
+    type: pml
+    width: 50    # PML thickness in number of grid cells

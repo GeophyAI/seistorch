@@ -1,15 +1,16 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.ndimage import laplace
+import torch
 
 npml = 50
 expand = 50
-grad_true = np.load("./results/rtm_true/gradvpF00E00.npy")[npml:-npml, npml+expand:-npml-expand]
-grad_init = np.load("./results/rtm_true/gradvpF00E00.npy")[npml:-npml, npml+expand:-npml-expand]
-true = np.load("../models/marmousi_model/smooth_true_vp_for_rtm.npy")[:,expand:-expand]
-init = np.load("../../../models/marmousi_model/linear_vp.npy")[:,expand:-expand]
+grad_true = torch.load("./results/rtm_true/grad_vp_0.pt").detach().cpu().numpy()[npml:-npml, npml+expand:-npml-expand]
+grad_init = torch.load("./results/rtm_init/grad_vp_0.pt").detach().cpu().numpy()[npml:-npml, npml+expand:-npml-expand]
+true = np.load("./models/smooth_true_vp_for_rtm.npy")[:,expand:-expand]
+init = np.load("../../models/marmousi_model/linear_vp.npy")[:,expand:-expand]
 
-seabed = np.load("../models/marmousi_model/seabed.npy")
+seabed = np.load("./models/seabed.npy")
 
 # RTM image = grad(vp) * vp^3
 
@@ -46,7 +47,7 @@ fig.savefig("Velocity.png",dpi=300)
 
 # Show reverse time migration images
 fig, axes=plt.subplots(1,2,figsize=(8,3))
-vmin, vmax=np.percentile(rtm_true, [2, 98])
+vmin, vmax=np.percentile(rtm_true, [5, 95])
 kwargs={"cmap":"gray","aspect":"auto","vmin":vmin,"vmax":vmax}
 axes[0].imshow(rtm_true,**kwargs)
 axes[0].set_title("Reverse Time Migration with True model")

@@ -1,23 +1,27 @@
 import numpy as np
 import matplotlib.pyplot as plt
-
+import h5py
 import sys, tqdm
-sys.path.append("../..")
+sys.path.append("../../..")
 from seistorch.show import SeisShow
+
+def read_hdf5(path, shot_no=0):
+    with h5py.File(path, 'r') as f:
+        return f[f"shot_{shot_no}"][:]
 
 show = SeisShow()
 
-obs = np.load("./observed.npy", allow_pickle=True)
+obs = read_hdf5("observed.hdf5", 70)
 
-nshots = obs.shape[0]
-nsamples, ntraces, ncomponent = obs[0].shape
+nshots = 87
+nsamples, ntraces, ncomponent = obs.shape
 
 print(f"The data has {nshots} shots, {nsamples} time samples, {ntraces} traces, and {ncomponent} components.")
 
 dt=0.001
 # Generate data mask
-dmask = np.empty_like(obs)
-mask = np.zeros_like(obs[0])
+dmask = np.zeros((nshots, nsamples, ntraces, ncomponent))
+mask = np.zeros_like(obs)
 
 arrival_trace_first = 0.5 # s
 arrival_trace_last = 2.05 # s
@@ -32,12 +36,15 @@ for trace in range(ntraces):
 for shot in range(nshots):
     dmask[shot] = mask
 
-shot_no = 70
 
-show.shotgather([obs[shot_no].squeeze(),
-                 obs[shot_no].squeeze()*dmask[0].squeeze()],
+show.shotgather([obs.squeeze(),
+                 obs.squeeze()*dmask[0].squeeze()],
                 ["observed", "Masked obs"],
-                aspect="auto",
                 inarow=True)
 
-np.save("datamask.npy", dmask)
+# write to hdf5
+with h5py.File(f"mask.hdf5", 'w') as f:
+    pass
+for i in tqdm.tqdm(range(nshots)):
+    with h5py.File(f"mask.hdf5", 'a') as f:
+        f.create_dataset(f"shot_{i}", data=dmask[i])
