@@ -24,7 +24,7 @@ $$
 
 where $F$ is the neural network, $(x,y,z)$ are the spatial coordinates, and $\theta$ are the parameters of the neural network. 
 
-**NOTE**: The input of the neural network can also be replaced by other elements, such as the **frequency**, **azimuth**, **well data**, **migration image**, **shot data**([Dhara & Sen, 2023](https://doi.org/10.1109/TGRS.2023.3294427), [Jiang et al., 2022](https://doi.org/10.1111/1365-2478.13292)), **fixed vectors**([Zhu et al., 2019](https://doi.org/10.1190/GEO2020-0933.1), [He & Wang, 2021](https://doi.org/10.1190/geo2019-0382.1), [Wu & McMechan](https://doi.org/10.1190/GEO2018-0224.1)) etc, in addition to the **spatial coordinates**([Zhu et al., 2019](https://doi.org/10.1190/GEO2020-0933.1), [Sun et al., 2023](https://doi.org/10.1029/2022JB025964)). In general, Image-like data is more suitable for CNN-based networks, spatial coordinates are more sutible for MLP-based networks.
+**NOTE**: The input of the neural network can also be replaced by other elements, such as the **frequency**, **azimuth**, **well data**, **migration image**, **shot data**([Dhara & Sen, 2022]([Dhara & Sen, 2023](https://doi.org/10.1109/TGRS.2023.3294427)), [Dhara & Sen, 2023](https://doi.org/10.1109/TGRS.2023.3294427), [Jiang et al., 2022](https://doi.org/10.1111/1365-2478.13292)), **fixed vectors**([Zhu et al., 2019](https://doi.org/10.1190/GEO2020-0933.1), [He & Wang, 2021](https://doi.org/10.1190/geo2019-0382.1), [Wu & McMechan](https://doi.org/10.1190/GEO2018-0224.1)) etc, in addition to the **spatial coordinates**([Zhu et al., 2019](https://doi.org/10.1190/GEO2020-0933.1), [Sun et al., 2023](https://doi.org/10.1029/2022JB025964)). In general, Image-like data is more suitable for CNN-based networks, spatial coordinates are more sutible for MLP-based networks.
 
 For conventional FWI, the objective function is defined as:
 
@@ -57,6 +57,10 @@ Ten sources with 128 fixed receivers are at the surface of the model. The shot g
 
 ![shot gathers](figures/shotgather.png)
 
+## Example 1, case a: Coordinate-based model representation
+
+In this case, the input of the neural network is the spatial coordinates $(x,y)$, and the output is the velocity model $v$. A Siren network is used to represent the model parameters. The configure file and inversion script can be found in `configure.py` and `ifwi.py`.
+
 The neural network is randomly initialized, so the inversion is actuallly start from a random model. With 500 epochs, the inversion result is shown in the following figure:
 
 ![inversion result](figures/acoustic_epoch500.png)
@@ -74,6 +78,18 @@ python forward.py
 # train the neural network
 python ifwi.py
 ```
+
+
+## Example 1, case b: Shot data-based model representation
+
+In this case, the input of the neural network is the **shot data** with shape `(1, shot_counts, nsamples, ntraces)`, and the output is the velocity model $v_p$. This implementation is similar to that of [Dhara & Sen, 2022](https://doi.org/10.1190/tle41060375.1). 
+
+An **encoder-decoder** network is used to represent the model parameters, a sigmoid function is used as the activation function of the output layer, then the output is scaled to the velocity range by a max-min normalization.
+
+A large learning rate is used in this case, settings of hyper-parameters please refer to `model_representation/encoder_decoder_acoustic/configure.py`. The inverted model after 500 epochs is shown in the following figure:
+
+![inverted model](figures/encoder_decoder_acoustic_epoch500.png)
+
 # Example 2: 2D elastic case ($v_p$ and $v_s$)
 In this case, we will investigate the model representation FWI for decoupling Lamé parameters. The designed vp and vs models are shown in the following figure:
 
