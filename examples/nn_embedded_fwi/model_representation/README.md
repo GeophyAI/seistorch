@@ -90,6 +90,28 @@ A large learning rate is used in this case, settings of hyper-parameters please 
 
 ![inverted model](figures/encoder_decoder_acoustic_epoch500.png)
 
+So, what did the network learn during inversion? The network first compresses the shot data to a low(high?)-dimensional space, the number of feature maps of the last layer of the encoder is 16, the visualization of the feature maps at first epoch is shown in the following figure:
+
+![inverted model](figures/encoder_decoder_shot_latent_e000.png)
+
+The feature maps at the 250 epoch are shown in the following figure:
+
+![inverted model](figures/encoder_decoder_shot_latent_e250.png)
+
+And the feature maps at the 500 (last) epoch are shown in the following figure:
+
+![inverted model](figures/encoder_decoder_shot_latent_e500.png)
+
+Maybe the encoder part can be used as a feature extractor for fine-tuning, if data-driven methods are used for traing such network.
+
+## Example 1, case c: Cycle-skipping
+
+In this case, the input of the neural network is the high-pass filtered shot data (>4hz), so there is no inversion crimes. The final inverted model after 500 epochs is shown in the following figure:
+
+![inverted model](figures/encoder_decoder_acoustic_epoch500_cs.png)
+
+The inverted model is very close to the true one, although not as good as the full-band data case.
+
 # Example 2: 2D elastic case ($v_p$ and $v_s$)
 In this case, we will investigate the model representation FWI for decoupling Lamé parameters. The designed vp and vs models are shown in the following figure:
 

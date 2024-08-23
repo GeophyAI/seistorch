@@ -21,11 +21,11 @@ l2loss = torch.nn.MSELoss()
 domain = (nz+2*npml, nx+2*npml)
 
 # load observed data
-obs = np.load("obs.npy")
+obs = np.load("obs_filtered.npy")
 obs = torch.from_numpy(obs).float().to(dev)
 obs = obs.unsqueeze(0)
 # load wave
-wave = ricker(np.arange(nt) * dt-delay*dt, f=fm)
+wave = torch.from_numpy(np.load("wave_filtered.npy")).float().to(dev)
 
 # load true model for comparison
 true = np.load("models/vp.npy")
