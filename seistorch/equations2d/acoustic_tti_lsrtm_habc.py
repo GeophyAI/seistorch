@@ -24,9 +24,9 @@ def gradient(y, h, kernel):
 
 def _time_step(*args, **kwargs):
 
-    vp, eps, delta, theta = args[0:4]
-    p1, p2 = args[4:6]
-    dt, h, b = args[6:9]
+    vp, eps, delta, theta, m = args[0:5]
+    p1, p2, sp1, sp2 = args[5:9]
+    dt, h, b = args[9:12]
     habc_masks = kwargs['habcs']
 
     # from degree to radian
@@ -53,20 +53,31 @@ def _time_step(*args, **kwargs):
 
     vp2dt2 = vp**2*dt**2
 
+    # Background wavefield
     # 10.1190/geo2022-0292.1 EQ(A-7)
-    pnext = 2*p1-p2 + vp2dt2*((1+2*eps)*cos0**2+sin0**2+sd)*nabla_x + vp2dt2*((1+2*eps)*sin0**2+cos0**2+sd)*nabla_z-2*eps*vp2dt2*sin20*dpdxdz
+    ani_laplace_p0 = vp2dt2*((1+2*eps)*cos0**2+sin0**2+sd)*nabla_x + vp2dt2*((1+2*eps)*sin0**2+cos0**2+sd)*nabla_z-2*eps*vp2dt2*sin20*dpdxdz
+    pnext = 2*p1-p2 + ani_laplace_p0
+
+    # Scatter wavefield
+    nabla_x_s = _laplacian(sp1, h, kernelx)
+    nabla_z_s = _laplacian(sp1, h, kernely)
+
+    dpdx_s = gradient(sp1, h, kernelx_nc) # 10.1190/geo2022-0292.1 EQ(21)
+    dpdxdz_s = gradient(dpdx_s, h, kernely_nc)
+    spnext = 2*sp1-sp2 + vp2dt2*((1+2*eps)*cos0**2+sin0**2+sd)*nabla_x_s + vp2dt2*((1+2*eps)*sin0**2+cos0**2+sd)*nabla_z_s-2*eps*vp2dt2*sin20*dpdxdz_s+m*ani_laplace_p0
 
     # apply HABC
     pnext = habc(pnext, p1, p2, vp, b, dt, h, maskidx = habc_masks)
+    spnext = habc(spnext, sp1, sp2, vp, b, dt, h, maskidx = habc_masks)
 
-    return pnext, p1
+    return pnext, p1, spnext, sp1
 
 def _time_step_backward(*args, **kwargs):
 
-    vp, eps, delta, theta = args[0:4]
-    p1, p2 = args[4:6]
-    dt, h, b = args[6:9]
-    h_bd, _ = args[-2]
+    vp, eps, delta, theta, m = args[0:5]
+    p1, p2, sp1, sp2 = args[5:9]
+    dt, h, b = args[9:12]
+    h_bd, _, sh_bd, _ = args[-2]
     src_type, src_func, src_values = args[-1]
     
     # from degree to radian
@@ -93,22 +104,33 @@ def _time_step_backward(*args, **kwargs):
 
     vp2dt2 = vp**2*dt**2
 
+    # Background wavefield
     # 10.1190/geo2022-0292.1 EQ(A-7)
-    pnext = 2*p1-p2 + vp2dt2*((1+2*eps)*cos0**2+sin0**2+sd)*nabla_x + vp2dt2*((1+2*eps)*sin0**2+cos0**2+sd)*nabla_z-2*eps*vp2dt2*sin20*dpdxdz
+    ani_laplace_p0 = vp2dt2*((1+2*eps)*cos0**2+sin0**2+sd)*nabla_x + vp2dt2*((1+2*eps)*sin0**2+cos0**2+sd)*nabla_z-2*eps*vp2dt2*sin20*dpdxdz
+    pnext = 2*p1-p2 + ani_laplace_p0
 
-    with torch.no_grad():
-        pnext = restore_boundaries(pnext, h_bd)
+    # Scatter wavefield
+    nabla_x_s = _laplacian(sp1, h, kernelx)
+    nabla_z_s = _laplacian(sp1, h, kernely)
+
+    dpdx_s = gradient(sp1, h, kernelx_nc) # 10.1190/geo2022-0292.1 EQ(21)
+    dpdxdz_s = gradient(dpdx_s, h, kernely_nc)
+
+    spnext = 2*sp1-sp2 + vp2dt2*((1+2*eps)*cos0**2+sin0**2+sd)*nabla_x_s + vp2dt2*((1+2*eps)*sin0**2+cos0**2+sd)*nabla_z_s-2*eps*vp2dt2*sin20*dpdxdz_s+m*ani_laplace_p0
+
+    # with torch.no_grad():
+    pnext = restore_boundaries(pnext, h_bd)
+    spnext = restore_boundaries(spnext, sh_bd)
 
     pnext = src_func(pnext, src_values, 1)
 
-    return pnext, p1
+    return pnext, p1, spnext, sp1
 
 def _time_step_backward_multiple(*args, **kwargs):
-
-    vp, eps, delta, theta = args[0:4]
-    p1, p2 = args[4:6]
-    dt, h, b = args[6:9]
-    h_bd, _ = args[-2]
+    vp, eps, delta, theta, m = args[0:5]
+    p1, p2, sp1, sp2 = args[5:9]
+    dt, h, b = args[9:12]
+    h_bd, _, sh_bd, _ = args[-2]
     src_type, src_func, src_values = args[-1]
     
     # from degree to radian
@@ -120,7 +142,6 @@ def _time_step_backward_multiple(*args, **kwargs):
     nabla_x = _laplacian(p1, h, kernelx)
     nabla_z = _laplacian(p1, h, kernely)
 
-    # Method 1: solver in time domain
     dpdx = gradient(p1, h, kernelx_nc) # 10.1190/geo2022-0292.1 EQ(21)
     dpdxdz = gradient(dpdx, h, kernely_nc)
 
@@ -136,11 +157,24 @@ def _time_step_backward_multiple(*args, **kwargs):
 
     vp2dt2 = vp**2*dt**2
 
+    # Background wavefield
     # 10.1190/geo2022-0292.1 EQ(A-7)
-    pnext = 2*p1-p2 + vp2dt2*((1+2*eps)*cos0**2+sin0**2+sd)*nabla_x + vp2dt2*((1+2*eps)*sin0**2+cos0**2+sd)*nabla_z-2*eps*vp2dt2*sin20*dpdxdz
-    with torch.no_grad():
-        pnext = restore_boundaries(pnext, h_bd, multiple=True)
+    ani_laplace_p0 = vp2dt2*((1+2*eps)*cos0**2+sin0**2+sd)*nabla_x + vp2dt2*((1+2*eps)*sin0**2+cos0**2+sd)*nabla_z-2*eps*vp2dt2*sin20*dpdxdz
+    pnext = 2*p1-p2 + ani_laplace_p0
+
+    # Scatter wavefield
+    nabla_x_s = _laplacian(sp1, h, kernelx)
+    nabla_z_s = _laplacian(sp1, h, kernely)
+
+    dpdx_s = gradient(sp1, h, kernelx_nc) # 10.1190/geo2022-0292.1 EQ(21)
+    dpdxdz_s = gradient(dpdx_s, h, kernely_nc)
+    
+    spnext = 2*sp1-sp2 + vp2dt2*((1+2*eps)*cos0**2+sin0**2+sd)*nabla_x_s + vp2dt2*((1+2*eps)*sin0**2+cos0**2+sd)*nabla_z_s-2*eps*vp2dt2*sin20*dpdxdz_s+m*ani_laplace_p0
+
+    # with torch.no_grad():
+    pnext = restore_boundaries(pnext, h_bd, multiple=True)
+    spnext = restore_boundaries(spnext, sh_bd, multiple=True)
 
     pnext = src_func(pnext, src_values, 1)
 
-    return pnext, p1
+    return pnext, p1, spnext, sp1

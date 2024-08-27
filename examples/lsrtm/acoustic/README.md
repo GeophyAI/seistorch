@@ -47,12 +47,16 @@ The comparison of the inverted reflectivity model and the true reflectivity mode
 ```bash
 # 1. Generate the geometry and velocity model
 python generate_model_geometry_fixed.py
-# 2. Simulate the observed data
+# 2a. Simulate the observed data
 sh forward_obs.sh
-# 3. Run LSRTM
+# 2b. Simulate the direct wave
+sh forward_direct.sh
+# 3. Remove the direct from observed data
+python move_direct.py
+# 4. Run LSRTM
 sh traditional.sh
 # or
 sh traditional_adam.sh
-# 4. Show the result
+# 5. Show the result
 python show_results.py
 ```

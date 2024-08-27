@@ -21,6 +21,7 @@ class WaveRNN(torch.nn.Module):
         self.source_encoding = source_encoding # short cut
         self.use_implicit = self.cell.geom.use_implicit
         self.second_order_equation = self.cell.geom.equation in Parameters.secondorder_equations()
+        self.source_illumination = self.cell.geom.source_illumination
 
     def named_parameters(self, prefix: str = '', recurse: bool = True, remove_duplicate: bool = True) -> Iterator[Tuple[str, Parameter]]:
         if self.cell.geom.use_implicit:
@@ -115,12 +116,15 @@ class WaveRNN(torch.nn.Module):
         hidden_state_shape = (batchsize,) + self.cell.geom.domain_shape
         # Initialize habc if needed
         if self.cell.geom.use_habc: self.cell.setup_habc(batchsize)
-        wavefield_names = Wavefield(self.cell.geom.equation).wavefields
         # Set wavefields
+        wavefield_names = Wavefield(self.cell.geom.equation).wavefields
         for name in wavefield_names:
             setattr(self, name, torch.zeros(hidden_state_shape, device=device))
 
         # nchannels = len(self.cell.geom.receiver_type)
+
+        if self.source_illumination:
+            self.precondition = torch.zeros(self.cell.geom.domain_shape, device=device)
 
         recs = dict()
         y = TensorList()
@@ -193,6 +197,9 @@ class WaveRNN(torch.nn.Module):
             # Measure probe(s): new implementation
             for key in self.cell.geom.receiver_type:
                 recs[key].append(super_probes(getattr(self, key)))
+
+            if self.source_illumination:
+                self.precondition += torch.sum(getattr(self, source_type).detach()**2, 0)
             
         # stacked_data: (nbatches, nt, nreceivers all batches, nchannels)
         stacked_data = torch.stack([torch.stack(recs[key], dim=0) for key in recs.keys()], dim=2)

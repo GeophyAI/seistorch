@@ -37,6 +37,10 @@ def build_model(config_path,
     # update the configure file
     VEL_PATH = cfg['geom']['initPath'] if mode == 'inversion' else cfg['geom']['truePath']
     cfg.update({'VEL_PATH': VEL_PATH})
+    try:
+        cfg['geom']['source_illumination'] = commands.source_illumination
+    except:
+        cfg['geom']['source_illumination'] = False
     use_multiple = cfg['geom']['multiple']
 
     ConfigureCheck(cfg, mode=mode, args=commands)

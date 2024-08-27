@@ -110,3 +110,9 @@ class PostProcess:
                         #                             radius['y'], 
                         #                             axis=axis3d['y'])
                 para.grad.data = grad.to(para.device)#torch.from_numpy(grad).to(para.device)
+
+
+    def precondition(self,):
+        for para in self.model.parameters():
+            if para.requires_grad:
+                para.grad /= self.model.precondition

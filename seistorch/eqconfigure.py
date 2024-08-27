@@ -10,6 +10,8 @@ class Parameters:
                  "acoustic_habc": ["vp"],
                  "acoustic_rho_habc": ["vp", "rho"],
                  "acoustic_fwim_habc": ["vp", "rx", "rz"],
+                 "acoustic_vti_lsrtm_habc": ["vp", "epsilon", "delta", "m"],
+                 "acoustic_tti_lsrtm_habc": ["vp", "epsilon", "delta", "theta", "m"],
                  "acoustic_lsrtm_habc": ["vp", "m"],
                  "acoustic1st":  ["vp", "rho"],
                  "decouple":     ["vp", "vs", "rho"],
@@ -20,7 +22,7 @@ class Parameters:
                  "vti_habc": ["vp", "epsilon", "delta"], 
                  "vti_habc2": ["vp", "epsilon", "delta"],
                  "vdr":  ["vp", "vs", "rho"], 
-                 "tti_habc": ["vp", "epsilon", "delta"],
+                 "tti_habc": ["vp", "epsilon", "delta", "theta"],
                  #"ttielastic":   ["vp", "vs", "rho", "epsilon", "gamma", "delta"],
                  "ttielastic":   ["c11", "c13", "c33", "c15", "c35", "c55", "rho"],
                 }
@@ -36,6 +38,8 @@ class Parameters:
                 'vti_habc2',
                 'acoustic_lsrtm_habc', 
                 'acoustic_fwim_habc',
+                'acoustic_vti_lsrtm_habc',
+                'acoustic_tti_lsrtm_habc',
                 'tti_habc']
 
 class Wavefield:
@@ -61,6 +65,14 @@ class Wavefield:
     def acoustic_lsrtm_habc(self, ):
         return ["h1", "h2", "sh1", "sh2"]
     
+    @property
+    def acoustic_vti_lsrtm_habc(self, ):
+        return ["p1", "p2", "sp1", "sp2"]
+    
+    @property
+    def acoustic_tti_lsrtm_habc(self, ):
+        return ["p1", "p2", "sp1", "sp2"]
+
     @property
     def acoustic_habc(self,):
         return ["h1", "h2"]

@@ -6,7 +6,7 @@ name: forward_modeling
 # Data type to use for tensors, either float32 or float64
 dtype: float32
 
-equation: acoustic_lsrtm_habc
+equation: acoustic_habc
 
 training:
 
@@ -25,7 +25,7 @@ training:
 
   minibatch: true
 
-  batch_size: 20
+  batch_size: 10
 
   # Number of training epochs
   N_epochs: 50
@@ -45,12 +45,11 @@ training:
 geom:
 
   # The observer data
-  obsPath: ./moved_direct_wave.hdf5
+  obsPath: ./obs_direct.hdf5
 
   # Wave speed model from disk_file for forward modeling
   truePath:
-    m: 
-    vp: 
+    vp: ./velocity/sea_vp.npy
     vs:
     rho:
     Q: 
@@ -60,7 +59,7 @@ geom:
 
   receivers: ./geometry/receivers.pkl
 
-  seabed: ./velocity/seabed.npy
+  seabed: /home/shaowinw/seistorch/examples/models/marmousi_model/seabed.npy
 
   wavelet:
 
@@ -77,19 +76,17 @@ geom:
     - h1
 
   receiver_type:
-    - sh1
+    - h1
 
   # Inital Wave speed model from disk_file
   initPath: 
-    vp: ./velocity/smooth_vp.npy
-    m: ./velocity/zero_ref.npy
+    vp:
     vs:
     rho:
     Q:
 
   invlist:
-    vp: false
-    m: true
+    vp: true
     vs:
     rho:
     q:
@@ -98,7 +95,10 @@ geom:
   inv_savePath:
 
   multiscale:
-    - all
+  - 1.0
+  - 3.0
+  - 5.0
+  - all
 
   # Time Sampling step
   dt: 0.001

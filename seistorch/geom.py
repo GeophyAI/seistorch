@@ -119,6 +119,11 @@ class WaveGeometryFreeForm(WaveGeometry):
 
         self.seisio = SeisIO(kwargs)
 
+        if 'source_illumination' in kwargs['geom'].keys():
+            self.source_illumination = kwargs['geom']['source_illumination']
+        else:
+            self.source_illumination = False
+
         # The demension of the model
         self.ndim = 2 if kwargs['geom']['Nz'] == 0 else 3
         super().__init__(self.domain_shape, h, self.bwidth, ndim=self.ndim, multiple=kwargs['geom']['multiple'])

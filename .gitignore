@@ -14,6 +14,8 @@ study
 
 examples/computational_graph/*
 examples/nn_embedded_fwi/model_representation/implicit_visacoustic
+examples/nn_embedded_fwi/model_representation/encoder_decoder_elastic2
 examples/rtm/stand_alone
 examples/random_boundaries
 examples/tools
+examples/models/2007bp

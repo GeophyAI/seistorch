@@ -6,51 +6,43 @@ name: forward_modeling
 # Data type to use for tensors, either float32 or float64
 dtype: float32
 
-equation: acoustic_lsrtm_habc
+equation: tti_habc
 
 training:
-
-  smooth:
-    counts: 5 # the number of smooth times
-    radius: # the radius of smooth in x and z direction
-      x: 1
-      z: 1
-    sigma: # the sigma of smooth in x and z direction
-      x: 1
-      z: 1
 
   implicit:
     use: false
     pretrained:
 
-  minibatch: true
+  minibatch:
 
-  batch_size: 20
+  batch_size:
 
   # Number of training epochs
-  N_epochs: 50
+  N_epochs:
 
   # Optimizer learning rate
-  lr: 0.001
+  lr:
 
   # Decay the learning rate by each of multi-scale
-  scale_decay: 0.85
+  scale_decay:
 
   # decay the lr by each of epochs
-  lr_decay: 0.995
+  lr_decay:
 
   # Filter order
-  filter_ord: 3
+  filter_ord:
 
 geom:
 
   # The observer data
-  obsPath: ./moved_direct_wave.hdf5
+  obsPath: ./shot_gather.npy
 
   # Wave speed model from disk_file for forward modeling
   truePath:
-    m: 
-    vp: 
+    vp: ./velocity_model/vp.npy
+    epsilon: ./velocity_model/epsilon.npy
+    delta: ./velocity_model/delta.npy
     vs:
     rho:
     Q: 
@@ -60,7 +52,7 @@ geom:
 
   receivers: ./geometry/receivers.pkl
 
-  seabed: ./velocity/seabed.npy
+  seabed:
 
   wavelet:
 
@@ -74,46 +66,46 @@ geom:
   #./geometry/ricker_lowcut5hz.npy
 
   source_type:
-    - h1
+    - p1
 
   receiver_type:
-    - sh1
+    - p1
 
   # Inital Wave speed model from disk_file
   initPath: 
-    vp: ./velocity/smooth_vp.npy
-    m: ./velocity/zero_ref.npy
+    vp:
     vs:
     rho:
     Q:
 
   invlist:
-    vp: false
-    m: true
+    vp:
     vs:
     rho:
     q:
+    epsilon:
+    delta:
 
   # Save the results of FWI
   inv_savePath:
 
   multiscale:
-    - all
+    - 0.0
 
   # Time Sampling step
   dt: 0.001
 
   # Time samples
-  nt: 4000
+  nt: 1501
 
   # Main frequency of ricker wave
-  fm: 8.0
+  fm: 15.0
 
   # Spatial grid step size
-  h: 20.0
+  h: 10.0
 
   # Total Shots
-  Nshots: 99
+  Nshots: 999
 
   boundary:
     type: habc

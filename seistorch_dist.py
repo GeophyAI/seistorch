@@ -64,6 +64,8 @@ parser.add_argument('--grad-smooth', action='store_true',
                     help='Smooth the gradient or not')
 parser.add_argument('--grad-clip', action='store_true', default=True,
                     help='Clip the gradient or not')
+parser.add_argument('--source-illumination', action='store_true', default=True,
+                    help='Use source illumination or not')
 parser.add_argument('--filteratfirst', action='store_true', 
                     help='Filter the wavelet at the first step or not')
 parser.add_argument('--obsnofilter', action='store_true', 
@@ -273,6 +275,9 @@ if __name__ == "__main__":
 
         if False:
             postprocess.repad()
+
+        if args.source_illumination:
+            postprocess.precondition()
 
         optimizers.step()
         lr_scheduler.step()
