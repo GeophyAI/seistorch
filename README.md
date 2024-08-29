@@ -30,9 +30,9 @@ I reproduced the results of the following papers using Seistorch and some stand 
 |PINN|[click](examples/pinn)|[Majid et al., 2022](https://doi.org/10.1029/2021JB023120)|Stand alone|
 |Implicit FWI|[click](examples/nn_embedded_fwi/model_representation/implicit_acoustic)|[Sun et al., 2023](https://doi.org/10.1029/2022JB025964)|Stand alone <br> Model Reparameterization(Acoustic)|
 |Physics-guided NN FWI|[click](examples/nn_embedded_fwi/model_representation/encoder_decoder_acoustic)|[Dhara & Sen, 2022](https://doi.org/10.1190/tle41060375.1)|Stand alone <br> Model Reparameterization(Acoustic)|
-|Elastic Parameters decouple|[click](examples/nn_embedded_fwi/model_representation/implicit_elastic)|-|Stand alone <br> Model Reparameterization(Elastic)|
+|Elastic parameters crosstalk|[click](examples/nn_embedded_fwi/model_representation/implicit_elastic)|-|Stand alone <br> Model Reparameterization(Elastic)|
 |Siamese FWI|[click](examples/nn_embedded_fwi/siamesefwi)|[Omar et al., 2024](https://doi.org/10.1029/2024JH000227)|Stand alone|
-|Elastic Parameters decouple|[click](examples/nn_embedded_fwi/model_representation/encoder_decoder)|[Dhara & Sen](https://doi.org/10.1109/TGRS.2023.3294427)|Stand alone <br> Model Reparameterization(Elastic)|
+|Elastic parameters crosstalk|[click](examples/nn_embedded_fwi/model_representation/encoder_decoder)|[Dhara & Sen](https://doi.org/10.1109/TGRS.2023.3294427)|Stand alone <br> Model Reparameterization(Elastic)|
 ### Misfit functions
 | Misfits | Examples | Related Papers | Notes |
 | :----------- | ----------- | :-----------: | :----- |

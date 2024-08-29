@@ -1,22 +1,25 @@
 import torch, os, tqdm
+import numpy as np
+import matplotlib.pyplot as plt
 torch.cuda.cudnn_enabled = True
 torch.backends.cudnn.benchmark = True
 from configure import *
+# Set seed
 torch.random.manual_seed(seed)
-import numpy as np
-import matplotlib.pyplot as plt
+np.random.seed(seed)
+
 from utils_torch import forward, ricker, generate_pml_coefficients_2d
 from siren import Siren
+from torchvision.transforms import Pad
 
-
-os.makedirs("figures", exist_ok=True)
-os.makedirs("results", exist_ok=True)
+os.makedirs("figures/ifwi", exist_ok=True)
+os.makedirs("results/ifwi", exist_ok=True)
 
 dev = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 l2loss = torch.nn.MSELoss()
 domain = (nz+2*npml, nx+2*npml)
-
+domain_net = (nz, nx)
 # load observed data
 obs = np.load("obs.npy")
 obs = torch.from_numpy(obs).float().to(dev)
@@ -25,7 +28,7 @@ obs = torch.from_numpy(obs).float().to(dev)
 wave = ricker(np.arange(nt) * dt-delay*dt, f=fm)
 
 # load true model for comparison
-true = np.load("models/vp.npy")
+true = np.load("models/true.npy")
 
 # PML coefficients
 pmlc = generate_pml_coefficients_2d(domain, npml)
@@ -40,9 +43,10 @@ freqs = freqs[freqs >= 0]
 plt.plot(freqs[:50], amp[:50])
 plt.xlabel("Frequency (Hz)")
 plt.ylabel("Amplitude")
+plt.show()
 
 # Geometry
-src_x = np.linspace(npml, nx+npml, 20)
+src_x = np.arange(npml, nx+npml, src_x_step)
 src_z = np.ones_like(src_x)*srcz
 
 sources = [[src_x, src_z] for src_x, src_z in zip(src_x.tolist(), src_z.tolist())]
@@ -64,31 +68,40 @@ imvel = Siren(in_features=in_features,
               hidden_layers=hidden_layers, 
               outermost_linear=True,
               domain_shape=domain).to(dev)
+
 opt = torch.optim.Adam(imvel.parameters(), lr=lr)
 coords = imvel.coords.to(dev)
-vp = imvel(coords)[0]
 kwargs = dict(wave=wave, src_list = np.array(sources), domain=domain, dt=dt, h=dh, dev=dev, recz=recz, b=pmlc)
 # forward for predicted data
 LOSS = []
+
+# save initial model
+vel_at_first = imvel(coords)[0].detach().cpu().numpy().reshape(domain)
+np.save('initial_by_siren.npy', vel_at_first)
+
 for epoch in tqdm.trange(EPOCHS):
+    # random shots
+    src_idx = np.random.choice(len(sources), batch_size, replace=False)
+    kwargs.update(src_list = np.array(sources)[src_idx])
     vp = imvel(coords)[0]
+    
     # Denormalize
     vp = vp * std_vp + mean_vp
     # forward
     syn = forward(c=vp, **kwargs)
-    loss = l2loss(syn, obs)
+    loss = l2loss(syn, obs[src_idx])
     LOSS.append(loss.item())
     opt.zero_grad()
     loss.backward()
     opt.step()
-
+    # break
     if epoch % show_every == 0:
         plt.figure(3, figsize=(6, 8))
         # show inverted
         ax = plt.subplot(311)
         inverted = vp.cpu().detach().numpy().reshape(domain)
         inverted = inverted[npml:-npml, npml:-npml]
-        show_kwargs = dict(cmap="seismic", aspect="auto", vmin=background_vp, vmax=anaomaly_vp)
+        show_kwargs = dict(cmap="seismic", aspect="auto", vmin=true.min(), vmax=true.max())
         ax.imshow(inverted, **show_kwargs)
         # show loss
         ax = plt.subplot(312)
@@ -101,9 +114,11 @@ for epoch in tqdm.trange(EPOCHS):
         ax.legend()
         plt.tight_layout()
         # plt.savefig(f"figures/{epoch:04d}.png", dpi=300, bbox_inches="tight")
-        plt.savefig(f"figures/{epoch:04d}.png")
+        plt.savefig(f"figures/ifwi/{epoch:04d}.png")
         plt.show()
-        np.save(f"results/inverted{epoch:04d}.npy", inverted)
+        np.save(f"results/ifwi/inverted{epoch:04d}.npy", inverted)
 
-
-
+# delta = vp.cpu().detach().numpy().reshape(domain)-vel_at_first
+# vmin, vmax=np.percentile(delta, [1, 99])
+# plt.imshow(delta, vmin=vmin, vmax=vmax, cmap='jet', aspect='auto')
+# plt.show()

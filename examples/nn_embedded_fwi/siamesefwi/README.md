@@ -3,20 +3,27 @@ This example reproduce the siamese fwi ([Omar et al., 2024](https://doi.org/10.1
 
 # Theory
 For conventional FWI, the objective function is defined as the difference between the observed and synthetic data:
+
 $$
 J(\mathbf m) = \frac{1}{2} \sum_{s,r}^{} \left\| d_{\text{obs}}^i - d_{\text{syn}}(\mathbf m)^i \right\|^2
 $$
+
 The siamese fwi, on the other hand, uses a network to map the data into a latent space, so we will have:
+
 $$
 \mathbf z_{obs}^{latent} = \mathcal F(\mathbf d_\text{obs}; \theta)
 $$
+
 and 
+
 $$
 \mathbf z_{syn}^{latent} = \mathcal F(\mathbf d_\text{syn}; \theta)
 $$
+
 where $\mathcal F$ is the network and $\theta$ are the network parameters. Both synthetic and observed data are mapped into a same latent space with a single network, that is why it is called siamese. 
 
 The objective function of siamese fwi is defined as the difference between the latent space of the predicted and observed data:
+
 $$
 J(\mathbf m) = \frac{1}{2} \sum_{s,r}^{} \left\| \mathbf z_{\text{obs}}^{latent} - \mathbf z_{\text{syn}}^{latent} \right\|^2
 $$

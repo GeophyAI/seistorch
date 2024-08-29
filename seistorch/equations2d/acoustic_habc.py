@@ -149,11 +149,11 @@ def habc(y, h1, h2, vel, coes, dt, h, w=50, maskidx=None):
 
     otherargs = [dt, h]
     # Calculate weighted one/two-wave-wavefield
-    tbargs = [stack(cutb(array), cutb(flipud(array))) for array in [y, h1, h2, vel.unsqueeze(0), coes.unsqueeze(0)]]+otherargs
-    lrargs = [stack(cutb(rot90(array, -1)), cutb(rot90(array, 1))) for array in [y, h1, h2, vel.unsqueeze(0), coes.unsqueeze(0)]]+otherargs
+    tbargs = [stack(cutb(array, w), cutb(flipud(array), w)) for array in [y, h1, h2, vel.unsqueeze(0), coes.unsqueeze(0)]]+otherargs
+    lrargs = [stack(cutb(rot90(array, -1), w), cutb(rot90(array, 1), w)) for array in [y, h1, h2, vel.unsqueeze(0), coes.unsqueeze(0)]]+otherargs
 
-    top, bottom = torch.split(_habc(*tbargs), 1, dim=0)
-    left, right = torch.split(_habc(*lrargs), 1, dim=0)
+    top, bottom = torch.split(_habc(*tbargs, w=w), 1, dim=0)
+    left, right = torch.split(_habc(*lrargs, w=w), 1, dim=0)
     tmidx, bmidx, lmidx, rmidx = maskidx
 
     multiple = tmidx is None
