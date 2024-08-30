@@ -16,7 +16,9 @@ examples/computational_graph/*
 examples/nn_embedded_fwi/model_representation/implicit_visacoustic
 examples/nn_embedded_fwi/model_representation/encoder_decoder_elastic2
 examples/nn_embedded_fwi/model_representation/anisotropic
-examples/sth_interesting/what_init_fwi_need
+examples/nn_embedded_fwi/model_representation/super_resolution
+examples/nn_embedded_fwi/lstm
+examples/sth_interesting
 examples/rtm/stand_alone
 examples/random_boundaries
 examples/tools

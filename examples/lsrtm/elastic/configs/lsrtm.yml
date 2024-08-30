@@ -45,7 +45,7 @@ training:
 geom:
 
   # The observer data
-  obsPath: ./born.hdf5
+  obsPath: ./obs.hdf5
 
   # Wave speed model from disk_file for forward modeling
   truePath:
@@ -57,13 +57,11 @@ geom:
     rvp: ./velocity/true_mvp.npy
     rvs: ./velocity/true_mvs.npy
 
-    
-
   sources: ./geometry/sources.pkl
 
   receivers: ./geometry/receivers.pkl
 
-  seabed: /home/shaowinw/seistorch/examples/models/marmousi_model/seabed.npy
+  seabed: ./velocity/seabed.npy
 
   wavelet:
 
@@ -77,8 +75,7 @@ geom:
   #./geometry/ricker_lowcut5hz.npy
 
   source_type:
-    - txx
-    - tzz
+    - vz
 
   receiver_type:
     - svx
@@ -86,29 +83,28 @@ geom:
 
   # Inital Wave speed model from disk_file
   initPath: 
-    vp: 
-    vs: 
-    rho: 
-    rvp: 
-    rvs: 
-    rrho: 
+    vp: ./velocity/smooth_vp.npy
+    vs: ./velocity/smooth_vs.npy
+    rho: ./velocity/rho.npy
+
+    rrho: ./velocity/zero_ref.npy
+    rvp: ./velocity/zero_ref.npy
+    rvs: ./velocity/zero_ref.npy
 
   invlist:
     vp: false
     vs: false
     rho: false
-    rvp: false
-    rvs: false
+
+    rvp: true
+    rvs: true
     rrho: false
 
   # Save the results of FWI
   inv_savePath:
 
   multiscale:
-  - 1.0
-  - 3.0
-  - 5.0
-  - all
+    - all
 
   # Time Sampling step
   dt: 0.001
@@ -117,7 +113,7 @@ geom:
   nt: 4000
 
   # Main frequency of ricker wave
-  fm: 8.0
+  fm: 10.0
 
   # Spatial grid step size
   h: 20.0

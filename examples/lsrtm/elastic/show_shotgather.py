@@ -8,8 +8,8 @@ import h5py
 """
 Configures
 """
-config_path = "./forward_obs.yml"
-obsPath = "./obs.hdf5"
+config_path = "./configs/forward_born.yml"
+obsPath = "./born.hdf5"
 
 # Load the configure file
 with open(config_path, 'r') as ymlfile:

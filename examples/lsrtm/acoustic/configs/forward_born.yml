@@ -6,7 +6,7 @@ name: forward_modeling
 # Data type to use for tensors, either float32 or float64
 dtype: float32
 
-equation: elastic_lsrtm
+equation: acoustic_lsrtm_habc
 
 training:
 
@@ -45,25 +45,16 @@ training:
 geom:
 
   # The observer data
-  obsPath: ./obs.hdf5
+  obsPath: ./born.hdf5
 
   # Wave speed model from disk_file for forward modeling
   truePath:
     vp: ./velocity/smooth_vp.npy
-    vs: ./velocity/smooth_vs.npy
-    rho: ./velocity/rho.npy
-
-    rrho: ./velocity/true_mvp.npy
-    rvp: ./velocity/true_mvp.npy
-    rvs: ./velocity/true_mvs.npy
-
-    
+    m: ./velocity/true_m.npy  
 
   sources: ./geometry/sources.pkl
 
   receivers: ./geometry/receivers.pkl
-
-  seabed: ./velocity/seabed.npy
 
   wavelet:
 
@@ -77,37 +68,30 @@ geom:
   #./geometry/ricker_lowcut5hz.npy
 
   source_type:
-    - txx
-    - tzz
+    - h1
 
   receiver_type:
-    - svx
-    - svz
+    - sh1
 
   # Inital Wave speed model from disk_file
   initPath: 
-    vp: ./velocity/smooth_vp.npy
-    vs: ./velocity/smooth_vs.npy
-    rho: ./velocity/rho.npy
-
-    rrho: ./velocity/zero_ref.npy
-    rvp: ./velocity/zero_ref.npy
-    rvs: ./velocity/zero_ref.npy
+    vp:
+    vs:
+    rho:
+    Q:
 
   invlist:
-    vp: false
-    vs: false
-    rho: false
-
-    rvp: true
-    rvs: true
-    rrho: false
+    vp: true
+    m: true
 
   # Save the results of FWI
   inv_savePath:
 
   multiscale:
-    - all
+  - 1.0
+  - 3.0
+  - 5.0
+  - all
 
   # Time Sampling step
   dt: 0.001
@@ -116,7 +100,7 @@ geom:
   nt: 4000
 
   # Main frequency of ricker wave
-  fm: 10.0
+  fm: 8.0
 
   # Spatial grid step size
   h: 20.0
@@ -125,5 +109,5 @@ geom:
   Nshots: 99
 
   boundary:
-    type: pml
+    type: habc
     width: 50

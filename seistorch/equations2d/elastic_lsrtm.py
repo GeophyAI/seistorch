@@ -187,6 +187,7 @@ def _time_step_backward(*args, **kwargs):
     txzs_copy[update_region_slice] = y_txzs[(slice(None), slice(N,-N), slice(N,-N))]
 
     # Restore the boundary
+    # with torch.no_grad():
     txx_copy = restore_boundaries(txx_copy, txx_bd)
     tzz_copy = restore_boundaries(tzz_copy, tzz_bd)
     txz_copy = restore_boundaries(txz_copy, txz_bd)

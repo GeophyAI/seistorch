@@ -24,11 +24,14 @@ for i in range(2):
     init = gaussian_filter(init, sigma=3)
     # init[0:24] = 1500.
 
+true_m = 2*(vel-init)/init
+
 os.makedirs("velocity", exist_ok=True)
 np.save("velocity/true_vp.npy", vel)
 np.save("velocity/smooth_vp.npy", init)
 np.save("velocity/zero_ref.npy", zero_ref)
 np.save("velocity/seabed.npy", seabed)
+np.save("velocity/true_m.npy", true_m)
 
 np.save("velocity/sea_vp.npy", np.ones_like(vel)*1500)
 

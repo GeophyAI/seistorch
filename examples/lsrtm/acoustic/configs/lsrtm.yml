@@ -28,7 +28,7 @@ training:
   batch_size: 20
 
   # Number of training epochs
-  N_epochs: 50
+  N_epochs: 31
 
   # Optimizer learning rate
   lr: 0.001

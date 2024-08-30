@@ -45,6 +45,7 @@ class WaveSource(torch.nn.Module):
 		return getattr(self, f"forward{self.ndim}d")
 
 	def forward2d(self, Y, X, dt=1.0):
+		
 		Y_new = Y.clone() if self.second_order_equation else Y
 		
 		if not self.source_encoding:

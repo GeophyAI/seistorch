@@ -1,7 +1,7 @@
 # Configures for the model
 seed = 20240829
 seed2 = 12345678
-marmousi_path = '../../models/marmousi_model/true_vp.npy'
+marmousi_path = '../../../models/marmousi_model/true_vp.npy'
 nx = 231
 nz = 87
 dh = 20 # m

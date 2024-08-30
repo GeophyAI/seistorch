@@ -5,10 +5,10 @@ import torch
 from scipy.ndimage import laplace
 
 os.makedirs('figures', exist_ok=True)
-rootpath = r'./results_traditional_cg'
+rootpath = r'./results_traditional_cg_born'
 
 F = 0
-E = 49
+E = 30
 dh = 20
 bwidth = 50
 expand = 50

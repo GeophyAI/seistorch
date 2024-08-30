@@ -32,6 +32,7 @@ So, for calcuating the scattering wavefield $\Delta P$, we need first calculate 
 We use Marmousi model for testing the LSRTM. First, we generate the geometry and velocity model by running the `generate_model_geometry_fixed.py`. Then we generate the observed data by solving the acoustic wave equation, the needed configure parameters and shell script are in the `forward_obs.yml` and `forward_obs.sh`.
 
 The background velocity model is smoothed from the ground truth Marmousi model, and the reflectivity model is generated with zeros. The smoothed background velocity model and the geometry are shown in the following figure.
+
 ![background velocity model](figures/model_geometry.png)
 
 When doing LSRTM, the velocity model is fixed and the reflectivity model is updated iteratively. The Adam optimizer with a learning rate of 0.01 is used to minimize the objective function. The reflectivity model after 50 iterations is shown in the following figure.
@@ -42,6 +43,7 @@ The comparison of the inverted reflectivity model and the true reflectivity mode
 
 ![background velocity model](figures/trace.png)
 
+**Note**: The results shown here is inverted by fitting the demigration data, instead of the observed data.
 
 # Usage
 ```bash
@@ -54,9 +56,9 @@ sh forward_direct.sh
 # 3. Remove the direct from observed data
 python move_direct.py
 # 4. Run LSRTM
-sh traditional.sh
+sh lsrtm_cg.sh
 # or
-sh traditional_adam.sh
+sh lsrtm_adam.sh
 # 5. Show the result
 python show_results.py
 ```

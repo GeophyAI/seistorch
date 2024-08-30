@@ -4,10 +4,10 @@ import matplotlib.pyplot as plt
 import torch
 from scipy.ndimage import laplace
 os.makedirs('./figures', exist_ok=True)
-rootpath = r'./results'
+rootpath = r'./results_born'
 
 F = 0
-E = 49
+E = 24
 bwidth = 50
 expand = 50
 
@@ -37,7 +37,7 @@ for ax in axes.ravel():
     ax.set_xlabel('Distance (m)')
     ax.set_ylabel('Depth (m)')
 plt.tight_layout()
-fig.savefig(f'figures/inverted.png', dpi=300, bbox_inches='tight')
+# fig.savefig(f'figures/inverted.png', dpi=300, bbox_inches='tight')
 plt.show()
 
 
@@ -53,7 +53,7 @@ for ax in axes.ravel():
     ax.legend()
     ax.set_title(f'Profile at {trace_no*dh}m')
 plt.tight_layout()
-fig.savefig(f'figures/trace.png', dpi=300, bbox_inches='tight')
+# fig.savefig(f'figures/trace.png', dpi=300, bbox_inches='tight')
 plt.show()
 
 
