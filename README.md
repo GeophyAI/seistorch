@@ -10,20 +10,32 @@ From this version, seistorch will use 'torchrun' to perform distributed full wav
 | Others   | Not test yet   |
 
 # If you are interested in ...
+
 I reproduced the results of the following papers using Seistorch and some stand alone codes. If you are interested in these topics, please refer to the following links:
-### Traditional methods
+
+### Forward modeling
 | Traditional | Codes | Related Papers | Notes |
 | :----------- | ----------- | :-----------: | :----- |
-|FWI by Pytorch|[click](examples/sthelse)|-|Stand alone|
 |Simulations|[click](examples/forward_modeling/different_eq)|[Wang et al., 2023](https://doi.org/10.1109/TGRS.2023.3317529)|Seistorch|
 |Finite difference method|[click](examples/forward_modeling/pseudospectral)|-|Acoustic|
 |Pseudospectral method|[click](examples/forward_modeling/pseudospectral)|[Kosloff & Baysal](https://doi.org/10.1190/1.1441288)|Acoustic|
-|Acoustic LSRTM|[click](examples/lsrtm)|[Dai et al., 2010](https://doi.org/10.1190/1.3513494)|Seistorch|
-|Elastic LSRTM|[click](examples/lsrtm)|[Feng & Schuster, 2017](https://doi.org/10.1190/geo2016-0254.1)|Seistorch|
+
+### FWI
+| Traditional | Codes | Related Papers | Notes |
+| :----------- | ----------- | :-----------: | :----- |
+|FWI by Pytorch|[click](examples/sthelse)|-|Stand alone|
 |Acoustic FWI|[click](examples/inversion/source_encoding/acoustic)|-|Seistorch, Source Encoding|
 |Elastic FWI|[click](examples/inversion/source_encoding/elastic)|-|Seistorch|
+|Regularization-based FWI|[click](examples/regularization/model_reg_fwi)|||
+
+### LSRTM
+| Traditional | Codes | Related Papers | Notes |
+| :----------- | ----------- | :-----------: | :----- |
+|Acoustic LSRTM|[click](examples/lsrtm)|[Dai et al., 2010](https://doi.org/10.1190/1.3513494)|Seistorch|
+|Elastic LSRTM|[click](examples/lsrtm)|[Feng & Schuster, 2017](https://doi.org/10.1190/geo2016-0254.1)|Seistorch|
+|VTI/TTI LSRTM|[click](examples/lsrtm/qP)|-|Seistorch|
 |Joint FWI&LSRTM|[click](examples/inversion/joint_fwi_lsrtm)|[Wu et al., 2024](https://doi.org/10.1109/TGRS.2024.3349608)|Seistorch|
-|VTI/TTI LSRTM|[click](/root/seistorch/examples/lsrtm/qP)|-|Seistorch|
+|Regularization-based LSRTM|[click](examples/regularization/model_reg_lsrtm)|||
 ### Inversion with Neural Networks
 | FWI+NeuralNetworks | Codes | Related Papers | Notes |
 | :----------- | ----------- | :-----------: | :----- |
@@ -32,7 +44,8 @@ I reproduced the results of the following papers using Seistorch and some stand 
 |Physics-guided NN FWI|[click](examples/nn_embedded_fwi/model_representation/encoder_decoder_acoustic)|[Dhara & Sen, 2022](https://doi.org/10.1190/tle41060375.1)|Stand alone <br> Model Reparameterization(Acoustic)|
 |Elastic parameters crosstalk|[click](examples/nn_embedded_fwi/model_representation/implicit_elastic)|-|Stand alone <br> Model Reparameterization(Elastic)|
 |Siamese FWI|[click](examples/nn_embedded_fwi/siamesefwi)|[Omar et al., 2024](https://doi.org/10.1029/2024JH000227)|Stand alone|
-|Elastic parameters crosstalk|[click](examples/nn_embedded_fwi/model_representation/encoder_decoder)|[Dhara & Sen](https://doi.org/10.1109/TGRS.2023.3294427)|Stand alone <br> Model Reparameterization(Elastic)|
+|Elastic parameters crosstalk|[click](examples/nn_embedded_fwi/model_representation/encoder_decoder_elastic)|[Dhara & Sen](https://doi.org/10.1109/TGRS.2023.3294427)|Stand alone <br> Model Reparameterization(Elastic)|
+
 ### Misfit functions
 | Misfits | Examples | Related Papers | Notes |
 | :----------- | ----------- | :-----------: | :----- |
@@ -63,7 +76,7 @@ I reproduced the results of the following papers using Seistorch and some stand 
 | :-------------- | :-----------: | :------------------| :-----------: |
 | Scalar Acoustic (2nd) | FWI | * | [PML version](seistorch/equations2d/acoustic.py) <br> [HABC version](seistorch/equations2d/acoustic_habc.py) |
 | Scalar Acoustic (2nd) | LSRTM | [Dai et al., 2010](https://doi.org/10.1190/1.3513494) | [click](seistorch/equations2d/acoustic_habc.py) |
-| Acoustic (1st) | FWI | * | [click](/root/seistorch/seistorch/equations2d/acoustic1st.py) |
+| Acoustic (1st) | FWI | * | [click](seistorch/equations2d/acoustic1st.py) |
 |Variable Density (2nd)| FWI | [Whitmore et al., 2020](https://doi.org/10.3997/2214-4609.202010332) | [click](seistorch/equations2d/acoustic_rho_habc.py) |
 | Joint FWI & LSRTM| FWI+LSRTM | [Wu et al., 2024](https://doi.org/10.1109/TGRS.2024.3349608) | [click](seistorch/equations2d/acoustic_fwim_habc.py) |
 | qP TTI (2nd) | FWI/LSRTM | [Liang et al., 2024](https://doi.org/10.1190/geo2022-0292.1) | [fwi click](seistorch/equations2d/tti_habc.py) <br> [lsrtm click](seistorch/equations2d/acoustic_tti_lsrtm_habc.py) |
@@ -79,9 +92,7 @@ I reproduced the results of the following papers using Seistorch and some stand 
 Note: 2nd means displacement equations, 1st means velocity-stress equations.
 
 # To do list
-- [qP-wave LSRTM](https://doi.org/10.1190/geo2019-0320.1)
 - [SH- and Love-wave FWI(Dokter et al., 2017)](https://doi.org/10.1111/1365-2478.12549)
-
 
 # Citation
 

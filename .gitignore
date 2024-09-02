@@ -18,6 +18,7 @@ examples/nn_embedded_fwi/model_representation/encoder_decoder_elastic2
 examples/nn_embedded_fwi/model_representation/anisotropic
 examples/nn_embedded_fwi/model_representation/super_resolution
 examples/nn_embedded_fwi/lstm
+examples/check_features/pml
 examples/sth_interesting
 examples/rtm/stand_alone
 examples/random_boundaries
