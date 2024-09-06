@@ -1,11 +1,14 @@
 import torch
-
+import time
 torch.cuda.cudnn_enabled = True
 torch.backends.cudnn.benchmark = True
 
 import numpy as np
 import matplotlib.pyplot as plt
 from utils import *
+
+import os
+os.makedirs("figures", exist_ok=True)
 
 dev = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -25,7 +28,7 @@ recz = 5+pmln # grid point
 # Training
 criterion = torch.nn.MSELoss()
 lr = 10.
-epochs = 20
+epochs = 101
 
 # Load velocity
 vel = np.load("../models/marmousi_model/true_vp.npy")
@@ -73,8 +76,11 @@ print(f"The number of receivers: {len(rec_loc)}")
 # forward for observed data
 # To GPU
 vel = torch.from_numpy(vel).float().to(dev)
+start_time = time.time()
 with torch.no_grad():
     rec_obs = forward(wave, vel, pmlc, np.array(src_loc), domain, dt, dh, dev, recz, pmln)
+end_time = time.time()
+print(f"Forward modeling time: {end_time - start_time:.2f}s")
 # Show gathers
 show_gathers(rec_obs.cpu().numpy(), figsize=(10, 6))
 
@@ -100,7 +106,7 @@ for epoch in tqdm.trange(epochs):
     Loss.append(loss.item())
     if epoch % 10 == 0:
         print(f"Epoch: {epoch}, Loss: {loss.item()}")
-        imshow(init.cpu().detach().numpy()[pmln:-pmln,pmln:-pmln], vmin=1500, vmax=5500, cmap="seismic", figsize=(5, 3))
+        imshow(init.cpu().detach().numpy()[pmln:-pmln,pmln:-pmln], vmin=1500, vmax=5500, cmap="seismic", figsize=(5, 3), savepath=f"figures/{epoch:03d}.png")
         plt.show()
 plt.plot(Loss)
 plt.xlabel("Epoch")

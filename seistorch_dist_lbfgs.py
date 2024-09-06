@@ -179,7 +179,7 @@ if __name__ == "__main__":
                                            history_size=10, 
                                         #    tolerance_grad=1e-15,
                                            line_search_fn=None)
-        if args.filteratfirst: 
+        if args.filteratfirst:
             lpx = seissignal.filter(x.cpu().numpy().copy().reshape(1, -1), freqs=freq)[0]
         else:
             lpx = seissignal.filter(x.cpu().numpy().copy().reshape(1, -1), freqs='all')[0]

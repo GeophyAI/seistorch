@@ -1,26 +1,29 @@
-import torch, tqdm
+import jax
+import jax.numpy as jnp
 import numpy as np
 import matplotlib.pyplot as plt
+from jax.scipy.signal import convolve2d as conv2d
+from jax import vmap
+from jax import lax
+import torch
 
-def imshow(data, vmin=None, vmax=None, cmap=None, figsize=(10, 10), savepath=None):
-    plt.figure(figsize=figsize)
-    plt.imshow(data, vmin=vmin, vmax=vmax, cmap=cmap, aspect="auto")
-    plt.colorbar()
-    if savepath:
-        plt.savefig(savepath)
-    plt.show()
+# Ricker wavelet
+def ricker(t, f=10):
+    r = (1 - 2 * (np.pi * f * t) ** 2) * np.exp(-(np.pi * f * t) ** 2)
+    return jnp.array(r)
 
-def generate_mesh(mshape, dh=1):
-    '''Generates a flattened grid of (x,y,...) coordinates in a range of -1 to 1.
-    sidelen: int
-    dim: int'''
-    tensors_for_meshgrid = []
-    for size in mshape:
-        tensors_for_meshgrid.append(torch.linspace(-1, 1, steps=size))
-        # tensors_for_meshgrid.append(torch.linspace(0, size*dh/1000, steps=size))
-    mgrid = torch.stack(torch.meshgrid(*tensors_for_meshgrid, indexing='ij'), dim=-1)
-    mgrid = mgrid.reshape(-1, len(mshape))
-    return mgrid
+@jax.jit
+def _laplace(image, kernel):
+    # Expected input shape: (height, width)
+    return conv2d(image, kernel, mode='same')
+
+batch_convolve2d = vmap(vmap(_laplace, in_axes=(0, None)), in_axes=(0, None))
+
+# Laplace operator
+@jax.jit
+def laplace(u, h):
+    kernel = jnp.array([[0, 1, 0], [1, -4, 1], [0, 1, 0]])  # 3x3 kernel
+    return batch_convolve2d(u, kernel) / (h ** 2)
 
 def show_gathers(rec, size=3, figsize=(8, 5)):
     randno = np.random.randint(0, rec.shape[0], size=size)
@@ -42,57 +45,47 @@ def showgeom(vel, src_loc, rec_loc, figsize=(10, 10)):
     plt.legend()
     plt.show()
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-# configure
-kernel = torch.tensor([[[[0.0, 1.0, 0.0], [1.0, -4.0, 1.0], [0.0, 1.0, 0.0]]]]).to(device)
 
-def ricker(t, f=10):
-    r = (1 - 2 * (np.pi * f * t) ** 2) * np.exp(-(np.pi * f * t) ** 2)
-    return torch.from_numpy(r).float().to(device)
-
-def laplace(u, h):
-    return torch.nn.functional.conv2d(u, kernel, padding=1) / (h ** 2)
-
+# time step forward
+@jax.jit
 def step(u_pre, u_now, c=1.5, dt=0.001, h=10./1000., b=None):
-
-    # With boundary condition
-    u_next = torch.mul((dt**-2 + b * dt**-1).pow(-1),
-                (2 / dt**2 * u_now - torch.mul((dt**-2 - b * dt**-1), u_pre)
-                + torch.mul(c.pow(2), laplace(u_now, h)))
-                )
-    # u_next = ((dt**-2 + b * dt**-1).pow(-1) *
-    #             (2 / dt**2 * u_now - (dt**-2 - b * dt**-1) * u_pre
-    #             + c.pow(2) * laplace(u_now, h)))
-    # Without boundary condition
-    # u_next = 2 * u_now - u_pre + (c * dt) ** 2 * laplace(u_now, h)
+    _laplace_u = laplace(u_now, h)
+    a = (dt**-2 + b * dt**-1)**(-1)
+    u_next = a*(2. / dt**2 * u_now - (dt**-2-b*dt**-1)*u_pre + c**2 * _laplace_u)
     return u_next
 
-def forward(wave, c, b, src_list, domain, dt, h, dev, recz=0, pmln=50):
+# forward modeling
+def forward(wave, c, b, src_list, domain, dt, h, recz=0, pmln=50):
     nt = wave.shape[0]
-    nz, nx = domain[0], domain[1]
+    nz, nx = domain
     nshots = len(src_list)
-    u_pre = torch.zeros(nshots, 1, *domain, device=dev)
-    u_now = torch.zeros(nshots, 1, *domain, device=dev)
-    rec = torch.zeros(nshots, nt, nx-2*pmln, device=dev)
-    b = b.unsqueeze(0).to(dev)
-    c = c.unsqueeze(0)
-    shots = torch.arange(nshots, device=dev)
+    u_pre = jnp.zeros((nshots, 1, *domain))
+    u_now = jnp.zeros((nshots, 1, *domain))
+    rec = jnp.zeros((nshots, nt, nx-2*pmln))
+    b = b
+    c = c
+
+    shots = jnp.arange(0, nshots, 1)
     srcx, srcz = zip(*src_list)
+    source_mask = jnp.zeros((nshots, 1, *domain))
+    source_mask = source_mask.at[shots, 0, srcz, srcx].set(1)
 
-    h = torch.Tensor([h]).to(dev)
-    dt = torch.Tensor([dt]).to(dev)
-
-    source_mask = torch.zeros_like(u_now)
-    source_mask[shots, :, srcz, srcx] = 1
-
-    for it in range(nt):
-        u_now += source_mask * wave[it]
+    def step_fn(carry, it):
+        u_pre, u_now, rec = carry
+        source = wave[it] * source_mask
+        u_now = u_now + source
         u_next = step(u_pre, u_now, c, dt, h, b)
-        u_pre, u_now = u_now, u_next
-        rec[:,it, :] = u_now[:, 0, recz, pmln:-pmln]
+        rec = rec.at[:, it, :].set(u_now[:, 0, recz, pmln:-pmln])
+        return (u_now, u_next, rec), None
 
-    return rec
+    initial_carry = (u_pre, u_now, rec)
 
+    final_carry, _ = lax.scan(jax.remat(step_fn), initial_carry, jnp.arange(nt))
+    _, _, rec_final = final_carry
+
+    return rec_final
+
+# Coefficients of PML
 def generate_pml_coefficients_2d(domain_shape, N=50, B=100., multiple=False):
     Nx, Ny = domain_shape
 
