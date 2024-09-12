@@ -13,6 +13,7 @@ import torch
 from prettytable import PrettyTable
 from scipy import signal
 from joblib import Parallel, delayed
+import jax.numpy as jnp
 
 def accuracy_onehot(y_pred, y_label):
     """Compute the accuracy for a onehot
@@ -566,5 +567,13 @@ def nestedlist2tensor(nestedlist):
     """
     if isinstance(nestedlist, list):
         return torch.stack([nestedlist2tensor(item) for item in nestedlist])
+    else:
+        return nestedlist
+
+def nestedlist2np(nestedlist):
+    """Convert a nested list to a numpy.
+    """
+    if isinstance(nestedlist, list):
+        return jnp.stack([nestedlist2np(item) for item in nestedlist])
     else:
         return nestedlist

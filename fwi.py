@@ -1,4 +1,6 @@
 """Perform full waveform inversion."""
+import os
+os.environ["XLA_PYTHON_CLIENT_PREALLOCATE"] = "false"
 import torch
 
 torch.backends.cudnn.enabled = True

@@ -17,12 +17,24 @@ class ConfigureCheck:
         self.check_source_receiver_type()
         self.check_path()
         self.check_boundary()
+        self.check_backend()
+        self.check_boundary_save()
         
         if self.args is not None:
             if self.args.grad_smooth:
                 self.check_smooth()
             if self.args.grad_cut:
                 self.check_seabed()
+
+    def check_backend(self, title="backend"):
+        """Check the backend parameters.
+        """
+        assert title in self.cfg.keys(), \
+            f"backend parameter is not in the config file."
+        
+        backend = self.cfg[title]
+        assert backend in ["torch", "jax"], \
+            f"backend should be 'torch' or 'jax'."
 
     def check_boundary(self, title='boundary'):
         """Check the boundary parameters.
@@ -49,6 +61,10 @@ class ConfigureCheck:
         if boundary["type"] == 'habc':
             assert 'habc' in self.cfg['equation'], \
                 f'When boundary type is habc, the equation must be <...>_habc.'
+
+    def check_boundary_save(self, title="geom"):
+        if self.cfg['backend'] == 'jax' and self.cfg['geom']['boundary_saving']:
+            raise ValueError("Boundary saving is not supported in JAX backend.")
 
     def check_dict(self, key, dict):
         assert key in dict.keys(), \

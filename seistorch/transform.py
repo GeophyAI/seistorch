@@ -25,6 +25,7 @@ def envelope(d):
     return torch.abs(hilbert(d))
 
 def hilbert(data):
+
     """
     Compute the Hilbert transform of the input data tensor.
 
@@ -34,7 +35,6 @@ def hilbert(data):
     Returns:
         torch.Tensor: The Hilbert transform of the input data tensor.
     """
-
     nt, _, _ = data.shape #(nsamples, ntraces, nchannels)
     # nfft = 2 ** (nt - 1).bit_length()
     nfft = nt # the scipy implementation uses this
@@ -59,9 +59,6 @@ def hilbert(data):
     # h = h.requires_grad_(True)
     # Apply the filter and compute the inverse FFT
     hilbert_data = torch.fft.ifft(data_fft * h, dim=0)
-
-    # Truncate the result to the original length
-    #hilbert_data = hilbert_data#[:nt]
 
     return hilbert_data
 

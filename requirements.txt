@@ -9,3 +9,5 @@ pot
 h5py
 tensorboard
 setproctitle
+numba
+optax

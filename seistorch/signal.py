@@ -6,6 +6,9 @@ from joblib import Parallel, delayed
 from scipy.integrate import cumulative_trapezoid
 from torchaudio.functional import filtfilt
 from seistorch.transform import hilbert
+from functools import partial
+import jax
+import jax.numpy as jnp
 
 from torchvision.transforms.functional import gaussian_blur
 
@@ -29,12 +32,7 @@ class SeisSignal:
         Returns:
             str : The filter type.
         """
-        if isinstance(freq, (int, float)): filter_mode = "lowpass"
-        if isinstance(freq, list): 
-            if len(freq) == 1: filter_mode = "lowpass"
-            if len(freq) == 2: filter_mode = "bandpass"
-        if freq == "all": filter_mode = "all"
-        return filter_mode
+        return decide_filter_type(freq)
     
     def _filter_(self, d, b, a, axis):
         return signal.filtfilt(b, a, d, axis=axis).astype(np.float32)
@@ -217,6 +215,87 @@ def filter(data, dt=0.001, freqs=[2,5], forder=3, btype='highpass', axis=1):
 
     filtered_data = signal.filtfilt(b, a, data, axis=axis).astype(np.float32)
     return filtered_data
+
+def filter_jax(data, dt=0.001, freqs=[2,5], forder=3, axis=1):
+
+    btype = decide_filter_type(freqs)
+
+    if btype == "all":
+        return data
+
+    if btype in ["lowpass", "highpass"]:
+        if isinstance(freqs, list): freqs = freqs[0]
+        assert isinstance(freqs, (int, float)), "freqs must be a number for lowpass or highpass filter"
+        freqs = [freqs]
+
+    wn = [2*freq/(1/dt) for freq in list(freqs)]
+    wn = wn[0] if len(wn)==1 else wn
+
+    # calculate the filter coefficients
+    b, a = signal.butter(forder, Wn=wn, btype=btype)
+
+    # apply the filter
+    filtered = jax_filtfilt(b, a, data, axis=axis)
+
+    return filtered
+
+def apply_filter(b, a, x):
+    def filter_step(carry, x_t):
+        b_, a_, y_t = carry # Get the previous state (historical input and output)
+        
+        # y[n] = b[0]x[n] + b[1]x[n-1] + ... - a[1]y[n-1] - ...
+        new_y_t = jnp.dot(b, jnp.concatenate([jnp.array([x_t]), b_[:-1]])) - jnp.dot(a[1:], a_)
+        
+        # Update the state
+        b_ = jnp.concatenate([jnp.array([x_t]), b_[:-1]])
+        a_ = jnp.concatenate([jnp.array([new_y_t]), a_[:-1]])
+        
+        return (b_, a_, new_y_t), new_y_t
+
+    carry_init = (jnp.zeros(len(b)), jnp.zeros(len(a) - 1), 0.0)
+    
+    _, y = jax.lax.scan(filter_step, carry_init, x)
+    return y
+
+@partial(jax.jit, static_argnums=(3))
+def jax_filtfilt(b, a, x, axis=-1):
+    # Move the array so that the target axis is the last dimension
+    x_moved = jnp.moveaxis(x, axis, -1)
+    
+    # Apply bidirectional filtering to each subarray along the last dimension
+    def filt_along_axis(arr):
+        # Forward filtering
+        y_fwd = apply_filter(b, a, arr)
+        # Backward filtering
+        y_bwd = apply_filter(b, a, y_fwd[::-1])
+        return y_bwd[::-1]
+    
+    # Apply the filter to all subarrays, keeping the other dimensions unchanged
+    def nested_vmap(f, x):
+        ndim = x.ndim
+        for _ in range(ndim - 1):
+            f = jax.vmap(f)
+        return f(x)
+    
+    y_filtered = nested_vmap(filt_along_axis, x_moved)
+    # Restore the axis of the array to its original position
+    return jnp.moveaxis(y_filtered, -1, axis)
+
+def decide_filter_type(freq):
+    """Summary: Decide the filter type
+
+    Args:
+        freq (in, float, list): The frequency of the filter.
+
+    Returns:
+        str : The filter type.
+    """
+    if isinstance(freq, (int, float)): filter_mode = "lowpass"
+    if isinstance(freq, list): 
+        if len(freq) == 1: filter_mode = "lowpass"
+        if len(freq) == 2: filter_mode = "bandpass"
+    if freq == "all": filter_mode = "all"
+    return filter_mode
 
 def generate_arrival_mask(d, top_win=200, down_win=200):
     mask = torch.zeros_like(d)

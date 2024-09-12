@@ -3,6 +3,7 @@ from typing import Tuple
 import importlib
 import matplotlib.pyplot as plt
 import numpy as np
+import jax.numpy as jnp
 import torch
 from scipy.ndimage import gaussian_filter
 
@@ -28,8 +29,11 @@ class WaveGeometry(torch.nn.Module):
         self.multiple = multiple
 
         self.ndim = ndim
-
-        self.register_buffer("h", to_tensor(h))
+        
+        if self.backend == 'torch':
+            self.register_buffer("h", to_tensor(h))
+        elif self.backend == 'jax':
+            self.h = h
 
         # default boundary type is pml
         self.use_habc=False
@@ -66,7 +70,11 @@ class WaveGeometry(torch.nn.Module):
 
             d = coes_func(self.domain_shape, self.bwidth, multiple=self.multiple)
             # np.save(f"{btype}.npy", d)
-            self.register_buffer("_d", d)
+            if self.backend == 'torch':
+                self.register_buffer("_d", to_tensor(d))
+            elif self.backend == 'jax':
+                self._d = jnp.array(d.cpu().numpy())
+
 
         if self.use_random:
             self.register_buffer("_d", to_tensor(0.))
@@ -105,6 +113,7 @@ class WaveGeometryFreeForm(WaveGeometry):
             self.unit = self.kwargs['geom']['unit']
         h = kwargs['geom']['h']*self.unit
         self.dt = kwargs['geom']['dt']
+        self.nt = kwargs['geom']['nt']
         self.dh = kwargs['geom']['h']*self.unit
         self.device = kwargs['device']
         self.bwidth = kwargs['geom']['boundary']['width']
@@ -113,6 +122,7 @@ class WaveGeometryFreeForm(WaveGeometry):
         self.source_type = kwargs['geom']['source_type']
         self.receiver_type = kwargs['geom']['receiver_type']
         self.multiple = kwargs['geom']['multiple']
+        self.backend = kwargs['backend']
         self.model_parameters = []
         self.inversion = False
         self.logger = logger
@@ -144,7 +154,6 @@ class WaveGeometryFreeForm(WaveGeometry):
 
         in_features=self.kwargs['training']['implicit']['in_features']
         out_features=self.kwargs['training']['implicit']['out_features']
-        #out_features=torch.prod(torch.tensor(self.domain_shape)).item()
         hidden_features=self.kwargs['training']['implicit']['hidden_features']
         hidden_layers=self.kwargs['training']['implicit']['hidden_layers']
         self.nn = dict()
@@ -172,7 +181,6 @@ class WaveGeometryFreeForm(WaveGeometry):
                                            dh=self.dh)
             self.nn[par].to(self.device)
 
-        #self.rand_vec = 2*torch.randn(in_features, device=self.device)-1
         self.rand_vec = torch.Tensor([0.9,0.0,-0.9]).float().to(self.device)
 
     def _init_model(self, modelPath: dict, invlist: dict):
@@ -201,7 +209,7 @@ class WaveGeometryFreeForm(WaveGeometry):
             # load the initial model for the inversion
             if not self.use_implicit:
                 invert = False if self.mode=='forward' else invlist[mname]
-                self.__setattr__(mname, self.add_parameter(mpath, invert, self.unit))
+                self.__setattr__(mname, self.add_parameter(mpath, invert, self.unit, self.backend))
                 
                 if self.logger is not None:
                     self.logger.print(f"The max value of {mname} is {getattr(self, mname).max().item()}")
@@ -223,7 +231,7 @@ class WaveGeometryFreeForm(WaveGeometry):
                     [self.bwidth, self.bwidth]]
     
     # Add the torch paramter
-    def add_parameter(self, path: str, requires_grad=False, unit=1):
+    def add_parameter(self, path: str, requires_grad=False, unit=1, backend='torch'):
         """Read the model paramter and setting the attribute 'requires_grad'.
 
         Args:
@@ -237,4 +245,7 @@ class WaveGeometryFreeForm(WaveGeometry):
         model = np.pad(d, self.padding_list, mode="edge")
         if self.logger is not None:
             self.logger.print(f"The model has been padded from {d.shape} to {model.shape}.")
-        return torch.nn.Parameter(to_tensor(model), requires_grad=requires_grad)
+        if backend == 'torch':
+            return torch.nn.Parameter(to_tensor(model), requires_grad=requires_grad)
+        else:
+            return jnp.array(model)

@@ -6,35 +6,17 @@ import jax.numpy as jnp
 from jax import grad
 import numpy as np
 import matplotlib.pyplot as plt
-from utils2 import *
+from utils_jax import *
 from jax.example_libraries.optimizers import adam
 import jax.random as random
 rng_key = random.PRNGKey(20240905)
 from functools import partial
-
+from configure import *
 os.makedirs("figures", exist_ok=True)
 
-# Constants
-model_scale = 2 # 1/2
-expand = 50
-expand = int(expand / model_scale)
-delay = 150 # ms
-fm = 3 # Hz
-dt = 0.0019 # s
-nt = 1200 # timesteps
-dh = 20 # m
-pmln = 50
-srcz = 5 + pmln # grid point
-recz = 5 + pmln # grid point
-lr = 10.
-batch_size = 8
-EPOCHS = 101
-show_every = 50
-srcx_step = 1
-
 # Load velocity
-vel = np.load("../models/marmousi_model/true_vp.npy")
-init = np.load("../models/marmousi_model/linear_vp.npy")
+vel = np.load(true_path)
+init = np.load(init_path)
 vel = vel[::model_scale, ::model_scale]
 init = init[::model_scale, ::model_scale]
 vel = np.pad(vel, ((pmln, pmln), (pmln, pmln)), mode="edge")
@@ -97,6 +79,7 @@ def compute_gradient(vp, shot_nums=[1, 2, 3]):
     return jax.value_and_grad(loss)(vp, jnp.array(shot_nums))
 
 @partial(jax.jit, static_argnames=['batch_size'])
+# @jax.jit
 def fwi_step(vp, step, opt_state, rng_key=None, batch_size = 8):
     rng_key, subkey = random.split(rng_key)
     rand_shots = random.randint(subkey, (batch_size,), 0, len(src_loc))
@@ -110,6 +93,7 @@ LOSS = []
 for epoch in tqdm.trange(EPOCHS):
     _loss, opt_state, rng_key = fwi_step(get_params(opt_state), epoch, opt_state, rng_key, batch_size)
     LOSS.append(_loss)
+    
     if epoch % show_every == 0:
         # show vel
         inverted = get_params(opt_state)[pmln:-pmln, pmln:-pmln]

@@ -5,13 +5,13 @@ import numpy as np
 import torch
 from yaml import load
 
-from .cell import WaveCell
-from .compile import SeisCompile
+from .cell import WaveCellJax, WaveCellTorch
 from .default import ConfigureCheck
 from .eqconfigure import Parameters
 from .geom import WaveGeometryFreeForm
-from .rnn import WaveRNN
+from .rnn import WaveRNN, WaveRNNJAX
 from .utils import set_dtype, update_cfg
+from .setup import setup_we_equations
 
 
 try:
@@ -37,17 +37,29 @@ def build_model(config_path,
     # update the configure file
     VEL_PATH = cfg['geom']['initPath'] if mode == 'inversion' else cfg['geom']['truePath']
     cfg.update({'VEL_PATH': VEL_PATH})
+
+    
     try:
         cfg['geom']['source_illumination'] = commands.source_illumination
     except:
         cfg['geom']['source_illumination'] = False
+
+    # Set backend A.D. framework
+    if 'backend' in cfg.keys():
+        backend = cfg['backend']
+    else:
+        backend = 'torch'
+        cfg['backend'] = backend
+
+    use_jax = (backend == 'jax')
+    use_torch = (backend == 'torch')
     use_multiple = cfg['geom']['multiple']
 
     ConfigureCheck(cfg, mode=mode, args=commands)
 
     set_dtype(cfg['dtype'])
 
-    'update_cfg must be called since the width of pml need be added to Nx and Ny'
+    # update_cfg must be called since the width of pml need be added to Nx and Ny
     cfg = update_cfg(cfg, device=device)
     cfg['task'] = mode
 
@@ -57,38 +69,20 @@ def build_model(config_path,
         np.random.seed(cfg['seed'])
 
     # Set up geometry
-    geom  = WaveGeometryFreeForm(mode=mode, logger=logger, **cfg)
+    geom = WaveGeometryFreeForm(mode=mode, logger=logger, **cfg)
     geom.inversion = mode == "inversion"
 
-    # Import cells
-    module_name = f"seistorch.equations{geom.ndim}d.{cfg['equation']}"
-    try:
-        module = importlib.import_module(module_name)
-    except ImportError:
-        print(f"Cannot found cell '{module_name}'. Please check your equation in configure file.")
-        exit()
-    # Import the forward and backward functions with the specified equation
-    
-    if use_multiple:
-        backward_key = '_time_step_backward_multiple'
-    else:
-        backward_key = '_time_step_backward'
-    forward_func = getattr(module, "_time_step", None)
-    backward_func = getattr(module, backward_key, None)
-
-    if backward_func is None:
-        raise ImportError(f"Cannot found backward function '{module_name}{backward_key}'. Please check your equation in configure file.")
-
-    # Compile the forward and backward functions
-    compile = SeisCompile(logger=logger)
-    forward_func = compile.compile(forward_func)
-    backward_func = compile.compile(backward_func)
+    forward_func, backward_func = setup_we_equations(use_jax, use_torch, use_multiple, geom.ndim, cfg['equation'], logger)
 
     forward_func.ACOUSTIC2nd = True if cfg['equation'] in Parameters.secondorder_equations() else False
-    # Build Cell
-    cell = WaveCell(geom, forward_func, backward_func)
-    # Build RNN
-    model = WaveRNN(cell, source_encoding)
 
-    #return cfg, model
+    # Build Cell
+    module = importlib.import_module("seistorch.cell")
+    cell = getattr(module, f"WaveCell{backend.capitalize()}")(geom, forward_func, backward_func)
+
+    if use_torch:
+        model = WaveRNN(cell, source_encoding)
+    if use_jax:
+        model = WaveRNNJAX(cell, source_encoding)
+
     return cfg, model

@@ -350,6 +350,14 @@ class SeisIO:
             raise FileNotFoundError(f"Config file {cfg_path} not found.")
 
     def read_geom(self, cfg: dict=None):
+        """Read the geometry file.
+
+        Args:
+            cfg (dict, optional): The configure file with yaml format. Defaults to None.
+
+        Returns:
+            <list>, <list>: Two lists of source and receiver locations.
+        """
 
         assert cfg is not None, "The configure file is not loaded."
 

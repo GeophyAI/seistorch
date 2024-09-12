@@ -80,7 +80,7 @@ def forward(wave, c, b, src_list, domain, dt, h, recz=0, pmln=50):
 
     initial_carry = (u_pre, u_now, rec)
 
-    final_carry, _ = lax.scan(jax.remat(step_fn), initial_carry, jnp.arange(nt))
+    final_carry, _ = lax.scan(step_fn, initial_carry, jnp.arange(nt))
     _, _, rec_final = final_carry
 
     return rec_final

@@ -4,13 +4,16 @@ from copy import deepcopy
 
 import numpy as np
 import torch
+import jax.numpy as jnp
+import optax
 
 from seistorch.eqconfigure import Parameters
 from seistorch.loss import Loss
 from seistorch.io import SeisIO, SeisRecord, DataLoader
 from seistorch.utils import read_pkl, ricker_wave, to_tensor, roll
-from seistorch.source import WaveSource
-from seistorch.probe import WaveIntensityProbe
+from seistorch.source import WaveSourceTorch, WaveSourceJax
+from seistorch.probe import WaveProbeTorch, WaveProbeJax
+from seistorch.compile import SeisCompile
 from torch.nn.parallel import DistributedDataParallel
 
 
@@ -182,6 +185,31 @@ class SeisSetup:
 
         return optimizers, lr_scheduler
 
+    def setup_optimizer_jax(self, idx_freq=1):
+
+        lr = self.cfg['training']['lr']
+        opt = self.cfg['training']['optimizer']
+        epoch_decay = self.cfg['training']['lr_decay']
+        scale_decay = self.cfg['training']['scale_decay']
+
+        pars_need_by_eq = Parameters.valid_model_paras()[self.cfg['equation']]
+        paras_counts = len(pars_need_by_eq)
+        pars_need_invert = [k for k, v in self.cfg['geom']['invlist'].items() if v]
+        
+        def create_mask_fn(index, num_params):
+            return tuple(i == index for i in range(num_params))
+        
+        optimizers = []
+        for i, para in enumerate(pars_need_by_eq):
+            # Set the learning rate for each parameter
+            _lr = 0. if para not in pars_need_invert else lr[para]#*scale_decay**idx_freq
+            opt = optax.adam(_lr)
+            self.logger.print(f"Learning rate for {para}: {_lr}")
+            mask = create_mask_fn(i, paras_counts)
+            optimizers.append(optax.masked(opt, mask))
+
+        return optax.chain(*optimizers)
+
     def setup_pbar(self, stop, desc):
 
         return tqdm.trange(stop, position=0, desc=desc)
@@ -249,7 +277,11 @@ class SeisSetup:
         if 'ROOTPATH' in self.cfg.keys():
             self.logger.print(f"The wavelet is saved to {self.cfg['ROOTPATH']}.")
             np.save(os.path.join(self.cfg['ROOTPATH'], "wavelet.npy"), x.cpu().numpy())
-        return x
+        
+        if self.cfg['backend'] == 'torch':
+            return x
+        if self.cfg['backend'] == 'jax':
+            return jnp.array(x.cpu().numpy())
 
     def update_pbar(self, pbar, freq_idx, local_epoch):
 
@@ -257,6 +289,42 @@ class SeisSetup:
         num_epochs = self.cfg['training']['N_epochs']
 
         pbar.set_description(f"Epoch {local_epoch+1}/{num_epochs} | Scale {freq_idx+1}/{num_scales}")
+
+def setup_we_equations(use_jax=False, use_torch=True, use_multiple=False, ndim=2, equation=None, logger=None):
+    module_postfix = '_jax' if use_jax else ''
+    # Import cells
+    module_name = f"seistorch.equations{ndim}d{module_postfix}.{equation}"
+    if use_torch:
+        try:
+            module = importlib.import_module(module_name)
+            print(f"Using equation '{module_name}'.")
+        except ImportError:
+            print(f"Cannot found cell '{module_name}'. Please check your equation in configure file.")
+            exit()
+        # Import the forward and backward functions with the specified equation
+
+        if use_multiple:
+            backward_key = '_time_step_backward_multiple'
+        else:
+            backward_key = '_time_step_backward'
+
+        forward_func = getattr(module, "_time_step", None)
+        backward_func = getattr(module, backward_key, None)
+
+        if backward_func is None:
+            raise ImportError(f"Cannot found backward function '{module_name}{backward_key}'. Please check your equation in configure file.")
+
+        # Compile the forward and backward functions
+        compile = SeisCompile(logger=logger)
+        forward_func = compile.compile(forward_func)
+        backward_func = compile.compile(backward_func)
+    
+    if use_jax:
+        module = importlib.import_module(module_name)
+        forward_func = getattr(module, "_time_step", None)
+        backward_func = getattr(module, "_time_step", None)
+
+    return forward_func, backward_func
 
 def setup_acquisition(shots, src_list, rec_list, cfg, *args, **kwargs):
 
@@ -383,7 +451,7 @@ def setup_split_configs(cfg_path: str, chunk_size, mode, *args, **kwargs):
 
     return new_config_paths
 
-def setup_rec_coords(coords, bwidth, multiple=False):
+def setup_rec_coords(coords, bwidth, multiple=False, use_jax=False):
     """Setup receiver coordinates.
 
     Args:
@@ -411,8 +479,10 @@ def setup_rec_coords(coords, bwidth, multiple=False):
     if 'z' in kwargs.keys() and multiple:
         raise NotImplementedError("Multiples in 3D case is not implemented yet.")
         #kwargs['z'] = [v-bwidth for v in kwargs['z']]
-
-    return [WaveIntensityProbe(**kwargs)]
+    if use_jax:
+        return [WaveProbeJax(**kwargs)]
+    else:
+        return [WaveProbeTorch(**kwargs)]
 
 def setup_src_rec(cfg: dict):
     """Read the source and receiver locations from the configuration file.
@@ -449,7 +519,7 @@ def setup_src_rec(cfg: dict):
 
     return src_list, rec_list, full_rec_list, fixed_receivers
 
-def setup_src_coords(coords, bwidth, multiple=False):
+def setup_src_coords(coords, bwidth, multiple=False, use_jax=False):
     """Setup source coordinates.
 
     Args:
@@ -458,18 +528,19 @@ def setup_src_coords(coords, bwidth, multiple=False):
         multiple (bool, optional): Whether use top boundary or not. Defaults to False.
 
     Returns:
-        WaveSource: A torch.nn.Module source object.
+        WaveSourceTorch: A torch.nn.Module source object.
     """
     # Coordinate are specified
     keys = ['x', 'y', 'z']
     kwargs = dict()
     # Padding the source location with boundary width
     for key, value in zip(keys, coords):
-        assert type(value) in [int, float, type(None)], f"The source location must be a number, got {type(value)}."
+        # assert type(value) in [int, float, type(None)], f"The source location must be a number, got {type(value)}."
         if isinstance(value, (int, float)):
             kwargs[key] = value+bwidth
         else:
-            kwargs[key] = value # value = None
+            # kwargs[key] = int(value)+bwidth#value # value = None
+            kwargs[key] = value+bwidth#value # value = None
 
     # 2D case with multiple
     if 'z' not in kwargs.keys() and multiple and bool(kwargs['y']):
@@ -480,7 +551,10 @@ def setup_src_coords(coords, bwidth, multiple=False):
         raise NotImplementedError("Multiples in 3D case is not implemented yet.")
         # kwargs['z'] -= bwidth
 
-    return WaveSource(**kwargs)
+    if use_jax:
+        return WaveSourceJax(**kwargs)
+    else:
+        return WaveSourceTorch(**kwargs)
 
 def split_geom_to_chunks(srcs, recs, chunk_num, overlap, shape):
 

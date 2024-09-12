@@ -25,7 +25,7 @@ def ricker(fm=10, t=1, dt=0.001, delay=0.1):
 n = 1000  # nb bins
 
 # bin positions
-x = np.arange(n, dtype=np.float64)
+x = np.arange(n, dtype=np.float32)
 
 # Gaussian distributions
 # a = gauss(n, m=20, s=5)  # m= mean, s= std

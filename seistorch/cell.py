@@ -6,8 +6,7 @@ from .checkpoint import checkpoint as ckpt
 from .habc import bound_mask
 from .eqconfigure import Parameters
 
-class WaveCell(torch.nn.Module):
-    """The recurrent neural network cell implementing the scalar wave equation"""
+class WaveCellBase:
 
     def __init__(self, geometry, forward_func=None, backward_func=None):
 
@@ -15,18 +14,9 @@ class WaveCell(torch.nn.Module):
 
         # Set values
         self.geom = geometry
-        self.register_buffer("dt", to_tensor(self.geom.dt))
         self.forward_func = forward_func
         self.backward_func = backward_func
-
-        func_name = inspect.getmodule(forward_func).__name__
-        if func_name.split('.')[-1] in Parameters.secondorder_equations():
-            print("Using acoustic checkpointing")
-            self.ckpt = ckpt_acoustic
-        else:
-            print("Using elastic checkpointing")
-            self.ckpt = ckpt
-
+        
     def setup_habc(self, batchsize):
         if self.geom.use_habc:
             self.habc_masks = bound_mask(*self.geom.domain_shape,
@@ -36,29 +26,19 @@ class WaveCell(torch.nn.Module):
                                          return_idx=True, 
                                          multiple=self.geom.multiple)
 
-    def parameters(self, recursive=True):
-        for param in self.geom.parameters():
-            yield param
-
-    def get_parameters(self, key=None, recursive=True, implicit=False):
-        if implicit:
-            for param in self.geom.nn[key].parameters():
-                yield param
-        else:
-            yield getattr(self.geom, key)
-
     def forward(self, wavefields, model_vars, **kwargs):
         """Take a step through time
         Parameters
         ----------
-        vx, vz, txx, tzz, txz : 
-             wave field one time step ago
-        vp  :
-            Vp velocity.
-        vs  :
-            Vs velocity.
-        rho : 
-            Projected density, required for nonlinear response (this gets passed in to avoid generating it on each time step, saving memory for backprop)
+        wavefields: 
+            The current wavefields
+        model_vars:
+            The model variables needed by wave equation
+        kwargs:
+            Other parameters
+
+        Returns
+            The updated wavefields
         """
         save_condition=kwargs["is_last_frame"]
         source_term = kwargs["source"]
@@ -71,7 +51,43 @@ class WaveCell(torch.nn.Module):
 
         if using_boundary_saving and inversion:
             hidden = self.ckpt(self.forward_func, self.backward_func, source_term, save_condition, len(model_vars), *model_vars, *wavefields, *geoms, habcs=habcs)
+
         if forward or (inversion and not using_boundary_saving):
             hidden = self.forward_func(*model_vars, *wavefields, *geoms, habcs=habcs)
 
         return hidden
+
+class WaveCellTorch(WaveCellBase, torch.nn.Module):
+
+    def __init__(self, geometry, forward_func=None, backward_func=None):
+        torch.nn.Module.__init__(self)
+        WaveCellBase.__init__(self, geometry, forward_func, backward_func)
+        self.register_buffer("dt", to_tensor(self.geom.dt))
+        func_name = inspect.getmodule(forward_func).__name__
+        if func_name.split('.')[-1] in Parameters.secondorder_equations():
+            self.ckpt = ckpt_acoustic
+        else:
+            self.ckpt = ckpt
+
+    def parameters(self, recursive=True):
+        for param in self.geom.parameters():
+            yield param
+
+    def get_parameters(self, key=None, recursive=True, implicit=False):
+        if implicit:
+            for param in self.geom.nn[key].parameters():
+                yield param
+        else:
+            yield getattr(self.geom, key)
+    
+    def forward(self, *args, **kwargs):
+        return super().forward(*args, **kwargs)
+
+class WaveCellJax(WaveCellBase):
+
+    def __init__(self, geometry, forward_func=None, backward_func=None):
+        WaveCellBase.__init__(self, geometry, forward_func, backward_func)
+        self.dt = self.geom.dt
+
+    def __call__(self, *args, **kwargs):
+        return super().forward(*args, **kwargs)

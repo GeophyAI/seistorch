@@ -10,6 +10,7 @@ from seistorch.transform import *
 from torchvision.transforms.functional import gaussian_blur
 from seistorch.signal import local_coherence as lc
 from seistorch.signal import instantaneous_phase as ip
+from seistorch.array import SeisArray
 
 from numba import cuda
 from numba import jit, prange
@@ -19,6 +20,8 @@ import math
 #     from torchvision.models import vgg19
 # except:
 #     print("Cannot import torchvision.models.vgg19")
+
+
 
 class Loss:
     """A warpper class for loss functions.
@@ -183,15 +186,16 @@ class Envelope(torch.nn.Module):
     [1]: 10.1016/j.jappgeo.2014.07.010
     """
 
-    def __init__(self, method='square'):
+    def __init__(self, method='subtract'):
         """
         Initialize the parent class.
         """
         super(Envelope, self).__init__()
         self.method = method
-        self.loss = {'subtract': lambda x, y: envelope(x)-envelope(y), # eq.5
-                     'square': lambda x, y: envelope(x)**2-envelope(y)**2, # eq.6
-                     'log': lambda x, y: torch.log(envelope(x)/envelope(y))}# eq.7
+        self.env = lambda x: SeisArray(x).envelope()
+        self.loss = {'subtract': lambda x, y: ( (x-y)**2 ).sum(), # eq.5
+                     'square': lambda x, y: ( (x**2-y**2)**2 ).sum(), # eq.6
+                     'log': lambda x, y: torch.log(x/y).sum()}# eq.7
         
         # The log method does not work
     @property
@@ -212,7 +216,9 @@ class Envelope(torch.nn.Module):
         """
         loss = 0
         for i in range(x.shape[0]):
-            loss += 0.5*torch.sum(inner_method(x[i], y[i])**2)
+            _x = self.env(x[i])
+            _y = self.env(y[i])
+            loss += (0.5*inner_method(_x, _y))
         return loss
 
 class InstantaneousPhase(torch.nn.Module):
@@ -415,10 +421,7 @@ class L2(torch.nn.Module):
         return "l2"
     
     def forward(self, x, y):
-        loss = 0.
-        for _x, _y in zip(x, y):
-            loss += torch.nn.MSELoss(reduction='sum')(_x, _y)
-        return loss
+        return ((x-y)**2).sum()
 
 class LocalCoherence(torch.nn.Module):
     def __init__(self, wt=101, wx=11, sigma_tau=21.0, sigma_hx=11.0):

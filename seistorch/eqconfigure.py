@@ -7,6 +7,7 @@ class Parameters:
             
         paras = {"aec":          ["vp", "vs", "rho"], 
                  "acoustic":     ["vp"],
+                 "acoustic_pml": ["vp"],
                  "acoustic_habc": ["vp"],
                  "acoustic_rho_habc": ["vp", "rho"],
                  "acoustic_fwim_habc": ["vp", "rx", "rz"],
@@ -32,6 +33,7 @@ class Parameters:
     @staticmethod
     def secondorder_equations():
         return ['acoustic', 
+                'acoustic_pml',
                 'acoustic_habc', 
                 'acoustic_rho_habc',
                 'vacoustic_habc', 
@@ -51,6 +53,10 @@ class Wavefield:
 
     @property
     def acoustic(self,):
+        return ["h1", "h2"]
+
+    @property
+    def acoustic_pml(self,):
         return ["h1", "h2"]
     
     @property
@@ -125,8 +131,6 @@ class Wavefield:
     @property
     def tti_habc(self,):
         return ["p1", "p2"]
-
-
 
 class Shape():
     def __init__(self, cfg, **kwargs):

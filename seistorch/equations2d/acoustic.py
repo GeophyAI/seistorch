@@ -75,13 +75,15 @@ def _time_step(*args, **kwargs):
     c = args[0]
     h1, h2 = args[1:3]
     dt, h, b = args[3:6]
-
     # b = 0
     # When b=0, without boundary conditon.
-    y = torch.mul((dt**-2 + b * dt**-1).pow(-1),
-                (2 / dt**2 * h1 - torch.mul((dt**-2 - b * dt**-1), h2)
-                + torch.mul(c.pow(2), _laplacian(h1, h)))
-                )
+    a = (dt**-2 + b * dt**-1)**(-1)
+    y = a*(2. / dt**2 * h1 - (dt**-2-b*dt**-1)*h2 + c**2*_laplacian(h1, h))
+    
+    # y = torch.mul((dt**-2 + b * dt**-1).pow(-1),
+    #             (2 / dt**2 * h1 - torch.mul((dt**-2 - b * dt**-1), h2)
+    #             + torch.mul(c.pow(2), _laplacian(h1, h)))
+    #             )
 
     return y, h1
 

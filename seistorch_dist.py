@@ -1,4 +1,6 @@
 """Perform full waveform inversion."""
+import os
+os.environ["XLA_PYTHON_CLIENT_PREALLOCATE"] = "false"
 import torch
 
 torch.backends.cudnn.enabled = True
@@ -168,6 +170,7 @@ if __name__ == "__main__":
         idx_freq, local_epoch = divmod(epoch, EPOCH_PER_SCALE)
 
         if local_epoch==0:
+            pbar.reset()
             """Reset the optimizer at every scale"""
             freq = MULTISCALES[idx_freq]
             optimizers, lr_scheduler = setup.setup_optimizer(model, 
