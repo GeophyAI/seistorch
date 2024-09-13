@@ -1,0 +1,1 @@
+rm -rf figures models *.png

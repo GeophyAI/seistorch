@@ -2,7 +2,6 @@ import torch
 from torch.nn.functional import conv3d
 from .utils import restore_boundaries
 
-
 def even_intergrid(n: int):
     """Calculate the coefficients of taylar expansion of even intergrid
 
