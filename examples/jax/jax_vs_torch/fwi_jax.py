@@ -6,7 +6,7 @@ import jax.numpy as jnp
 from jax import grad
 import numpy as np
 import matplotlib.pyplot as plt
-from utils_jax import *
+from utils_jax2 import *
 from jax.example_libraries.optimizers import adam
 import jax.random as random
 rng_key = random.PRNGKey(20240905)

@@ -9,6 +9,8 @@ import torch
 from jax import jvp, grad
 import copy
 from functools import partial
+import gc
+from jax.experimental import io_callback
 
 # Ricker wavelet
 def ricker(t, f=10):
@@ -55,23 +57,31 @@ def showgeom(vel, src_loc, rec_loc, figsize=(10, 10)):
 #     a = (dt**-2 + b * dt**-1)**(-1)
 #     u_next = a*(2. / dt**2 * u_now - (dt**-2-b*dt**-1)*u_pre + c**2*_laplace_u)
 #     return u_next
-
+# @jax.checkpoint
 def step(*args, **kwargs):
-    u_pre, u_now, c, dt, h, b, last_step, pmln = args
+    u_pre, u_now, c, dt, h, b, cstep, pmln = args
     _laplace_u = laplace(u_now, h)
     a = (dt**-2 + b * dt**-1)**(-1)
     u_next = a*(2. / dt**2 * u_now - (dt**-2-b*dt**-1)*u_pre + c**2*_laplace_u)
     return u_next
 
-# @partial(jax.jit, static_argnames=['pmln'])
-def step_fwd(u_pre, u_now, c=1.5, dt=0.001, h=10./1000., b=None, last_step=False, pmln=50):
-    u_next = step(u_pre, u_now, c, dt, h, b, last_step, pmln)
-    # top = u_next[:, :, :pmln, :]
-    # bottom = u_next[:, :, -pmln:, :]
-    # left = u_next[:, :, :, :pmln]
-    # right = u_next[:, :, :, -pmln:]
+def to_cpu(d):
+    return jax.device_get(d)
 
-    return u_next, ((u_pre, u_now, c, dt, h, b, last_step, pmln), (None, None, None, None))
+def to_gpu(d):
+    return jax.device_put(d)
+
+def save2file(data, cstep):
+    jnp.save(f'tmp/u_pre{cstep}.npy', data)
+    return data
+
+# @partial(jax.jit, static_argnames=['pmln'])
+def step_fwd(u_pre, u_now, c=1.5, dt=0.001, h=10./1000., b=None, cstep=0, pmln=50):
+    
+    u_next = step(u_pre, u_now, c, dt, h, b, cstep, pmln)
+    io_callback(save2file, u_pre, u_pre, cstep)
+    return u_next, ((to_cpu(u_pre), to_cpu(u_now), to_cpu(c), dt, h, to_cpu(b), cstep, pmln), (None, None, None, None))
+    # return u_next, ((u_pre, u_now, c, dt, h, b, cstep, pmln), (None, None, None, None))
 
     # if last_step:
     #     return u_next, (u_pre, u_now, c, dt, h, b)
@@ -84,10 +94,14 @@ def step_fwd(u_pre, u_now, c=1.5, dt=0.001, h=10./1000., b=None, last_step=False
 
 # @partial(jax.jit, static_argnums=(0,))
 def step_bwd(res, g):
-
-    _, vjp_fun = jax.vjp(step, *res[0])
+    u_pre, u_now, c, dt, h, b, cstep, pmln = res[0]
+    u_pre = to_gpu(u_pre)
+    u_now = to_gpu(u_now)
+    c = to_gpu(c)
+    b = to_gpu(b)
+    inputs = (u_pre, u_now, c, dt, h, b, cstep, pmln)
+    _, vjp_fun = jax.vjp(step, *inputs)
     grads = vjp_fun(g)
-
     return grads
 
 # forward modeling
@@ -107,16 +121,16 @@ def forward(wave, c, b, src_list, domain, dt, h, recz=0, pmln=50):
     source_mask = jnp.zeros((nshots, 1, *domain))
     source_mask = source_mask.at[shots, 0, srcz, srcx].set(1)
 
-    # _step = jax.custom_vjp(step)
-    # _step.defvjp(step_fwd, step_bwd)
+    _step = jax.custom_vjp(step)
+    _step.defvjp(step_fwd, step_bwd)
 
-    _step = step
+    # _step = step
 
     def step_fn(carry, it):
         u_pre, u_now, rec = carry
         source = wave[it] * source_mask
         u_now = u_now + source
-        u_next = _step(u_pre, u_now, c, dt, h, b, it==nt-1, pmln)
+        u_next = _step(u_pre, u_now, c, dt, h, b, it, pmln)
         rec = rec.at[:, it, :].set(u_now[:, 0, recz, pmln:-pmln])
         return (u_now, u_next, rec), None
 
