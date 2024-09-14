@@ -13,50 +13,62 @@ def laplace(u, h):
     kernel = jnp.array([[0, 1, 0], [1, -4, 1], [0, 1, 0]])  # 3x3 kernel
     return batch_convolve2d(u, kernel) / (h ** 2)
 
+def staggered_grid_coes(M):
+    # 2*M: difference order
+    a = jnp.zeros(M, dtype=jnp.float32)
+    
+    for m in range(1, M + 1):
+        a_m = (-1) ** (m + 1) / (2 * m - 1)
+        
+        prod = 1.0
+        for n in range(1, M + 1):
+            if n != m:
+                numerator = (2 * n - 1) ** 2
+                denominator = numerator - (2 * m - 1) ** 2
+                prod *= jnp.abs(numerator / denominator)
+        
+        a_m *= prod
+        
+        a = a.at[m - 1].set(a_m)
+    
+    return a
 
+# differential order = 2*M
+M = 1
+a = staggered_grid_coes(M)
+
+# 2x faster than using jnp.roll
 def diff_using_roll(input, axis=-1, forward=True, padding_value=0):
 
-    def forward_diff(x, axis=-1, padding_value=0):
+    def forward_diff(x, axis, padding_value):
         """
         Compute the forward difference of an input tensor along a given dimension.
-
-        Args:
-            x (torch.Tensor): Input tensor.
-            axis (int, optional): The axis along which to compute the difference.
-            padding_value (float, optional): The value to use for padding.
-
-        Returns:
-            torch.Tensor: The forward difference of the input tensor.
         """
-        # x[:,0] = padding_value
-        diff = x - jnp.roll(x, shift=1, axis=axis)
-        if axis == 1:
-            diff = diff.at[:, 0].set(padding_value)
-        elif axis == 2:
-            diff = diff.at[..., 0].set(padding_value)  # pad with specified value
-        return diff
+        diff = jnp.zeros_like(x)
+        pad_mask = jnp.zeros(x.shape, dtype=bool)
+        # Use for loop
+        for i in range(1, M+1):
+            rolled_x = jnp.roll(x, shift=i, axis=axis)
+            diff += a[i-1] * (x - rolled_x)
+            pad_mask = pad_mask.at[tuple(slice(None) if d != axis else i-1 for d in range(x.ndim))].set(True)
+        
+        return jnp.where(pad_mask, padding_value, diff)
 
-    def backward_diff(x, axis=-1, padding_value=0):
+    def backward_diff(x, axis, padding_value):
         """
         Compute the backward difference of an input tensor along a given dimension.
-
-        Args:
-            x (torch.Tensor): Input tensor.
-            dim (int, optional): The dimension along which to compute the difference.
-            padding_value (float, optional): The value to use for padding.
-
-        Returns:
-            torch.Tensor: The backward difference of the input tensor.
         """
-        # x[...,-1] = padding_value
-        diff = jnp.roll(x, shift=-1, axis=axis) - x
-        if axis == 1:
-            diff = diff.at[:, -1].set(padding_value)
-        elif axis == 2:
-            diff = diff.at[..., -1].set(padding_value)  # pad with specified value
-        return diff
+        diff = jnp.zeros_like(x)
+        pad_mask = jnp.zeros(x.shape, dtype=bool)
+
+        for i in range(1, M+1):
+            rolled_x = jnp.roll(x, shift=-i, axis=axis)
+            diff += a[i-1] * (rolled_x - x)
+            pad_mask = pad_mask.at[tuple(slice(None) if d != axis else -(i) for d in range(x.ndim))].set(True)
+        
+        return jnp.where(pad_mask, padding_value, diff)
 
     if forward:
-        return forward_diff(input, axis=axis)
+        return forward_diff(input, axis, padding_value)
     else:
-        return backward_diff(input, axis=axis)
+        return backward_diff(input, axis, padding_value)

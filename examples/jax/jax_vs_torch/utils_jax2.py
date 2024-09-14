@@ -11,7 +11,8 @@ import copy
 from functools import partial
 import gc
 from jax.experimental import io_callback
-
+from jax.ad_checkpoint import Offloadable, remat
+from jax.sharding import SingleDeviceSharding
 # Ricker wavelet
 def ricker(t, f=10):
     r = (1 - 2 * (np.pi * f * t) ** 2) * np.exp(-(np.pi * f * t) ** 2)
@@ -65,42 +66,13 @@ def step(*args, **kwargs):
     u_next = a*(2. / dt**2 * u_now - (dt**-2-b*dt**-1)*u_pre + c**2*_laplace_u)
     return u_next
 
-def to_cpu(d):
-    return jax.device_get(d)
+def step_fwd(*args):
+    u_next = step(*args)
+    return u_next, jax.device_put(args, SingleDeviceSharding(jax.devices()[0], memory_kind="pinned_host"))
 
-def to_gpu(d):
-    return jax.device_put(d)
-
-def save2file(data, cstep):
-    jnp.save(f'tmp/u_pre{cstep}.npy', data)
-    return data
-
-# @partial(jax.jit, static_argnames=['pmln'])
-def step_fwd(u_pre, u_now, c=1.5, dt=0.001, h=10./1000., b=None, cstep=0, pmln=50):
-    
-    u_next = step(u_pre, u_now, c, dt, h, b, cstep, pmln)
-    io_callback(save2file, u_pre, u_pre, cstep)
-    return u_next, ((to_cpu(u_pre), to_cpu(u_now), to_cpu(c), dt, h, to_cpu(b), cstep, pmln), (None, None, None, None))
-    # return u_next, ((u_pre, u_now, c, dt, h, b, cstep, pmln), (None, None, None, None))
-
-    # if last_step:
-    #     return u_next, (u_pre, u_now, c, dt, h, b)
-    # else:
-    #     top = u_next[:, :, :pmln, :]
-    #     bottom = u_next[:, :, -pmln:, :]
-    #     left = u_next[:, :, :, :pmln]
-    #     right = u_next[:, :, :, -pmln:]
-    #     return u_next, (top, bottom, left, right, c, dt, h, b)
-
-# @partial(jax.jit, static_argnums=(0,))
 def step_bwd(res, g):
-    u_pre, u_now, c, dt, h, b, cstep, pmln = res[0]
-    u_pre = to_gpu(u_pre)
-    u_now = to_gpu(u_now)
-    c = to_gpu(c)
-    b = to_gpu(b)
-    inputs = (u_pre, u_now, c, dt, h, b, cstep, pmln)
-    _, vjp_fun = jax.vjp(step, *inputs)
+    reload_res = jax.device_put(res, SingleDeviceSharding(jax.devices()[0], memory_kind='device'))
+    _, vjp_fun = jax.vjp(step, *reload_res)
     grads = vjp_fun(g)
     return grads
 
