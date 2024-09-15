@@ -46,6 +46,8 @@ class WaveSourceBase:
 
         if self.source_encoding:
             Y[..., self.y, self.x] += f*X
+            # mask = (self.smask==1)
+            # Y[mask] += f*X#.flatten()
             return Y
 
     def forward(self, Y, X, f=1.):
@@ -74,5 +76,12 @@ class WaveSourceJax(WaveSourceBase):
         for key, value in kwargs.items():
             setattr(self, key, jnp.array(value, dtype=jnp.int32))
 
+    def forward_jax(self, Y, X, f=1.):
+        Y = Y.at[..., self.y, self.x].add(f*X)
+        return Y
+
     def __call__(self, *args, **kwargs):
-        return super().forward(*args, **kwargs)
+        if not self.source_encoding:
+            return super().forward(*args, **kwargs)
+        else:
+            return self.forward_jax(*args, **kwargs)

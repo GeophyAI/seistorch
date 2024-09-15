@@ -1,4 +1,4 @@
-python ../../../seisjax.py configs/inversion.yml \
+python ../../../seisjax.py configs/inversion_jax.yml \
 --opt adam \
 --loss vp=l2 \
 --lr vp=10.0 \

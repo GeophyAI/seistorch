@@ -60,7 +60,7 @@ parser.add_argument('--save-path', default='',
 parser.add_argument('--lr', action=DictAction, nargs="+",
                     help='learning rate')
 parser.add_argument('--batchsize', type=int, default=-1,
-                    help='learning rate')
+                    help='batch size for coding')
 parser.add_argument('--grad-smooth', action='store_true',
                     help='Smooth the gradient or not')
 parser.add_argument('--grad-cut', action='store_true',
@@ -257,8 +257,7 @@ if __name__ == '__main__':
                 if not args.filteratlast:
                     np.save(f"{ROOTPATH}/syn.npy", coding_syn.stack().cpu().detach().numpy())
                 np.save(f"{ROOTPATH}/obs.npy", coding_obs.cpu().detach().numpy())
-
-                loss = criterions(coding_syn, coding_obs.unsqueeze(0))
+                loss = criterions(coding_syn.stack(), coding_obs.unsqueeze(0))
                 # adj = torch.autograd.grad(loss, coding_syn)[0]
                 # np.save(f"{ROOTPATH}/adj.npy", adj.detach().cpu().numpy())
                 loss.backward() #retain_graph=True

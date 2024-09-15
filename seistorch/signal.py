@@ -261,7 +261,7 @@ def apply_filter(b, a, x):
 def jax_filtfilt(b, a, x, axis=-1):
     # Move the array so that the target axis is the last dimension
     x_moved = jnp.moveaxis(x, axis, -1)
-    
+    # x_moved.astype(jnp.float64)
     # Apply bidirectional filtering to each subarray along the last dimension
     def filt_along_axis(arr):
         # Forward filtering
@@ -279,7 +279,7 @@ def jax_filtfilt(b, a, x, axis=-1):
     
     y_filtered = nested_vmap(filt_along_axis, x_moved)
     # Restore the axis of the array to its original position
-    return jnp.moveaxis(y_filtered, -1, axis)
+    return jnp.moveaxis(y_filtered, -1, axis)#.astype(jnp.float32)
 
 def decide_filter_type(freq):
     """Summary: Decide the filter type

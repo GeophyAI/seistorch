@@ -4,6 +4,8 @@ import os
 import pickle
 import socket
 import struct
+import jax.numpy as jnp
+import jax
 from typing import Any, Iterable, List, Tuple
 import traceback
 
@@ -212,6 +214,25 @@ def roll(wavelet, data, split=0.2):
     rolled_signal[:,0:int(tau_s)] = 0
     rolled_data = (-1)**p * np.roll(data, int(tau_s), axis=0)
     rolled_data[0:int(tau_s)] = 0
+
+    return rolled_signal, rolled_data
+
+def roll_jax(wavelet, data, split=0.2, key=None):
+    nt = data.shape[0]
+    # Calculate time-shifts
+    time_shifts = jnp.arange(0, split * nt, dtype=jnp.int32)
+    # Randomly assign polarity and time-shift
+    p = jax.random.randint(key, 1, 1, 3)  # Random positive integer (1 or 2)
+    tau_s = jax.random.choice(key, time_shifts)
+
+    # Create a mask to set the first tau_s elements to zero
+    mask = jnp.arange(nt) < tau_s
+
+    # Roll the data along the time axis
+    rolled_signal = (-1)**p * jnp.roll(wavelet, tau_s, axis=0)
+    rolled_signal = rolled_signal * (~mask)
+    rolled_data = (-1)**p * jnp.roll(data, tau_s, axis=0)
+    rolled_data = rolled_data * (~mask.reshape(-1, 1, 1))
 
     return rolled_signal, rolled_data
 

@@ -167,8 +167,8 @@ class WaveRNN(torch.nn.Module):
             # Add source mask
             super_source.smask = torch.zeros(hidden_state_shape, device=device)
             for idx in range(super_source.x.size(0)):
-                if self.source_encoding: idx = 0
-                super_source.smask[idx, super_source.y[idx], super_source.x[idx]] = 1.0
+                bidx = idx if not self.source_encoding else 0
+                super_source.smask[bidx, super_source.y[idx], super_source.x[idx]] = 1.0
 
         if super_probes is None:
             reccounts, bidx_receivers, reckeys = self.merge_receivers_with_same_keys()
@@ -248,7 +248,7 @@ class WaveRNNJAX:
         if super_source is None:
             batchsize = 1 if self.source_encoding else len(self.sources)
         else:
-            batchsize = super_source.x.shape[0]
+            batchsize = 1 if self.source_encoding else super_source.x.shape[0]
 
         hidden_state_shape = (batchsize, ) + self.cell.geom.domain_shape
 
@@ -257,11 +257,10 @@ class WaveRNNJAX:
 
         if super_source is not None:
             # Add source mask
-
             super_source.smask = jnp.zeros(hidden_state_shape)
             for idx in range(super_source.x.size):
-                if self.source_encoding: idx = 0
-                super_source.smask = super_source.smask.at[idx, super_source.y[idx], super_source.x[idx]].set(1)
+                bidx = idx if not self.source_encoding else 0
+                super_source.smask = super_source.smask.at[bidx, super_source.y[idx], super_source.x[idx]].set(1)
 
         source_idx_at = []
         receiver_idx_at = []
@@ -273,11 +272,11 @@ class WaveRNNJAX:
             receiver_idx_at.append(self.wavefield_names.index(receiver_type))
 
         channels = len(self.cell.geom.receiver_type)
-        nrecs = len(super_probes.x)//batchsize
+        nrecs = super_probes.x.size//batchsize
         nt = self.cell.geom.nt
 
         rec = jnp.zeros((batchsize, nt, nrecs, channels))
-
+        super_source.source_encoding = self.source_encoding
         def step_fn(carry, it):
             
             wavefields, modelparas, others, rec = carry
@@ -288,7 +287,7 @@ class WaveRNNJAX:
             # Apply source
             wavefields = list(wavefields)
             for sidx in source_idx_at:
-                wavefields[sidx] = super_source(wavefields[sidx], x[it])
+                wavefields[sidx] = super_source(wavefields[sidx], x[..., it])
             wavefields = tuple(wavefields)
 
             # Measure probe(s)

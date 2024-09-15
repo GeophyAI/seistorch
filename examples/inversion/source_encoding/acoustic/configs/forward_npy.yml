@@ -45,7 +45,6 @@ geom:
     rho:
     Q: 
     
-
   sources: ./geometry/sources.pkl
 
   receivers: ./geometry/receivers.pkl
@@ -92,10 +91,10 @@ geom:
     - all
 
   # Time Sampling step
-  dt: 0.001
+  dt: 0.002
 
   # Time samples
-  nt: 4000
+  nt: 2000
 
   # Main frequency of ricker wave
   fm: 5.0

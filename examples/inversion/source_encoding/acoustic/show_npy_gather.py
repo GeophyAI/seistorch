@@ -7,7 +7,7 @@ np.random.seed(20230915)
 """
 Configures
 """
-config_path = "./forward.yml"
+config_path = "./configs/forward_npy.yml"
 obsPath = "./observed.npy"
 
 # Load the configure file

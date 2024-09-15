@@ -114,7 +114,7 @@ if __name__ == "__main__":
     IMPLICIT = cfg['training']['implicit']['use']
     SCALE_COUNTS = len(MULTISCALES)
     SHOTS_PER_EPOCH = cfg['training']['batch_size'] # USE SHOTS_PER_EPOCH for GRADIENT
-
+    FORDER = cfg['training']['filter_ord']
     # UPDATE THE CONFIGURATION FILE
     cfg['loss'] = args.loss
     cfg['ROOTPATH'] = ROOTPATH
@@ -191,12 +191,12 @@ if __name__ == "__main__":
 
             batched_source, batched_probes = single2batch(src, rec, cfg, 'cpu') # padding, in batch
             
-            obs = SeisArray(obs).filter(cfg['geom']['dt'], freqs, 1, axis=1)
+            obs = SeisArray(obs).filter(cfg['geom']['dt'], freqs, FORDER, axis=1)
 
             def loss(params):
                 syn = model(x, None, batched_source, batched_probes, parameters=params)
                 # apply filter
-                syn = SeisArray(syn).filter(cfg['geom']['dt'], freqs, 1, axis=1)
+                syn = SeisArray(syn).filter(cfg['geom']['dt'], freqs, FORDER, axis=1)
                 return criterions(syn, obs), syn
                 
             def compute_gradient(params):

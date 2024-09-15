@@ -3,12 +3,10 @@ seed: 20230503
 
 name: forward_modeling
 
-backend: jax
-
 # Data type to use for tensors, either float32 or float64
 dtype: float32
 
-equation: acoustic_pml
+equation: elastic
 
 training:
 
@@ -18,7 +16,7 @@ training:
 
   minibatch: true
 
-  batch_size: 8
+  batch_size: 20
 
   # Number of training epochs
   N_epochs: 50
@@ -33,25 +31,26 @@ training:
   lr_decay: 0.995
 
   # Filter order
-  filter_ord: 1
+  filter_ord: 3
 
 geom:
 
   # The observer data
-  obsPath: ./observed.hdf5
+  obsPath: ./observed.npy
 
   # Wave speed model from disk_file for forward modeling
   truePath:
-    vp: ../../models/marmousi_model_half/true_vp.npy
-    vs:
-    rho:
+    vp: ../../../models/marmousi_model/true_vp.npy
+    vs: ../../../models/marmousi_model/true_vs.npy
+    rho: ../../../models/marmousi_model/rho.npy
     Q: 
     
+
   sources: ./geometry/sources.pkl
 
   receivers: ./geometry/receivers.pkl
 
-  seabed: ../../models/marmousi_model_half/seabed.npy
+  seabed: ../../../models/marmousi_model/seabed.npy
 
   wavelet:
 
@@ -65,22 +64,23 @@ geom:
   #./geometry/ricker_lowcut5hz.npy
 
   source_type:
-    - h1
+    - vz
 
   receiver_type:
-    - h1
+    - vx
+    - vz
 
   # Inital Wave speed model from disk_file
   initPath: 
-    vp: ../../models/marmousi_model_half/linear_vp.npy
-    vs:
-    rho:
+    vp: ../../../models/marmousi_model/linear_vp.npy
+    vs: ../../../models/marmousi_model/linear_vs.npy
+    rho: ../../../models/marmousi_model/rho.npy
     Q:
 
   invlist:
     vp: true
-    vs:
-    rho:
+    vs: true
+    rho: false
     q:
 
   # Save the results of FWI
@@ -91,12 +91,12 @@ geom:
     - 3.0
     - 5.0
     - all
-  
+
   # Time Sampling step
-  dt: 0.002
+  dt: 0.0022
 
   # Time samples
-  nt: 2000
+  nt: 1800
 
   # Main frequency of ricker wave
   fm: 5.0
@@ -105,7 +105,7 @@ geom:
   h: 20.0
 
   # Total Shots
-  Nshots: 99
+  Nshots: 999
 
   boundary:
     type: pml
