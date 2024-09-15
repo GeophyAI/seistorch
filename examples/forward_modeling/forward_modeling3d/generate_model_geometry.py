@@ -17,9 +17,9 @@ def write_pkl(path: str, data: list):
 # |________|/
 #
 dtype = np.float32
-nx, ny, nz = 256, 256, 128
+nx, ny, nz = 128, 128, 64
 vel = np.ones((nx, nz, ny), dtype=dtype)*1500
-vel[:, 64:, :] = 2000
+vel[:, 32:, :] = 2000
 
 # Generate the source and receiver list
 # Please note that in Seistorch, 
@@ -40,7 +40,7 @@ vel[:, 64:, :] = 2000
 # * represents the location of shots
 # v represents the location of receivers
 
-sources = [[128, 128, 1]]
+sources = [[nx//2, ny//2, 1]]
 
 # Receivers: [[0, 1, ..., 255], [5, 5, ..., 5], 
 #            [0, 1, ..., 255], [5, 5, ..., 5],    
@@ -49,13 +49,13 @@ sources = [[128, 128, 1]]
 # cross-line
 receiver_depth = 1
 step = 4
-receiver_locx = np.arange(0, 256, step)
-receiver_locy = np.ones_like(receiver_locx)*128
+receiver_locx = np.arange(0, nx, step)
+receiver_locy = np.ones_like(receiver_locx)*(ny//2)
 receiver_locz = np.ones_like(receiver_locx)*receiver_depth
 # in-line
-receiver_locx = np.concatenate((receiver_locx, np.ones_like(np.arange(0, 256, step))*128))
-receiver_locy = np.concatenate((receiver_locy, np.arange(0, 256, step)))
-receiver_locz = np.concatenate((receiver_locz, np.ones_like(np.arange(0, 256, step))*receiver_depth))
+receiver_locx = np.concatenate((receiver_locx, np.ones_like(np.arange(0, nx, step))*(nx//2)))
+receiver_locy = np.concatenate((receiver_locy, np.arange(0, ny, step)))
+receiver_locz = np.concatenate((receiver_locz, np.ones_like(np.arange(0, nx, step))*receiver_depth))
 
 # The receivers are fixed at the bottom of the model (z=5)
 receivers = [[receiver_locx.tolist(), receiver_locy.tolist(), receiver_locz.tolist()]]*len(sources)

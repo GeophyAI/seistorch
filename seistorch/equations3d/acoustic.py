@@ -69,7 +69,7 @@ def _laplacian3d(y, h):
     return conv3d(y, operator, padding=padding).squeeze(1)
 
 # @torch.compile
-def _time_step(*args):
+def _time_step(*args, **kwargs):
     """
     Time step function for acoustic wave equation
     """
@@ -85,7 +85,7 @@ def _time_step(*args):
     return y, h1
 
 # @torch.compile
-def _time_step_backward(*args):
+def _time_step_backward(*args, **kwargs):
 
     vp = args[0]
     h1, h2 = args[1:3]

@@ -25,3 +25,4 @@ examples/rtm/stand_alone
 examples/random_boundaries
 examples/tools
 examples/models/2007bp
+seistorch/equations2d_jax

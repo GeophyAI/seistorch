@@ -114,6 +114,7 @@ class WaveRNN(torch.nn.Module):
         else:
             batchsize = super_source.x.shape[0]
         hidden_state_shape = (batchsize,) + self.cell.geom.domain_shape
+        ndim = len(self.cell.geom.domain_shape)
         # Initialize habc if needed
         if self.cell.geom.use_habc: self.cell.setup_habc(batchsize)
         # Set wavefields
@@ -158,9 +159,11 @@ class WaveRNN(torch.nn.Module):
             # Add source mask
             super_source.smask = torch.zeros(hidden_state_shape, device=device)
             for idx in range(super_source.x.size(0)):
-                if self.source_encoding: idx = 0
-                super_source.smask[idx, super_source.y[idx], super_source.x[idx]] = 1.0
-
+                bidx = 0 if self.source_encoding else idx
+                if ndim == 2:
+                    super_source.smask[bidx, super_source.y[idx], super_source.x[idx]] = 1.0
+                if ndim == 3:
+                    super_source.smask[bidx, super_source.x[idx], super_source.z[idx], super_source.y[idx]] = 1.0
         if super_probes is None:
             reccounts, bidx_receivers, reckeys = self.merge_receivers_with_same_keys()
             super_probes = WaveProbe(bidx_receivers, **reckeys).to(device)
