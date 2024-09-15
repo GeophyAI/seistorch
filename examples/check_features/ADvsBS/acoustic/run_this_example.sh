@@ -9,12 +9,20 @@ echo 'Running forward modeling'
 sh forward.sh
 echo 'Done.'
 
-echo 'Running FWI with automatic differentiation'
-sh inversion_AD.sh
+echo 'Running FWI with AD and HABC'
+sh inversion_ADHABC.sh
 echo 'Done.'
 
-echo 'Running FWI with boundary saving-based automatic differentiation'
-sh inversion_BS.sh
+echo 'Running FWI with BS and HABC'
+sh inversion_BSHABC.sh
+echo 'Done.'
+
+echo 'Running FWI with BS and PML'
+sh inversion_BSPML.sh
+echo 'Done.'
+
+echo 'Running FWI with AD and PML'
+sh inversion_ADPML.sh
 echo 'Done.'
 
 echo 'Compare the results of AD and BS.'

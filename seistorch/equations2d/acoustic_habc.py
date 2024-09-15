@@ -210,12 +210,8 @@ def _time_step(*args, **kwargs):
     dt, h, b = args[3:6]
     habc_masks = kwargs['habcs']
     
-    # HABC
-    y = torch.mul((dt**-2).pow(-1),
-                (2 / dt**2 * h1 - torch.mul((dt**-2 ), h2)
-                + torch.mul(c.pow(2), _laplacian(h1, h)))
-                )
-    
+    y = 2*h1 - h2 + c.pow(2)*dt**2*_laplacian(h1, h)
+    # Apply habc
     y = habc(y, h1, h2, c, b, dt, h, maskidx = habc_masks)
 
     return y, h1

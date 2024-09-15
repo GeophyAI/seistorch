@@ -42,12 +42,11 @@ class WaveSourceBase:
     def forward2d(self, Y, X, f=1.):
         
         if not self.source_encoding:
+            # Y += self.smask * f*X
             return Y + self.smask * f*X
 
         if self.source_encoding:
             Y[..., self.y, self.x] += f*X
-            # mask = (self.smask==1)
-            # Y[mask] += f*X#.flatten()
             return Y
 
     def forward(self, Y, X, f=1.):

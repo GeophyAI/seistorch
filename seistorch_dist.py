@@ -34,55 +34,18 @@ from seistorch.coords import single2batch
 from seistorch.signal import SeisSignal, generate_arrival_mask
 from seistorch.model import build_model
 from seistorch.setup import *
-from seistorch.utils import (DictAction, to_tensor, nestedlist2tensor)
+from seistorch.utils import (to_tensor, nestedlist2tensor)
 from seistorch.dataset import OBSDataset
 from seistorch.type import TensorList
 from seistorch.process import PostProcess
-
-parser = argparse.ArgumentParser()
-parser.add_argument('config', type=str, 
-                    help='Configuration file for geometry, training, and data preparation')
-parser.add_argument('--num_threads', type=int, default=2,
-                    help='Number of threads to use')
-parser.add_argument('--num-batches', type=int, default=1,
-                    help='Number of batches to use')
-parser.add_argument('--use-cuda', action='store_true',
-                    help='Use CUDA to perform computations')
-parser.add_argument('--opt', choices=['adam', 'lbfgs', 'steepestdescent', 'cg'], default='adam',
-                    help='optimizer (adam)')
-parser.add_argument('--save-path', default='',
-                    help='the root path for saving results')
-parser.add_argument('--loss', action=DictAction, nargs="+",
-                    help='loss dictionary')
-parser.add_argument('--lr', action=DictAction, nargs="+",
-                    help='learning rate')
-parser.add_argument('--mode', choices=['forward', 'inversion', 'rtm'], default='forward',
-                    help='forward modeling, inversion or reverse time migration mode')
-parser.add_argument('--modelparallel', action='store_true',
-                    help='Split the model to various GPUs')
-parser.add_argument('--grad-cut', action='store_true',
-                    help='Cut the boundaries of gradient or not')
-parser.add_argument('--grad-smooth', action='store_true',
-                    help='Smooth the gradient or not')
-parser.add_argument('--grad-clip', action='store_true', default=True,
-                    help='Clip the gradient or not')
-parser.add_argument('--source-illumination', action='store_true',
-                    help='Use source illumination or not')
-parser.add_argument('--filteratfirst', action='store_true', 
-                    help='Filter the wavelet at the first step or not')
-parser.add_argument('--obsnofilter', action='store_true', 
-                    help='Do not filter the observed data')
-parser.add_argument('--clipvalue', type=float, default=0.02)
-parser.add_argument('--step-per-epoch', type=int, default=1)
-parser.add_argument('--source-encoding', action='store_true', default=False,
-                    help='PLEASE DO NOT CHANGE THE DEFAULT VALUE.')
+from seistorch.parser import fwi_parser as parser
 
 
 if __name__ == "__main__":
 
     dist.init_process_group("nccl")
 
-    args = parser.parse_args()
+    args = parser().parse_args()
     rank = int(os.environ['LOCAL_RANK'])
     size = int(os.environ['WORLD_SIZE'])
 

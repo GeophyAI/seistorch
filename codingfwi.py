@@ -28,7 +28,7 @@ from seistorch.setup import *
 from seistorch.log import SeisLog
 from seistorch.io import SeisIO
 from seistorch.signal import SeisSignal
-from seistorch.utils import (DictAction, dict2table,
+from seistorch.utils import (dict2table,
                              low_pass, roll, roll2, to_tensor)
 from seistorch.process import PostProcess
 
@@ -39,44 +39,12 @@ torch.backends.cuda.matmul.allow_tf32 = True
 # The flag below controls whether to allow TF32 on cuDNN. This flag defaults to True.
 torch.backends.cudnn.allow_tf32 = True
 from torch.cuda.amp import GradScaler, autocast
+from seistorch.parser import coding_fwi_parser as parser
 
-parser = argparse.ArgumentParser()
-parser.add_argument('config', type=str, 
-                    help='Configuration file for geometry, training, and data preparation')
-parser.add_argument('--num_threads', type=int, default=2,
-                    help='Number of threads to use')
-parser.add_argument('--use-cuda', action='store_true',
-                    help='Use CUDA to perform computations')
-parser.add_argument('--gpuid', type=int, default=0,
-                    help='which gpu is used for calculation')
-parser.add_argument('--checkpoint', type=str,
-                    help='checkpoint path for resuming training')
-parser.add_argument('--opt', choices=['adam', 'lbfgs', 'cg', 'steepestdescent'], default='adam',
-                    help='optimizer (adam)')
-parser.add_argument('--loss', action=DictAction, nargs="+",
-                    help='loss dictionary')
-parser.add_argument('--save-path', default='',
-                    help='the root path for saving results')
-parser.add_argument('--lr', action=DictAction, nargs="+",
-                    help='learning rate')
-parser.add_argument('--batchsize', type=int, default=-1,
-                    help='batch size for coding')
-parser.add_argument('--grad-smooth', action='store_true',
-                    help='Smooth the gradient or not')
-parser.add_argument('--grad-cut', action='store_true',
-                    help='Cut the boundaries of gradient or not')
-parser.add_argument('--disable-grad-clamp', action='store_true',
-                    help='Clamp the gradient using quantile or not')
-parser.add_argument('--mode', choices=['inversion'], default='inversion',
-                    help='forward modeling, inversion or reverse time migration mode')
-parser.add_argument('--source-encoding', action='store_true', default=True,
-                    help='PLEASE DO NOT CHANGE THE DEFAULT VALUE.')
-parser.add_argument('--filteratlast', action='store_true', 
-                    help='Filter the wavelet at the last step or not')
 
 if __name__ == '__main__':
 
-    args = parser.parse_args()
+    args = parser().parse_args()
 
     args.dev = setup_device(args.gpuid, args.use_cuda)
 
