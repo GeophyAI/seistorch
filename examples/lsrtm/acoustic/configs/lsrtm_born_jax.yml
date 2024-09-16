@@ -1,0 +1,122 @@
+# Random seed for pytorch and all shuffle functions
+seed: 20230503
+
+name: forward_modeling
+
+# Data type to use for tensors, either float32 or float64
+dtype: float32
+
+equation: acoustic_lsrtm_pml
+
+backend: jax
+
+training:
+
+  smooth:
+    counts: 5 # the number of smooth times
+    radius: # the radius of smooth in x and z direction
+      x: 1
+      z: 1
+    sigma: # the sigma of smooth in x and z direction
+      x: 1
+      z: 1
+
+  implicit:
+    use: false
+    pretrained:
+
+  minibatch: true
+
+  batch_size: 20
+
+  # Number of training epochs
+  N_epochs: 31
+
+  # Optimizer learning rate
+  lr: 0.001
+
+  # Decay the learning rate by each of multi-scale
+  scale_decay: 0.85
+
+  # decay the lr by each of epochs
+  lr_decay: 0.995
+
+  # Filter order
+  filter_ord: 3
+
+geom:
+
+  # The observer data
+  obsPath: ./born.hdf5
+
+  # Wave speed model from disk_file for forward modeling
+  truePath:
+    m: 
+    vp: 
+    vs:
+    rho:
+    Q: 
+    
+
+  sources: ./geometry/sources.pkl
+
+  receivers: ./geometry/receivers.pkl
+
+  seabed: ./velocity/seabed.npy
+
+  wavelet:
+
+  multiple: false
+
+  boundary_saving: false
+
+  wavelet_delay: 256
+
+  wavelet_inverse: false
+  #./geometry/ricker_lowcut5hz.npy
+
+  source_type:
+    - h1
+
+  receiver_type:
+    - sh1
+
+  # Inital Wave speed model from disk_file
+  initPath: 
+    vp: ./velocity/smooth_vp.npy
+    m: ./velocity/zero_ref.npy
+    vs:
+    rho:
+    Q:
+
+  invlist:
+    vp: false
+    m: true
+    vs:
+    rho:
+    q:
+
+  # Save the results of FWI
+  inv_savePath:
+
+  multiscale:
+    - all
+
+  # Time Sampling step
+  dt: 0.001
+
+  # Time samples
+  nt: 4000
+
+  # Main frequency of ricker wave
+  fm: 8.0
+
+  # Spatial grid step size
+  h: 20.0
+
+  # Total Shots
+  Nshots: 99
+
+  boundary:
+    type: pml
+    width: 50

@@ -72,7 +72,7 @@ I reproduced the results of the following papers using Seistorch and some stand 
 | EQUATIONS | USAGE | REFERENCES| EQUATION CODES | Pytorch | Jax |
 | :-------------- | :-----------: | :------------------| :-----------: | :-----------: | :-----------: |
 | Scalar Acoustic (2nd) | FWI | * | [PML version](seistorch/equations2d/acoustic.py) <br> [HABC version](seistorch/equations2d/acoustic_habc.py) | ✓ | ✓ |
-| Scalar Acoustic (2nd) | LSRTM | [Dai et al., 2010](https://doi.org/10.1190/1.3513494) | [click](seistorch/equations2d/acoustic_habc.py) | ✓ | x |
+| Scalar Acoustic (2nd) | LSRTM | [Dai et al., 2010](https://doi.org/10.1190/1.3513494) | [click](seistorch/equations2d/acoustic_habc.py) | ✓ | ✓ |
 | Acoustic (1st) | FWI | * | [click](seistorch/equations2d/acoustic1st.py) | ✓ | x |
 |Variable Density (2nd)| FWI | [Whitmore et al., 2020](https://doi.org/10.3997/2214-4609.202010332) | [click](seistorch/equations2d/acoustic_rho_habc.py) | ✓ | x |
 | Joint FWI & LSRTM| FWI+LSRTM | [Wu et al., 2024](https://doi.org/10.1109/TGRS.2024.3349608) | [click](seistorch/equations2d/acoustic_fwim_habc.py) | ✓ | x |
