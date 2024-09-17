@@ -1,5 +1,6 @@
 import os
 os.environ["XLA_PYTHON_CLIENT_PREALLOCATE"] = "false"
+from siren import Siren, grid_init
 
 import jax, tqdm, time
 import jax.numpy as jnp
@@ -57,9 +58,6 @@ rec_loc = list(zip(recxs, reczs))
 showgeom(vel, src_loc, rec_loc, figsize=(5, 4))
 print(f"The number of sources: {len(src_loc)}")
 print(f"The number of receivers: {len(rec_loc)}")
-"""###################################################"""
-"""######################Forward######################"""
-"""###################################################"""
 kwargs = dict(b=pmlc, domain=domain, dt=dt, h=dh, recz=recz, pmln=pmln)
 start_time = time.time()
 rec_obs = forward(wave, vel, src_list=np.array(src_loc), **kwargs)
@@ -67,12 +65,17 @@ end_time = time.time()
 print(f"Forward modeling time: {end_time - start_time:.2f}s")
 show_gathers(rec_obs, figsize=(10, 6))
 
-"""#####################################################"""
-"""######################Inversion######################"""
-"""#####################################################"""
+"""##############################################################"""
+"""#######################INVERSION##############################"""
+"""##############################################################"""
 
 # Training Loop
-init = jnp.array(init)
+SirenDef = Siren(num_layers=4, hidden_dim=128, final_activation='linear')
+
+grid = grid_init(domain, jnp.float32)()
+params = SirenDef.init(rng_key, grid)["params"]
+
+init = SirenDef.apply({"params": params}, grid).T
 
 # @partial(jax.jit, static_argnames=['shot_nums'])
 def loss(vp, shot_nums):
@@ -87,6 +90,7 @@ def compute_gradient(vp, shot_nums=[1, 2, 3]):
 @partial(jax.jit, static_argnames=['batch_size'])
 # @jax.jit
 def fwi_step(vp, step, opt_state, rng_key=None, batch_size = 8):
+    vp = vp * std_vp + mean_vp
     rng_key, subkey = random.split(rng_key)
     rand_shots = random.randint(subkey, (batch_size,), 0, len(src_loc))
     _loss, gradient = compute_gradient(vp, rand_shots)
@@ -97,16 +101,26 @@ opt_init, opt_update, get_params = adam(lr)
 opt_state = opt_init(init)
 LOSS = []
 for epoch in tqdm.trange(EPOCHS):
+
     _loss, opt_state, rng_key = fwi_step(get_params(opt_state), epoch, opt_state, rng_key, batch_size)
     LOSS.append(_loss)
     
     if epoch % show_every == 0:
         # show vel
         inverted = get_params(opt_state)[pmln:-pmln, pmln:-pmln]
+        inverted = inverted * std_vp + mean_vp
+        print(inverted.min(), inverted.max())
         plt.figure(figsize=(5, 3))
         plt.imshow(inverted, vmin=1500., vmax=5500., cmap="seismic", aspect="auto")
         plt.colorbar()
         plt.savefig(f"figures/{epoch:03d}.png")
+        plt.show()
+
+        # show trace
+        plt.figure(figsize=(5, 3))
+        plt.plot(vel[pmln:-pmln, pmln:-pmln][:,100], label="True")
+        plt.plot(inverted[:,100], label="Inverted")
+        plt.legend()
         plt.show()
 
         # show loss
