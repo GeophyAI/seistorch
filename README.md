@@ -76,11 +76,11 @@ I reproduced the results of the following papers using Seistorch and some stand 
 | Acoustic (1st) | FWI | * | [click](seistorch/equations2d/acoustic1st.py) | ✓ | x |
 |Variable Density (2nd)| FWI | [Whitmore et al., 2020](https://doi.org/10.3997/2214-4609.202010332) | [click](seistorch/equations2d/acoustic_rho_habc.py) | ✓ | x |
 | Joint FWI & LSRTM| FWI+LSRTM | [Wu et al., 2024](https://doi.org/10.1109/TGRS.2024.3349608) | [click](seistorch/equations2d/acoustic_fwim_habc.py) | ✓ | x |
-| qP TTI (2nd) | FWI/LSRTM | [Liang et al., 2024](https://doi.org/10.1190/geo2022-0292.1) | [fwi click](seistorch/equations2d/tti_habc.py) <br> [lsrtm click](seistorch/equations2d/acoustic_tti_lsrtm_habc.py) | ✓ | x |
-| qP VTI (2nd) | FWI/LSRTM | [Liang et al., 2024](https://doi.org/10.1190/geo2022-0292.1) | [fwi click](seistorch/equations2d/vti_habc2.py) <br> [lsrtm click](seistorch/equations2d/acoustic_vti_lsrtm_habc.py)  | ✓ | x |
+| qP TTI (2nd) | FWI/LSRTM | [Liang et al., 2024](https://doi.org/10.1190/geo2022-0292.1) | [fwi click](seistorch/equations2d/tti_habc.py) <br> [lsrtm click](seistorch/equations2d/acoustic_tti_lsrtm_habc.py) | ✓ | ✓ |
+| qP VTI (2nd) | FWI/LSRTM | [Liang et al., 2024](https://doi.org/10.1190/geo2022-0292.1) | [fwi click](seistorch/equations2d/vti_habc2.py) <br> [lsrtm click](seistorch/equations2d/acoustic_vti_lsrtm_habc.py)  | ✓ | ✓ |
 | ViscoAcoustic  (2nd) | FWI | [Li et al., 2016](https://doi.org/10.3997/2214-4609.201601578) | [click](seistorch/equations2d/vacoustic_habc.py) | ✓ | x |
 | VTI  (2nd) | FWI | [Zhou et al., 2006](https://doi.org/10.3997/2214-4609.201402310) | [click](seistorch/equations2d/vti_habc.py) | ✓ | x |
-| Elastic (1st)   | FWI | [Virieux, 1986](https://doi.org/10.1190/1.1442147) | [click](seistorch/equations2d/elastic.py) | ✓ | x |
+| Elastic (1st)   | FWI | [Virieux, 1986](https://doi.org/10.1190/1.1442147) | [click](seistorch/equations2d/elastic.py) | ✓ | ✓ |
 | Elastic (1st)   | LSRTM | [Feng & Schuster, 2017](https://doi.org/10.1190/geo2016-0254.1) | [click](seistorch/equations2d/elastic_lsrtm.py) | ✓ | ✓ |
 | TTI-Elastic (1st)  | FWI | * | [click](seistorch/equations2d/ttielastic.py) | ✓ | x |
 | Acoustic-Elastic coupled (1st) | FWI | [Yu et al., 2016](https://doi.org/10.1190/geo2015-0535.1) | [click](seistorch/equations2d/aec.py) | ✓ | x |

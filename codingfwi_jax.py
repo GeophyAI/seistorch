@@ -235,7 +235,7 @@ if __name__ == '__main__':
         updates, opt_state = opt.update(gradient, opt_state)
         params = optax.apply_updates(model.parameters(), updates)
 
-        return coding_obs, coding_syn, _shots, keys[0], params
+        return coding_obs, coding_syn, _shots, keys[0], params, gradient
 
     for epoch in range(EPOCH_PER_SCALE*SCALE_COUNTS):
 
@@ -244,10 +244,11 @@ if __name__ == '__main__':
         if local_epoch==0:
             pbar.reset()
         
-        obs, syn, _shots, rng_key, params = step(epoch, opt_state, rng_key, params, freqs=MULTISCALES[idx_freq])
+        obs, syn, _shots, rng_key, params, gradient = step(epoch, opt_state, rng_key, params, freqs=MULTISCALES[idx_freq])
         np.save(f"{ROOTPATH}/model_F{idx_freq:02d}E{local_epoch:02d}.npy", params)
+        np.save(f"{ROOTPATH}/gradient_F{idx_freq:02d}E{local_epoch:02d}.npy", gradient)
         pbar.set_description(f"F{idx_freq}E{local_epoch}")
-        # np.save(f"{ROOTPATH}/obs_{epoch}.npy", obs)
-        # np.save(f"{ROOTPATH}/syn_{epoch}.npy", syn)
+        np.save(f"{ROOTPATH}/obs_{epoch}.npy", obs)
+        np.save(f"{ROOTPATH}/syn_{epoch}.npy", syn)
         pbar.update(1)
         # break

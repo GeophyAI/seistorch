@@ -13,6 +13,9 @@ def laplace(u, h):
     kernel = jnp.array([[0, 1, 0], [1, -4, 1], [0, 1, 0]])  # 3x3 kernel
     return batch_convolve2d(u, kernel) / (h ** 2)
 
+def laplace_with_kernel(u, h, kernel):
+    return batch_convolve2d(u, kernel) / (h ** 2)
+
 def staggered_grid_coes(M):
     # 2*M: difference order
     a = jnp.zeros(M, dtype=jnp.float32)
@@ -32,6 +35,20 @@ def staggered_grid_coes(M):
         a = a.at[m - 1].set(a_m)
     
     return a
+
+def normal_grid_coes(M):
+    # 2*M: difference order
+    a_m = jnp.zeros(M)
+    
+    for m in range(1, M + 1):
+        product = 1.0
+        for n in range(1, M + 1):
+            if n != m:
+                product *= jnp.abs(n**2 / (n**2 - m**2))
+        
+        a_m[m - 1] = (-1)**(m + 1) / (m**2) * product
+
+    return a_m
 
 # differential order = 2*M
 M = 1

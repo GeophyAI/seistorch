@@ -203,7 +203,7 @@ class SeisSetup:
         for i, para in enumerate(pars_need_by_eq):
             # Set the learning rate for each parameter
             _lr = 0. if para not in pars_need_invert else lr[para]#*scale_decay**idx_freq
-            opt = optax.adam(_lr)
+            opt = optax.adam(_lr, eps=1e-22)
             self.logger.print(f"Learning rate for {para}: {_lr}")
             mask = create_mask_fn(i, paras_counts)
             optimizers.append(optax.masked(opt, mask))

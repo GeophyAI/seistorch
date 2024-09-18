@@ -12,7 +12,9 @@ class Parameters:
                  "acoustic_rho_habc": ["vp", "rho"],
                  "acoustic_fwim_habc": ["vp", "rx", "rz"],
                  "acoustic_vti_lsrtm_habc": ["vp", "epsilon", "delta", "m"],
+                 "acoustic_vti_lsrtm_pml": ["vp", "epsilon", "delta", "m"],
                  "acoustic_tti_lsrtm_habc": ["vp", "epsilon", "delta", "theta", "m"],
+                 "acoustic_tti_lsrtm_pml": ["vp", "epsilon", "delta", "theta", "m"],
                  "acoustic_lsrtm_habc": ["vp", "m"],
                  "acoustic_lsrtm_pml":  ["vp", "m"],
                  "acoustic1st":  ["vp", "rho"],
@@ -23,6 +25,7 @@ class Parameters:
                  "vacoustic_habc": ["vp", "Q"],
                  "vti_habc": ["vp", "epsilon", "delta"], 
                  "vti_habc2": ["vp", "epsilon", "delta"],
+                 "acoustic_vti_pml": ["vp", "epsilon", "delta"],
                  "vdr":  ["vp", "vs", "rho"], 
                  "tti_habc": ["vp", "epsilon", "delta", "theta"],
                  #"ttielastic":   ["vp", "vs", "rho", "epsilon", "gamma", "delta"],
@@ -39,6 +42,8 @@ class Parameters:
                 'acoustic_rho_habc',
                 'vacoustic_habc', 
                 'vti_habc2',
+                'acoustic_vti_pml',
+                'acoustic_vti_lsrtm_pml',
                 'acoustic_lsrtm_habc', 
                 'acoustic_lsrtm_pml',
                 'acoustic_fwim_habc',
@@ -80,9 +85,17 @@ class Wavefield:
     @property
     def acoustic_vti_lsrtm_habc(self, ):
         return ["p1", "p2", "sp1", "sp2"]
+
+    @property
+    def acoustic_vti_lsrtm_pml(self, ):
+        return ["p1", "p2", "sp1", "sp2"]
     
     @property
     def acoustic_tti_lsrtm_habc(self, ):
+        return ["p1", "p2", "sp1", "sp2"]
+
+    @property
+    def acoustic_tti_lsrtm_pml(self, ):
         return ["p1", "p2", "sp1", "sp2"]
 
     @property
@@ -128,6 +141,10 @@ class Wavefield:
     
     @property
     def vti_habc2(self,):
+        return ["p1", "p2"]
+
+    @property
+    def acoustic_vti_pml(self,):
         return ["p1", "p2"]
     
     @property
