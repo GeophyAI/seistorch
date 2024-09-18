@@ -6,11 +6,11 @@ A Siren neural network is used to represent the model. The neural network is a 5
 
 The initial model is randomly filled with values around 3000m/s, because the weights of the network is generated randomly. The initial model looks like the following figure:
 
-![Initial model](figures/0000.png)
+![Initial model](_figures_/0000.png)
 
 The inverted model after 2000 epoch can be seen in the following figure:
 
-![Inverted model](figures/2000.png)
+![Inverted model](_figures_/2000.png)
 
 *Note*: The inversion process will last ~30 min on a RTX 3080 Ti.
 
