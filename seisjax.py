@@ -107,8 +107,13 @@ if __name__ == "__main__":
 
     SHOTS_PER_GPU = SHOTS_PER_EPOCH#//size
 
-    # obsloader = NumpyLoader(obs0, batch_size=SHOTS_PER_GPU, shuffle=False, sampler=obssampler)
-    obsloader = DataLoaderJAX(obs0, batch_size=SHOTS_PER_GPU, shuffle=False, sampler=None)
+    bps = SHOTS_PER_GPU//STEP_PER_EPOCH # batchsize / step / gpu
+    
+    assert bps > 0, f"Num. of tasks per GPU is {SHOTS_PER_GPU}, but step per epoch is {STEP_PER_EPOCH}."
+    
+    loss_all_batch = 0.
+
+    obsloader = DataLoaderJAX(obs0, batch_size=bps, shuffle=False, sampler=None)
 
     # Jax-based optimizer
     # opt_init, opt_update, get_params = adam(10.0)
@@ -124,71 +129,79 @@ if __name__ == "__main__":
 
     params = model.parameters()
 
-    @partial(jax.jit, static_argnums=(4,))
+    @partial(jax.jit, static_argnames=('freqs', ))
     def step(epoch, opt_state, rng_key, params, freqs):
 
         rng_key, subkey = jax.random.split(rng_key)
 
         """Get the data"""
         obsloader.reset_key(subkey)
-        _obs, _src, _rec, _shots = next(iter(obsloader))
-        _src = _src.T
-
-        bps = SHOTS_PER_GPU//STEP_PER_EPOCH # batchsize_per_step
-        
-        assert bps > 0, f"Num. of tasks per GPU is {SHOTS_PER_GPU}, but step per epoch is {STEP_PER_EPOCH}."
-        loss_all_batch = 0.
+        obs, src, rec, shots = next(iter(obsloader))
+        src = src.T
 
         # Reset the parameters
         # model.set_parameters(get_params(opt_state)) # Jax-based updates
         model.set_parameters(params) # Optax-based updates
 
-        for bps_idx in range(STEP_PER_EPOCH):
-            start = bps_idx*bps
-            end = (bps_idx+1)*bps
+        batched_source, batched_probes = single2batch(src, rec, cfg, 'cpu') # padding, in batch
+        
+        obs = SeisArray(obs).filter(cfg['geom']['dt'], freqs, FORDER, axis=1)
 
-            obs = _obs[start:end]
-            src = [s[start:end] for s in _src] # [list,]
-            rec = _rec[start:end] # (batchsize, ndim, nrecs)
-            shots = _shots[start:end]
-
-            batched_source, batched_probes = single2batch(src, rec, cfg, 'cpu') # padding, in batch
-            
-            obs = SeisArray(obs).filter(cfg['geom']['dt'], freqs, FORDER, axis=1)
-
-            def loss(params):
-                syn = model(x, None, batched_source, batched_probes, parameters=params)
-                # apply filter
-                syn = SeisArray(syn).filter(cfg['geom']['dt'], freqs, FORDER, axis=1)
-                return criterions(syn, obs), syn
+        def loss(params):
+            syn = model(x, None, batched_source, batched_probes, parameters=params)
+            # apply filter
+            syn = SeisArray(syn).filter(cfg['geom']['dt'], freqs, FORDER, axis=1)
+            return criterions(syn, obs), syn
                 
-            def compute_gradient(params):
-                return jax.value_and_grad(loss, has_aux=True)(params)
+        def compute_gradient(params):
+            return jax.value_and_grad(loss, has_aux=True)(params)
 
-            (_loss, syn), gradient = compute_gradient(model.parameters())
+        (_loss, syn), gradient = compute_gradient(model.parameters())
 
-            # Jax backend update
-            # opt_state = opt_update(epoch, gradient, opt_state)
-            
-            # Optax backend update
-            updates, opt_state = opt.update(gradient, opt_state)
-            params = optax.apply_updates(model.parameters(), updates)
+        # Jax backend update
+        # opt_state = opt_update(epoch, gradient, opt_state)
+        
+        # Optax backend update
+        # updates, opt_state = opt.update(gradient, opt_state)
 
-            loss_all_batch += _loss
+        return _loss, opt_state, params, rng_key, gradient, syn, obs
 
-        return loss_all_batch, opt_state, params, rng_key, gradient, syn, obs
+    @partial(jax.jit, donate_argnums=(0, ))
+    def inplace_update(need_to_update, updates):
+        for i in range(len(updates)):
+            need_to_update = need_to_update.at[i].add(updates[i])
+        return need_to_update
 
+    @partial(jax.jit, donate_argnums=(0, ))
+    def inplace_zeros(need_to_update):
+        need_to_update = need_to_update.at[...].set(0.0)
+        return need_to_update
+
+    batch_gradients = jnp.zeros((len(params), *params[0].shape), dtype=jnp.float32)
+    
     for epoch in range(EPOCH_PER_SCALE*SCALE_COUNTS):
 
+        loss_all_batch = 0.
         idx_freq, local_epoch = divmod(epoch, EPOCH_PER_SCALE)
 
         if local_epoch==0:
             pbar.reset()
+        
+        batch_gradients = inplace_zeros(batch_gradients)
 
-        loss, opt_state, params, rng_key, gradient, syn, obs = step(epoch, opt_state, rng_key, params, freqs=MULTISCALES[idx_freq])
+        # Gradient accumulation
+        for batch_step in range(STEP_PER_EPOCH):
+            loss_per_batch, opt_state, params, rng_key, gradient, syn, obs = step(epoch, opt_state, rng_key, params, freqs=MULTISCALES[idx_freq])
+            batch_gradients = inplace_update(batch_gradients, gradient)
+            loss_all_batch += loss_per_batch
+        
+        # Update the parameters
+        updates, opt_state = opt.update(tuple(batch_gradients), opt_state)
+        params = optax.apply_updates(params, updates)
 
         np.save(f"{ROOTPATH}/inverted{epoch:03d}.npy", params)
-        np.save(f"{ROOTPATH}/gradient{epoch:03d}.npy", gradient)
+        np.save(f"{ROOTPATH}/gradient{epoch:03d}.npy", batch_gradients)
+        writer.add_scalar('Loss', loss_all_batch.item(), epoch)
         # np.save(f"{ROOTPATH}/syn{epoch:03d}.npy", syn)
         # np.save(f"{ROOTPATH}/obs{epoch:03d}.npy", obs)
         pbar.update(1)
