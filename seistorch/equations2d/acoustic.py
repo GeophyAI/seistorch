@@ -42,6 +42,7 @@ def generate_convolution_kernel(spatial_order):
     kernel_size = spatial_order + 1
     kernel = torch.zeros((kernel_size, kernel_size))
     center = spatial_order // 2
+
     kernel[center, center+1:] = constant
     kernel[center, 0:center] = constant.flip(0)
 
@@ -52,20 +53,10 @@ def generate_convolution_kernel(spatial_order):
 
     return kernel
 
-spatial_order = 2
-device = "cuda"
-kernel = generate_convolution_kernel(spatial_order).unsqueeze(0).unsqueeze(0).to(device)
-padding = kernel.shape[-1]//2
-
-def _laplacian(y, h):
+def _laplacian(y, h, order=2):
     """Laplacian operator"""
-    # kernel = torch.tensor([[[[0.0, 1.0, 0.0], [1.0, -4.0, 1.0], [0.0, 1.0, 0.0]]]]).to(y.device)
-    # kernel = torch.tensor([[[[0.0, 0.0, -0.083, 0.0, 0.0],
-    #                          [0.0, 0.0, 1.333, 0.0, 0.0],
-    #                          [-0.083, 1.333, -2.5, 1.333, -0.083],
-    #                          [0.0, 0.0, 1.333, 0.0, 0.0],
-    #                          [0.0, 0.0, -0.083, 0.0, 0.0]]]]).to(y.device)
-    
+    kernel = generate_convolution_kernel(order.item()).unsqueeze(0).unsqueeze(0)
+    padding = kernel.shape[-1]//2
     operator = h ** (-2) * kernel.to(y.device)
     y = y.unsqueeze(1)
     return conv2d(y, operator, padding=padding).squeeze(1)
@@ -75,10 +66,12 @@ def _time_step(*args, **kwargs):
     c = args[0]
     h1, h2 = args[1:3]
     dt, h, b = args[3:6]
+    spatial_order = args[6]
+
     # b = 0
     # When b=0, without boundary conditon.
     a = (dt**-2 + b * dt**-1)**(-1)
-    y = a*(2. / dt**2 * h1 - (dt**-2-b*dt**-1)*h2 + c**2*_laplacian(h1, h))
+    y = a*(2. / dt**2 * h1 - (dt**-2-b*dt**-1)*h2 + c**2*_laplacian(h1, h, spatial_order))
     
     # y = torch.mul((dt**-2 + b * dt**-1).pow(-1),
     #             (2 / dt**2 * h1 - torch.mul((dt**-2 - b * dt**-1), h2)
@@ -94,7 +87,7 @@ def _time_step_backward(*args, **kwargs):
     dt, h, b = args[3:6]
     h_bd, _ = args[-2]
     src_type, src_func, src_values = args[-1]
-    
+
     vp = vp.unsqueeze(0)
     b = b.unsqueeze(0)
 

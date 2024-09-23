@@ -37,12 +37,14 @@ def build_model(config_path,
     # update the configure file
     VEL_PATH = cfg['geom']['initPath'] if mode == 'inversion' else cfg['geom']['truePath']
     cfg.update({'VEL_PATH': VEL_PATH})
-
     
     try:
         cfg['geom']['source_illumination'] = commands.source_illumination
     except:
         cfg['geom']['source_illumination'] = False
+
+    if 'spatial_order' not in cfg.get('geom', {}):
+        cfg['geom']['spatial_order'] = 2
 
     # Set backend A.D. framework
     if 'backend' in cfg.keys():

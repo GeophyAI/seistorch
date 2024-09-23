@@ -31,37 +31,37 @@ I reproduced the results of the following papers using Seistorch and some stand 
 |Regularization-based FWI|[click](examples/regularization/model_reg_fwi)|||
 
 ### LSRTM
-| Traditional | Codes | Related Papers | Notes | Supported by|
-| :----------- | ----------- | :-----------: | :----- | ----------- |
-|Acoustic LSRTM|[click](examples/lsrtm)|[Dai et al., 2010](https://doi.org/10.1190/1.3513494)|Seistorch| Pytorch |
-|Elastic LSRTM|[click](examples/lsrtm)|[Feng & Schuster, 2017](https://doi.org/10.1190/geo2016-0254.1)|Seistorch| Pytorch |
-|VTI/TTI LSRTM|[click](examples/lsrtm/qP)|-|Seistorch| Pytorch |
-|Joint FWI&LSRTM|[click](examples/inversion/joint_fwi_lsrtm)|[Wu et al., 2024](https://doi.org/10.1109/TGRS.2024.3349608)|Seistorch| Pytorch |
-|Regularization-based LSRTM|[click](examples/regularization/model_reg_lsrtm)||| Pytorch |
+| Traditional | Codes | Related Papers | Notes | Pytorch | Jax |
+| :----------- | ----------- | :-----------: | :----- | ----------- | ----------- |
+|Acoustic LSRTM|[click](examples/lsrtm)|[Dai et al., 2010](https://doi.org/10.1190/1.3513494)|Seistorch| ✓ | ✓ |
+|Elastic LSRTM|[click](examples/lsrtm)|[Feng & Schuster, 2017](https://doi.org/10.1190/geo2016-0254.1)|Seistorch| ✓ | x |
+|VTI/TTI LSRTM|[click](examples/lsrtm/qP)|-|Seistorch| ✓ | ✓ |
+|Joint FWI&LSRTM|[click](examples/inversion/joint_fwi_lsrtm)|[Wu et al., 2024](https://doi.org/10.1109/TGRS.2024.3349608)|Seistorch| ✓ | x |
+|Regularization-based LSRTM|[click](examples/regularization/model_reg_lsrtm)||| ✓ | x |
 ### Inversion with Neural Networks
 | FWI+NeuralNetworks | Codes | Related Papers | Notes |
 | :----------- | ----------- | :-----------: | :----- |
 |PINN|[click](examples/pinn)|[Majid et al., 2022](https://doi.org/10.1029/2021JB023120)|Stand alone|
-|Implicit FWI|[click](examples/nn_embedded_fwi/model_representation/implicit_acoustic)|[Sun et al., 2023](https://doi.org/10.1029/2022JB025964)|Stand alone <br> Model Reparameterization(Acoustic)|
+|Implicit FWI|[click (Pytorch)](examples/nn_embedded_fwi/model_representation/implicit_acoustic) <br> [click (Jax)](examples/nn_embedded_fwi/model_representation/implicit_acoustic_marmousi_jax) |[Sun et al., 2023](https://doi.org/10.1029/2022JB025964)|Stand alone <br> Model Reparameterization(Acoustic)|
 |Physics-guided NN FWI|[click](examples/nn_embedded_fwi/model_representation/encoder_decoder_acoustic)|[Dhara & Sen, 2022](https://doi.org/10.1190/tle41060375.1)|Stand alone <br> Model Reparameterization(Acoustic)|
 |Elastic parameters crosstalk|[click](examples/nn_embedded_fwi/model_representation/implicit_elastic)|-|Stand alone <br> Model Reparameterization(Elastic)|
 |Siamese FWI|[click](examples/nn_embedded_fwi/siamesefwi)|[Omar et al., 2024](https://doi.org/10.1029/2024JH000227)|Stand alone|
 |Elastic parameters crosstalk|[click](examples/nn_embedded_fwi/model_representation/encoder_decoder_elastic)|[Dhara & Sen](https://doi.org/10.1109/TGRS.2023.3294427)|Stand alone <br> Model Reparameterization(Elastic)|
 
 ### Misfit functions
-| Misfits | Examples | Related Papers | Notes | Supported by |
-| :----------- | ----------- | :-----------: | :----- |:-----------: |
-|Optimal Transport|[click](examples/inversion/misfits/ot)|[Yang & Ma, 2023](https://doi.org/10.1029/2022JB025493)<br>[Yang & Enguist](https://doi.org/10.1190/GEO2017-0264.1)|-|Pytorch|
-|Envelope|[click](examples/inversion/misfits/envelope)|[Chi et al., 2014](https://doi.org/10.1016/j.jappgeo.2014.07.010) <br> [Wu et al., 2014](https://doi.org/10.1190/GEO2013-0294.1)|-|Pytorch/Jax|
-|Traveltime|[click](examples/inversion/misfits/travel_time_misfit)|[Wang et al., 2024](https://doi.org/10.3997/2214-4609.202410170)|Differentiable|Pytorch|
-|Cosine Similarity|[click](examples/inversion/misfits/cs)|[Choi & Alkhalifah, 2012](https://doi.org/10.1111/j.1365-2478.2012.01079.x)<br>[Liu et al., 2016](https://doi.org/10.1093/gji/ggw485)<br>|Global correlation<br>Normalized zero-lag cross-correlation|Pytorch|
-|L1|[click](examples/inversion/misfits/l1)|||Pytorch/Jax|
-|L2||||Pytorch/Jax|
-|Local coherence|[click](examples/inversion/misfits/localcoherence)|[Yu et al., 2023](https://doi.org/10.1109/TGRS.2023.3263501)||Pytorch|
-|Instantaneous Phase|[click](examples/inversion/misfits/ip)|[Bozdag et al., 2011](https://doi.org/10.1111/j.1365246X.2011.04970.x) <br> [Yuan et al., 2020](https://doi.org/10.1093/gji/ggaa063)||Pytorch|
-|Weighted loss|[click](examples/inversion/misfits/weighted)|[Song et al., 2023](https://doi.org/10.1109/TGRS.2023.3300127)||Pytorch|
-|Envelope Cosine Similarity|*|[Oh and Alkhalifah, 2018](https://doi.org/10.1093/gji/ggy031)|Envelope-based Global Correlation Norm|Pytorch|
-|Soft Dynamic Time warpping|[click](examples/inversion/misfits/sdtw)|[Maghoumi, 2020](https://stars.library.ucf.edu/etd2020/379/)<br>[Maghoumi et al., 2020](https://arxiv.org/abs/2011.09149)||Pytorch|
+| Misfits | Examples | Related Papers | Notes | Pytorch | Jax |
+| :----------- | ----------- | :-----------: | :----- |:-----------: |:-----------: |
+|Optimal Transport|[click](examples/inversion/misfits/ot)|[Yang & Ma, 2023](https://doi.org/10.1029/2022JB025493)<br>[Yang & Enguist](https://doi.org/10.1190/GEO2017-0264.1)|-| ✓ | x |
+|Envelope|[click](examples/inversion/misfits/envelope)|[Chi et al., 2014](https://doi.org/10.1016/j.jappgeo.2014.07.010) <br> [Wu et al., 2014](https://doi.org/10.1190/GEO2013-0294.1)|-| ✓ | ✓ |
+|Traveltime|[click](examples/inversion/misfits/travel_time_misfit)|[Wang et al., 2024](https://doi.org/10.3997/2214-4609.202410170)|Differentiable| ✓ | x |
+|Cosine Similarity|[click](examples/inversion/misfits/cs)|[Choi & Alkhalifah, 2012](https://doi.org/10.1111/j.1365-2478.2012.01079.x)<br>[Liu et al., 2016](https://doi.org/10.1093/gji/ggw485)<br>|Global correlation<br>Normalized zero-lag cross-correlation| ✓ | x |
+|L1|[click](examples/inversion/misfits/l1)||| ✓ | ✓ |
+|L2|||| ✓ | ✓ |
+|Local coherence|[click](examples/inversion/misfits/localcoherence)|[Yu et al., 2023](https://doi.org/10.1109/TGRS.2023.3263501)|-| ✓ | x |
+|Instantaneous Phase|[click](examples/inversion/misfits/ip)|[Bozdag et al., 2011](https://doi.org/10.1111/j.1365246X.2011.04970.x) <br> [Yuan et al., 2020](https://doi.org/10.1093/gji/ggaa063)|-| ✓ | x |
+|Weighted loss|[click](examples/inversion/misfits/weighted)|[Song et al., 2023](https://doi.org/10.1109/TGRS.2023.3300127)|| ✓ | x |
+|Envelope Cosine Similarity|*|[Oh and Alkhalifah, 2018](https://doi.org/10.1093/gji/ggy031)|Envelope-based Global Correlation Norm| ✓ | x |
+|Soft Dynamic Time warpping|[click](examples/inversion/misfits/sdtw)|[Maghoumi, 2020](https://stars.library.ucf.edu/etd2020/379/)<br>[Maghoumi et al., 2020](https://arxiv.org/abs/2011.09149)|| ✓ | x |
 
 # New features:
 | Type | New | Old | Notes |

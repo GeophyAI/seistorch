@@ -6,7 +6,7 @@ name: forward_modeling
 # Data type to use for tensors, either float32 or float64
 dtype: float32
 
-equation: elastic
+equation: acoustic
 
 training:
 
@@ -14,49 +14,49 @@ training:
     use: false
     pretrained:
 
-  minibatch: true
+  minibatch:
 
-  batch_size: 20
+  batch_size:
 
   # Number of training epochs
-  N_epochs: 50
+  N_epochs:
 
   # Optimizer learning rate
-  lr: 0.001
+  lr:
 
   # Decay the learning rate by each of multi-scale
-  scale_decay: 0.85
+  scale_decay:
 
   # decay the lr by each of epochs
-  lr_decay: 0.995
+  lr_decay:
 
   # Filter order
-  filter_ord: 2
+  filter_ord:
 
 geom:
 
   # The observer data
-  obsPath: ./observed.npy
+  obsPath: ./shot_gather.npy
 
   # Wave speed model from disk_file for forward modeling
   truePath:
-    vp: ../../../models/marmousi_model/true_vp.npy
-    vs: ../../../models/marmousi_model/true_vs.npy
-    rho: ../../../models/marmousi_model/rho.npy
+    vp: ./velocity/vp.npy
+    vs:
+    rho:
     Q: 
     
 
-  sources: ./geometry/sources.pkl
+  sources: ./geometry/srcs.pkl
 
-  receivers: ./geometry/receivers.pkl
+  receivers: ./geometry/recs.pkl
 
-  seabed: ../../../models/marmousi_model/seabed.npy
+  seabed:
 
   wavelet:
 
   multiple: false
 
-  boundary_saving: false
+  boundary_saving: true
 
   wavelet_delay: 256
 
@@ -64,45 +64,41 @@ geom:
   #./geometry/ricker_lowcut5hz.npy
 
   source_type:
-    - vz
+    - h1
 
   receiver_type:
-    - vx
-    - vz
+    - h1
 
   # Inital Wave speed model from disk_file
   initPath: 
-    vp: ../../../models/marmousi_model/linear_vp.npy
-    vs: ../../../models/marmousi_model/linear_vs.npy
-    rho: ../../../models/marmousi_model/rho.npy
+    vp:
+    vs:
+    rho:
     Q:
 
   invlist:
-    vp: true
-    vs: true
-    rho: false
+    vp:
+    vs:
+    rho:
     q:
 
   # Save the results of FWI
   inv_savePath:
 
   multiscale:
-    - 1.5
-    - 3.0
-    - 5.0
-    - all
+    - 0.0
 
   # Time Sampling step
-  dt: 0.0022
+  dt: 0.001
 
   # Time samples
-  nt: 1800
+  nt: 1500
 
   # Main frequency of ricker wave
-  fm: 5.0
+  fm: 15.0
 
   # Spatial grid step size
-  h: 20.0
+  h: 10.0
 
   # Total Shots
   Nshots: 999

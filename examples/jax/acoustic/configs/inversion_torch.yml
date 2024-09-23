@@ -37,6 +37,8 @@ training:
 
 geom:
 
+  spatial_order: 4
+
   # The observer data
   obsPath: ./observed.hdf5
 

@@ -9,8 +9,9 @@ def _laplace(image, kernel):
 # batch_convolve2d = vmap(vmap(_laplace, in_axes=(0, None)), in_axes=(0, None))
 batch_convolve2d = vmap(_laplace, in_axes=(0, None))
 
-def laplace(u, h):
-    kernel = jnp.array([[0, 1, 0], [1, -4, 1], [0, 1, 0]])  # 3x3 kernel
+def laplace(u, h, order=2):
+    kernel = generate_convolution_kernel(order)
+    # kernel = jnp.array([[0, 1, 0], [1, -4, 1], [0, 1, 0]])  # 3x3 kernel
     return batch_convolve2d(u, kernel) / (h ** 2)
 
 def laplace_with_kernel(u, h, kernel):
@@ -46,16 +47,41 @@ def normal_grid_coes(M):
             if n != m:
                 product *= jnp.abs(n**2 / (n**2 - m**2))
         
-        a_m[m - 1] = (-1)**(m + 1) / (m**2) * product
+        a_m = a_m.at[m - 1].set((-1)**(m + 1) / (m**2) * product)
 
     return a_m
 
-# differential order = 2*M
-M = 1
-a = staggered_grid_coes(M)
+
+def generate_convolution_kernel(spatial_order):
+    """Generate convolution kernel
+
+    Args:
+        n (int): The order of the taylor expansion(Must be even)
+
+    Returns:
+        _type_: Tensor, the convolution kernel
+    """
+
+    constant = normal_grid_coes(spatial_order//2)
+    kernel_size = spatial_order + 1
+    kernel = jnp.zeros((kernel_size, kernel_size),dtype=jnp.float32)
+    center = spatial_order // 2
+
+    kernel = kernel.at[center, center+1:].set(constant)
+    kernel = kernel.at[center, 0:center].set(constant[::-1])
+
+    kernel = kernel.at[center+1:, center].set(constant)
+    kernel = kernel.at[0:center, center].set(constant[::-1])
+
+    kernel = kernel.at[center, center].set(-2*2*jnp.sum(constant))
+
+    return kernel
+
 
 # 2x faster than using jnp.roll
-def diff_using_roll(input, axis=-1, forward=True, padding_value=0):
+def diff_using_roll(input, axis=-1, forward=True, padding_value=0, order=2):
+    M = order//2
+    a = staggered_grid_coes(order)
 
     def forward_diff(x, axis, padding_value):
         """

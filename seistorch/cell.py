@@ -46,7 +46,7 @@ class WaveCellBase:
         using_boundary_saving = self.geom.boundary_saving
         forward = not self.geom.inversion
         inversion = self.geom.inversion
-        geoms = self.dt, self.geom.h, self.geom.d
+        geoms = self.dt, self.geom.h, self.geom.d, self.spatial_order
         habcs = self.habc_masks if self.geom.use_habc else None
 
         if using_boundary_saving and inversion:
@@ -68,6 +68,7 @@ class WaveCellTorch(WaveCellBase, torch.nn.Module):
             self.ckpt = ckpt_acoustic
         else:
             self.ckpt = ckpt
+        self.spatial_order = torch.Tensor([self.geom.spatial_order]).int().to(self.geom.device)
 
     def parameters(self, recursive=True):
         for param in self.geom.parameters():
@@ -88,6 +89,7 @@ class WaveCellJax(WaveCellBase):
     def __init__(self, geometry, forward_func=None, backward_func=None):
         WaveCellBase.__init__(self, geometry, forward_func, backward_func)
         self.dt = self.geom.dt
+        self.spatial_order = self.geom.spatial_order
 
     def __call__(self, *args, **kwargs):
         return super().forward(*args, **kwargs)

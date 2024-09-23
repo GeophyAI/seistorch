@@ -105,7 +105,6 @@ class WaveGeometryFreeForm(WaveGeometry):
     def __init__(self, mode='forward', logger=None, **kwargs):
 
         self.mode = mode
-        self.autodiff = True
         self.kwargs = kwargs
         if 'unit' not in self.kwargs['geom'].keys():
             self.unit = 1.0
@@ -123,6 +122,7 @@ class WaveGeometryFreeForm(WaveGeometry):
         self.receiver_type = kwargs['geom']['receiver_type']
         self.multiple = kwargs['geom']['multiple']
         self.backend = kwargs['backend']
+        self.spatial_order = kwargs['geom']['spatial_order']
         self.model_parameters = []
         self.inversion = False
         self.logger = logger

@@ -33,9 +33,11 @@ training:
   lr_decay: 0.995
 
   # Filter order
-  filter_ord: 3
+  filter_ord: 2
 
 geom:
+
+  spatial_order: 2
 
   # The observer data
   obsPath: ./observed.hdf5
@@ -89,7 +91,7 @@ geom:
   inv_savePath:
 
   multiscale:
-    - 1.0
+    - 1.5
     - 3.0
     - 5.0
     - all

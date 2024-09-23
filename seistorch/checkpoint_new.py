@@ -132,7 +132,7 @@ class CheckpointFunction(torch.autograd.Function):
             outputs = run_function(*args, habcs=habcs)
 
         ctx.models = args[:para_counts]
-        ctx.geoms = args[::-1][0:3][::-1]
+        ctx.geoms = args[::-1][0:4][::-1]
 
         boundarys = [save_boundaries(output) for output in outputs]
         # CheckpointFunction._bound.append(boundarys)

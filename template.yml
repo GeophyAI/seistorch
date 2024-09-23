@@ -8,6 +8,8 @@ dtype: float32
 
 equation: acoustic
 
+backend: torch
+
 training:
 
   # Smooth the gradients
@@ -44,6 +46,8 @@ training:
   filter_ord: 3
 
 geom:
+
+  spatial_order: 2
 
   # The observer data
   obsPath: /public1/home/wangsw/FWI/NO_LOWFREQ/data/marmousi_acoustic_obn_p.npy
