@@ -124,10 +124,13 @@ if __name__ == "__main__":
     opt = setup.setup_optimizer_jax()
     opt_state = opt.init(model.parameters())
 
+    # initial paras
+    params = model.parameters()
+
     rng_key = jax.random.PRNGKey(20240908)
     criterions = setup.setup_criteria()
 
-    params = model.parameters()
+    # params = model.parameters()
 
     @partial(jax.jit, static_argnames=('freqs', ))
     def step(epoch, opt_state, rng_key, params, freqs):
@@ -185,6 +188,8 @@ if __name__ == "__main__":
         idx_freq, local_epoch = divmod(epoch, EPOCH_PER_SCALE)
 
         if local_epoch==0:
+            opt = setup.setup_optimizer_jax(idx_freq=idx_freq+1)
+            opt_state = opt.init(model.parameters())
             pbar.reset()
         
         batch_gradients = inplace_zeros(batch_gradients)
@@ -202,6 +207,10 @@ if __name__ == "__main__":
         np.save(f"{ROOTPATH}/inverted{epoch:03d}.npy", params)
         np.save(f"{ROOTPATH}/gradient{epoch:03d}.npy", batch_gradients)
         writer.add_scalar('Loss', loss_all_batch.item(), epoch)
+
+        filtering = lambda path, value: isinstance(value, jnp.ndarray)
+        learning_rate = optax.tree_utils.tree_get( opt_state, 'learning_rate', filtering=filtering)
+        writer.add_scalar("Learning Rate", learning_rate.item(), epoch)
         # np.save(f"{ROOTPATH}/syn{epoch:03d}.npy", syn)
         # np.save(f"{ROOTPATH}/obs{epoch:03d}.npy", obs)
         pbar.update(1)
