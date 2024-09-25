@@ -36,7 +36,7 @@ class WaveProbeBase:
         return x[self.bidx, self.y, self.x]
     
     def forward3d(self, x):
-          return x[self.bidx, self.x, self.z, self.y]
+        return x[self.bidx, self.z, self.y, self.x]
 
     def forward(self, x):
         return self.get_forward_func()(x)

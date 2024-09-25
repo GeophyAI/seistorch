@@ -1,5 +1,5 @@
 mpirun -f hosts \
-python ../../../fwi.py configs/vti2.yml \
+python ../../../forward.py configs/vti2.yml \
 --mode forward \
 --num-batches 1 \
 --use-cuda

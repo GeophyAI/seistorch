@@ -24,8 +24,9 @@ show = SeisShow()
 # |                             |
 # |-----------------------------|
 dtype = np.float32
-nz, nx = 256, 256
+nz, nx = 128, 256
 vel = np.ones((nz, nx), dtype=dtype)*1500
+vel[nz//2:, :] = 2000
 
 # Generate the source and receiver list
 # Please note that in Seistorch, 
@@ -33,8 +34,8 @@ vel = np.ones((nz, nx), dtype=dtype)*1500
 # specified in a grid coordinate system, not in real-world distance coordinates. 
 # This distinction is essential for accurate simulation and interpretation of results.
  
-src_x = np.linspace(128, 128, 1)
-src_z = np.ones_like(src_x)*128
+src_x = np.linspace(0, 256, 5)
+src_z = np.ones_like(src_x)*1
 
 sources = [[src_x, src_z] for src_x, src_z in zip(src_x.tolist(), src_z.tolist())]
 

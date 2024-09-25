@@ -13,7 +13,6 @@ from .setup import setup_acquisition
 from .type import TensorList
 from .eqconfigure import Parameters
 
-
 class WaveRNNBase:
     def __init__(self, cell, source_encoding=False, backend='torch'):
         self.cell = cell
@@ -41,70 +40,6 @@ class WaveRNN(torch.nn.Module):
             for name, param in self.cell.geom.named_parameters(prefix, recurse, remove_duplicate):
                 yield name, param
 
-    def merge_sources_with_same_keys(self,):
-        """Merge all source coords into a super shot.
-        """
-        super_source = dict()
-        batchindices = []
-
-        for bidx, source in enumerate(self.sources):
-            coords = source.coords()
-            for key in coords.keys():
-                if key not in super_source.keys():
-                    super_source[key] = []
-                super_source[key].append(coords[key])
-            batchindices.append(bidx*torch.ones(1, dtype=torch.int64))
-
-        return batchindices, super_source
-
-    def merge_receivers_with_same_keys(self,):
-        """Merge all source coords into a super shot.
-        """
-        super_probes = dict()
-        batchindices = []
-        reccounts = []
-        for bidx, probe in enumerate(self.probes):
-            coords = probe.coords()
-            for key in coords.keys():
-                if key not in super_probes.keys():
-                    super_probes[key] = []
-                super_probes[key].append(coords[key])
-            # how many receivers in this group
-            _reccounts = len(coords[key])
-            # add reccounts and batchindices
-            reccounts.append(_reccounts)
-            batchindices.append(bidx*torch.ones(_reccounts, dtype=torch.int64))
-            
-        # stack the coords
-        for key in super_probes.keys():
-            super_probes[key] = torch.concatenate(super_probes[key], dim=0)
-
-        return reccounts, torch.concatenate(batchindices), super_probes
-
-    def reset_sources(self, sources):
-        if isinstance(sources, list):
-            self.sources = torch.nn.ModuleList(sources)
-        else:
-            self.sources = torch.nn.ModuleList([sources])
-
-    def reset_probes(self, probes):
-        if isinstance(probes, list):
-            self.probes = torch.nn.ModuleList(probes)
-        else:
-            self.probes = torch.nn.ModuleList([probes])
-
-    def reset_geom(self, shots, src_list, rec_list, cfg):
-
-        sources, receivers = setup_acquisition(shots, src_list, rec_list, cfg)
-
-        self.reset_sources(sources)
-        self.reset_probes(receivers)
-
-        for module in self.probes:
-            module.to(self.cell.geom.device)
-        for module in self.sources:
-            module.to(self.cell.geom.device)
-
     """Original implementation"""
     def forward(self, x, omega=10.0, super_source=None, super_probes=None, vp=None):
         """Propagate forward in time for the length of the inputs
@@ -118,10 +53,9 @@ class WaveRNN(torch.nn.Module):
         # Hacky way of figuring out if we're on the GPU from inside the model
         device = self.cell.geom.device
         # Init hidden states
-        if super_source is None:
-            batchsize = 1 if self.source_encoding else len(self.sources)
-        else:
-            batchsize = super_source.x.shape[0]
+        
+        batchsize = 1 if self.source_encoding else super_source.x.size(0)
+
         hidden_state_shape = (batchsize,) + self.cell.geom.domain_shape
         # Initialize habc if needed
         if self.cell.geom.use_habc: self.cell.setup_habc(batchsize)
@@ -140,8 +74,6 @@ class WaveRNN(torch.nn.Module):
         for key in self.cell.geom.receiver_type:
             recs[key] = []
 
-        # p_all = [[] for i in range(nchannels)]
-
         # Set model parameters
         if not self.use_implicit:
             for name in self.cell.geom.model_parameters:
@@ -158,23 +90,17 @@ class WaveRNN(torch.nn.Module):
         x = x.to(device)
         # Get the super source and super probes
 
-        if super_source is None:
-            bidx_source, sourcekeys = self.merge_sources_with_same_keys()
+        # Add source mask
+        super_source.smask = torch.zeros(hidden_state_shape, device=device)
 
-            super_source = WaveSourceTorch(bidx_source, self.second_order_equation, **sourcekeys).to(device)
-
-        if super_source is not None:
-            # Add source mask
-            super_source.smask = torch.zeros(hidden_state_shape, device=device)
-            for idx in range(super_source.x.size(0)):
-                bidx = idx if not self.source_encoding else 0
+        for idx in range(super_source.x.size(0)):
+            bidx = idx if not self.source_encoding else 0
+            if hasattr(super_source, 'z'):# 3D
+                super_source.smask[bidx, super_source.z[idx], super_source.y[idx], super_source.x[idx]] = 1.0
+            else:# 2D
                 super_source.smask[bidx, super_source.y[idx], super_source.x[idx]] = 1.0
 
-        if super_probes is None:
-            reccounts, bidx_receivers, reckeys = self.merge_receivers_with_same_keys()
-            super_probes = WaveProbeTorch(bidx_receivers, **reckeys).to(device)
-        else:
-            reccounts = super_probes.reccounts
+        reccounts = super_probes.reccounts if not self.source_encoding else super_probes.x.size(0)
 
         super_source.source_encoding = self.source_encoding
         super_source.second_order_equation = self.second_order_equation

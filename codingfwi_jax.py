@@ -20,7 +20,7 @@ from yaml import dump
 from functools import partial
 
 from seistorch.array import SeisArray
-from seistorch.coords import single2batch
+from seistorch.coords import single2batch, single2batch2, offset_with_boundary
 
 from seistorch.eqconfigure import Shape
 # from tensorflow.keras.models import load_model
@@ -202,10 +202,11 @@ if __name__ == '__main__':
 
         """Get the data"""
         obsloader.reset_key(keys[-1])
-        _obs, _src, _rec, _shots = next(iter(obsloader))
-        _src = _src.T
 
-        batched_source, _ = single2batch(_src, _rec, cfg, 'cpu') # padding, in batch
+        _obs, _src, _rec, _shots = next(iter(obsloader))
+
+        _src, _rec = offset_with_boundary(_src, _rec, cfg)
+        batched_source, _ = single2batch2(_src, _rec, cfg, 'cpu') # padding, in batch
 
         """Filter the observed data"""
         _obs = SeisArray(_obs).filter(DT, freqs, FORDER, 1)

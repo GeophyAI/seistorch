@@ -38,3 +38,6 @@ ax.set_title(f"Shot Gather")
 plt.tight_layout()
 plt.savefig("shot_gather.png", dpi=300)
 plt.show()
+
+# plt.plot(obs[0][..., 0][:,10])
+# plt.show()

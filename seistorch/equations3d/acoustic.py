@@ -70,14 +70,13 @@ def _laplacian3d(y, h):
     return conv3d(y, operator, padding=padding).squeeze(1)
 
 # @torch.compile
-def _time_step(*args):
+def _time_step(*args, **kwargs):
     """
     Time step function for acoustic wave equation
     """
     c = args[0]
     h1, h2 = args[1:3]
     dt, h, b = args[3:6]
-    # b = 0
     # When b=0, without boundary conditon.
     y = torch.mul((dt**-2 + b * dt**-1).pow(-1),
                 (2 / dt**2 * h1 - torch.mul((dt**-2 - b * dt**-1), h2)

@@ -17,9 +17,9 @@ def write_pkl(path: str, data: list):
 # |________|/
 #
 dtype = np.float32
-nx, ny, nz = 256, 256, 128
-vel = np.ones((nx, nz, ny), dtype=dtype)*1500
-vel[:, 64:, :] = 2000
+nx, ny, nz = 128, 128, 128
+vel = np.ones((nz, ny, nx), dtype=dtype)*1500
+vel[64:, :, :] = 2000
 
 # Generate the source and receiver list
 # Please note that in Seistorch, 
@@ -40,7 +40,8 @@ vel[:, 64:, :] = 2000
 # * represents the location of shots
 # v represents the location of receivers
 
-sources = [[128, 128, 1]]
+# (x, y, z)
+sources = [[64, 64, 1]]
 
 # Receivers: [[0, 1, ..., 255], [5, 5, ..., 5], 
 #            [0, 1, ..., 255], [5, 5, ..., 5],    
@@ -49,13 +50,13 @@ sources = [[128, 128, 1]]
 # cross-line
 receiver_depth = 1
 step = 4
-receiver_locx = np.arange(0, 256, step)
-receiver_locy = np.ones_like(receiver_locx)*128
+receiver_locx = np.arange(0, 128, step)
+receiver_locy = np.ones_like(receiver_locx)*64
 receiver_locz = np.ones_like(receiver_locx)*receiver_depth
 # in-line
-receiver_locx = np.concatenate((receiver_locx, np.ones_like(np.arange(0, 256, step))*128))
-receiver_locy = np.concatenate((receiver_locy, np.arange(0, 256, step)))
-receiver_locz = np.concatenate((receiver_locz, np.ones_like(np.arange(0, 256, step))*receiver_depth))
+receiver_locx = np.concatenate((receiver_locx, np.ones_like(np.arange(0, 128, step))*64))
+receiver_locy = np.concatenate((receiver_locy, np.arange(0, 128, step)))
+receiver_locz = np.concatenate((receiver_locz, np.ones_like(np.arange(0, 128, step))*receiver_depth))
 
 # The receivers are fixed at the bottom of the model (z=5)
 receivers = [[receiver_locx.tolist(), receiver_locy.tolist(), receiver_locz.tolist()]]*len(sources)
@@ -64,7 +65,7 @@ assert len(sources) == len(receivers), \
         "The number of sources and receivers must be the same."
 
 # Plot the velocity model and the source and receiver list
-plt.imshow(vel[:,0,:], cmap="seismic", aspect='auto', extent=[0, nx, ny, 0])
+plt.imshow(vel[0,:,:], cmap="seismic", aspect='auto', extent=[0, nx, ny, 0])
 
 plt.scatter([src[0] for src in sources], [src[1] for src in sources], 
             c="r", marker="v", label="Sources")

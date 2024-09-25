@@ -1,5 +1,5 @@
 mpirun -f hosts \
-python ../../../../fwi.py configs/observed.yml \
+python ../../../../forward.py configs/observed.yml \
 --mode forward \
 --num-batches 1 \
 --use-cuda

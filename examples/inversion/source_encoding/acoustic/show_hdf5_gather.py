@@ -7,7 +7,7 @@ def read_hdf5(path, shot_no):
         d = f[f'shot_{shot_no}'][...].copy()
     return d
 
-data = read_hdf5('observed.hdf5', 20)
+data = read_hdf5('observed.hdf5', 86)
 vmin,vmax=np.percentile(data, [2, 98])
 plt.imshow(data[...,0], cmap='seismic', vmin=vmin, vmax=vmax, aspect='auto')
 plt.show()

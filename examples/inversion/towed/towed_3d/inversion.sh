@@ -1,5 +1,5 @@
 mpirun -f hosts \
-python ../../../../fwi.py forward.yml  \
+python ../../../../forward.py forward.yml  \
 --opt adam \
 --loss vp=l2 \
 --num-batches 2 \

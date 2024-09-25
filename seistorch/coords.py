@@ -7,6 +7,36 @@ from seistorch.setup import setup_src_coords, setup_rec_coords
 from .source import WaveSourceJax, WaveSourceTorch
 from .probe import WaveProbeJax, WaveProbeTorch
 
+def offset_with_boundary(src, rec, cfg):
+
+    """Padding the source and receiver locations with boundary.
+
+    Args:
+        src (Array): The source coordinates (nshots, ndim).
+        rec (Array): The receiver coordinates (nshots, ndim, nreceivers).
+        cfg (Array): The configure file.
+
+    Returns:
+        src (Array): The source coordinates with respect to boundary.
+        rec (Array): The receiver coordinates with respect to boundary.
+    """
+
+    bwidth = cfg['geom']['boundary']['width']
+    multiple = cfg['geom']['multiple']
+
+    ndims = src.shape[-1]
+
+    # with top boundary
+    src += bwidth
+    rec += bwidth
+
+    if multiple: # no top boundary
+        src[:,-1] -= bwidth
+        rec[:,-1, :] -= bwidth
+
+    return src, rec
+
+
 def setup_acquisition(src_list, rec_list, cfg, *args, **kwargs):
 
     use_jax = (cfg['backend'] == 'jax')
@@ -81,6 +111,35 @@ def merge_receivers_with_same_keys(receivers, use_jax=False):
 
     return reccounts, batchindices, super_probes
 
+def single2batch2(src, rec, cfg, dev):
+
+    use_jax = (cfg['backend'] == 'jax')
+    use_torch = (cfg['backend'] == 'torch')
+
+    nshots = src.shape[0]
+    ndim   = src.shape[1]
+    sources, receivers = [], []
+    # Coordinate are specified
+    keys = ['x', 'y', 'z']
+
+    ws = WaveSourceJax if use_jax else WaveSourceTorch
+    wp = WaveProbeJax if use_jax else WaveProbeTorch
+
+    # Map to WaveSource and WaveProbe instances
+    sources = list(map(lambda shot: ws(**{key: src[shot][i] for i, key in enumerate(keys[:ndim])}), range(nshots)))
+    receivers = list(map(lambda shot: wp(**{key: rec[shot][i] for i, key in enumerate(keys[:ndim])}), range(nshots)))
+
+    # Zip to batch
+    bidx_source, sourcekeys = merge_sources_with_same_keys(sources, use_jax)
+    reccounts, bidx_receivers, reckeys = merge_receivers_with_same_keys(receivers, use_jax)
+
+    # Construct the batched source and batched probes instances
+    batched_source = ws(bidx_source, **sourcekeys)
+    batched_probes = wp(bidx_receivers, **reckeys)
+
+    batched_probes.reccounts = reccounts
+
+    return batched_source, batched_probes
 
 def single2batch(src, rec, cfg, dev):
     """This function is used to convert the single source and receiver to batched source and receiver.

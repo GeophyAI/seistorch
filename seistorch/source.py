@@ -49,6 +49,15 @@ class WaveSourceBase:
             Y[..., self.y, self.x] += f*X
             return Y
 
+    def forward3d(self, Y, X, f=1.):
+        if not self.source_encoding:
+            # Y += self.smask * f*X
+            return Y + self.smask * f*X
+
+        if self.source_encoding:
+            Y[..., self.z, self.y, self.x] += f*X
+            return Y
+
     def forward(self, Y, X, f=1.):
         return self.get_forward_func()(Y, X, f)
 
