@@ -206,7 +206,7 @@ class SeisSetup:
             lr_schedule = optax.exponential_decay(_lr*scale_decay**idx_freq,1,epoch_decay)
             # opt = optax.adam(lr_schedule, eps=1e-22)
             opt = optax.inject_hyperparams(optax.adam)(learning_rate=lambda count: lr_schedule(count), eps=1e-22)
-            self.logger.print(f"Learning rate for {para}: {_lr}")
+            self.logger.print(f"Learning rate for {para}: {lr_schedule(0)}")
             mask = create_mask_fn(i, paras_counts)
             optimizers.append(optax.masked(opt, mask))
 
@@ -328,36 +328,6 @@ def setup_we_equations(use_jax=False, use_torch=True, use_multiple=False, ndim=2
 
     return forward_func, backward_func
 
-def setup_acquisition(shots, src_list, rec_list, cfg, *args, **kwargs):
-
-    bwidth = cfg['geom']['boundary']['width']
-    multiple = cfg['geom']['multiple']
-
-    sources, receivers = [], []
-
-    for shot in shots:
-        src = setup_src_coords(src_list[shot], bwidth, multiple)
-        rec = setup_rec_coords(rec_list[shot], bwidth, multiple)
-        sources.append(src)
-        receivers.extend(rec)
-
-    return sources, receivers
-
-def setup_acquisition2(src_list, rec_list, cfg, *args, **kwargs):
-
-    bwidth = cfg['geom']['boundary']['width']
-    multiple = cfg['geom']['multiple']
-
-    sources, receivers = [], []
-
-    for i in range(len(src_list)):
-        src = setup_src_coords(src_list[i], bwidth, multiple)
-        rec = setup_rec_coords(rec_list[i], bwidth, multiple)
-        sources.append(src)
-        receivers.extend(rec)
-
-    return sources, receivers
-
 def setup_device(rank, use_cuda=True):
     """Setup the device for the model
 
@@ -398,6 +368,44 @@ def setup_device_by_rank(use_cuda=True, rank=0):
         dev = torch.device('cpu')
 
     return dev
+
+def setup_domain_shape(cfg):
+    """Add a key <domain_shape> to the configures file.
+
+    Args:
+        cfg (dict): The configures in a dictionary.
+
+    Returns:
+        dict: The updated configures in a dictionary.
+    """
+    geom = 'geom'
+    
+    pad = cfg[geom]['boundary']['width']
+    multiple = cfg[geom]['multiple']
+
+    for path in cfg['VEL_PATH'].values():
+        if path is None:
+            continue
+        # Load the model from the path
+        d = np.load(path)
+        if d.ndim == 2: 
+            ny, nx = d.shape; nz = 0
+            ypad = pad if multiple else 2*pad
+            domain_shape = (ny+ypad, nx+2*pad)
+
+        if d.ndim == 3: 
+            nz, ny, nx = d.shape
+            zpad = pad if multiple else 2*pad
+            domain_shape = (nz+zpad, ny+2*pad, nx+2*pad)
+
+        cfg[geom].update({
+            '_oriNx': nx,
+            '_oriNy': ny,
+            '_oriNz': nz,
+        })
+        cfg.update({'domain_shape': domain_shape})
+        break
+    return cfg
 
 def setup_split_configs(cfg_path: str, chunk_size, mode, *args, **kwargs):
     IO = SeisIO(load_cfg=False)
@@ -452,111 +460,6 @@ def setup_split_configs(cfg_path: str, chunk_size, mode, *args, **kwargs):
         new_config_paths.append(config_savepath)
 
     return new_config_paths
-
-def setup_rec_coords(coords, bwidth, multiple=False, use_jax=False):
-    """Setup receiver coordinates.
-
-    Args:
-        coords (list): A list of coordinates.
-        bwidth (int): The number of boundary layers.
-        multiple (bool, optional): Whether use top boundary or not. Defaults to False.
-
-    Returns:
-        WaveProbe: A torch.nn.Module receiver object.
-    """
-
-    # Coordinate are specified
-    keys = ['x', 'y', 'z']
-    kwargs = dict()
-
-    # Without multiple
-    for key, value in zip(keys, coords):
-        kwargs[key] = [v + bwidth if v is not None else None for v in value]
-
-    # 2D case with multiple
-    if 'z' not in kwargs.keys() and multiple:
-        kwargs['y'] = [v - bwidth if v is not None else None for v in kwargs['y']]
-
-    # 3D case with multiple
-    if 'z' in kwargs.keys() and multiple:
-        raise NotImplementedError("Multiples in 3D case is not implemented yet.")
-        #kwargs['z'] = [v-bwidth for v in kwargs['z']]
-    if use_jax:
-        return [WaveProbeJax(**kwargs)]
-    else:
-        return [WaveProbeTorch(**kwargs)]
-
-def setup_src_rec(cfg: dict):
-    """Read the source and receiver locations from the configuration file.
-
-    Args:
-        cfg (dict): The configuration file.
-
-    Returns:
-        tuple: Tuple containing: (source locations, 
-        receiver locations of each shot, 
-        full receiver locations,
-        whether the receiver locations are fixed)
-    """
-    # Read the source and receiver locations from the configuration file
-    assert os.path.exists(cfg["geom"]["sources"]), "Cannot found source file."
-    assert os.path.exists(cfg["geom"]["receivers"]), "Cannot found receiver file."
-    src_list = read_pkl(cfg["geom"]["sources"])
-    rec_list = read_pkl(cfg["geom"]["receivers"])
-    assert len(src_list)==len(rec_list), \
-        "The lenght of sources and recev_locs must be equal."
-    # Check whether the receiver locations are fixed
-    fixed_receivers = all(rec_list[i]==rec_list[i+1] for i in range(len(rec_list)-1))
-    # If the receiver locations are not fixed, use the model grids as the full receiver locations
-    if not fixed_receivers: 
-        print(f"Inconsistent receiver location detected.")
-        receiver_counts = cfg['geom']['_oriNx']
-        rec_depth = rec_list[0][1][0]
-        full_rec_list = [[i for i in range(receiver_counts)], [rec_depth]*receiver_counts]
-        # TODO: Add a warning here
-        # The full receiver list should be the available receivers in rec_list.
-    else:
-        print(f"Receiver locations are fixed.")
-        full_rec_list = rec_list[0]
-
-    return src_list, rec_list, full_rec_list, fixed_receivers
-
-def setup_src_coords(coords, bwidth, multiple=False, use_jax=False):
-    """Setup source coordinates.
-
-    Args:
-        coords (list): A list of coordinates.
-        bwidth (int): The number of boundary layers.
-        multiple (bool, optional): Whether use top boundary or not. Defaults to False.
-
-    Returns:
-        WaveSourceTorch: A torch.nn.Module source object.
-    """
-    # Coordinate are specified
-    keys = ['x', 'y', 'z']
-    kwargs = dict()
-    # Padding the source location with boundary width
-    for key, value in zip(keys, coords):
-        # assert type(value) in [int, float, type(None)], f"The source location must be a number, got {type(value)}."
-        if isinstance(value, (int, float)):
-            kwargs[key] = value+bwidth
-        else:
-            # kwargs[key] = int(value)+bwidth#value # value = None
-            kwargs[key] = value+bwidth#value # value = None
-
-    # 2D case with multiple
-    if 'z' not in kwargs.keys() and multiple and bool(kwargs['y']):
-        kwargs['y'] -= bwidth
-
-    # 3D case with multiple
-    if 'z' in kwargs.keys() and multiple:
-        raise NotImplementedError("Multiples in 3D case is not implemented yet.")
-        # kwargs['z'] -= bwidth
-
-    if use_jax:
-        return WaveSourceJax(**kwargs)
-    else:
-        return WaveSourceTorch(**kwargs)
 
 def split_geom_to_chunks(srcs, recs, chunk_num, overlap, shape):
 

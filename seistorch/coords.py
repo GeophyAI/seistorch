@@ -3,7 +3,6 @@ import torch
 import numpy as np
 from jax import numpy as jnp
 
-from seistorch.setup import setup_src_coords, setup_rec_coords
 from .source import WaveSourceJax, WaveSourceTorch
 from .probe import WaveProbeJax, WaveProbeTorch
 
@@ -35,25 +34,6 @@ def offset_with_boundary(src, rec, cfg):
         rec[:,-1, :] -= bwidth
 
     return src, rec
-
-
-def setup_acquisition(src_list, rec_list, cfg, *args, **kwargs):
-
-    use_jax = (cfg['backend'] == 'jax')
-    use_torch = (cfg['backend'] == 'torch')
-
-    bwidth = cfg['geom']['boundary']['width']
-    multiple = cfg['geom']['multiple']
-
-    sources, receivers = [], []
-
-    for i in range(len(src_list)):
-        src = setup_src_coords(src_list[i], bwidth, multiple, use_jax)
-        rec = setup_rec_coords(rec_list[i], bwidth, multiple, use_jax)
-        sources.append(src)
-        receivers.extend(rec)
-
-    return sources, receivers
 
 def merge_sources_with_same_keys(sources, use_jax=False):
     """Merge all source coords into a super shot.
@@ -111,7 +91,7 @@ def merge_receivers_with_same_keys(receivers, use_jax=False):
 
     return reccounts, batchindices, super_probes
 
-def single2batch2(src, rec, cfg, dev):
+def single2batch(src, rec, cfg, dev):
 
     use_jax = (cfg['backend'] == 'jax')
     use_torch = (cfg['backend'] == 'torch')
@@ -140,59 +120,3 @@ def single2batch2(src, rec, cfg, dev):
     batched_probes.reccounts = reccounts
 
     return batched_source, batched_probes
-
-def single2batch(src, rec, cfg, dev):
-    """This function is used to convert the single source and receiver to batched source and receiver.
-
-    Args:
-        src (list): Python list of source coordinates (in grid).
-        rec (list): Python list of receiver coordinates (in grid).
-        cfg (dict): The configure file.
-        dev (str): The device to use.
-
-    Returns:
-        super_source: The super source (<WaveSourceTorch> or <WaveSourceJax>).
-        super_probes: The super probes.
-    """
-
-    use_jax = (cfg['backend'] == 'jax')
-    use_torch = (cfg['backend'] == 'torch')
-    # detect the type of rec
-
-    if use_torch:
-        rec = rec.permute(2, 0, 1).cpu().numpy().tolist()
-        src = torch.stack(src).cpu().numpy().T.tolist()
-    
-    if use_jax:
-        # rec = rec.transpose(1, 2, 0)
-        src = jnp.stack(src).T#.tolist()
-
-    # For setup aquisition, the shape of rec must be (batchsize, ndim, nrecs)
-    # Padding the source and receiver locations with boundary
-    padded_src, padded_rec = setup_acquisition(src, rec, cfg)
-
-    if use_torch:
-        if isinstance(padded_src, list):
-            padded_src = torch.nn.ModuleList(padded_src)
-        else:
-            padded_src = torch.nn.ModuleList([padded_src])
-
-        if isinstance(padded_rec, list):
-            padded_rec = torch.nn.ModuleList(padded_rec)
-        else:
-            padded_rec = torch.nn.ModuleList([padded_rec])
-
-    bidx_source, sourcekeys = merge_sources_with_same_keys(padded_src, use_jax)
-    reccounts, bidx_receivers, reckeys = merge_receivers_with_same_keys(padded_rec, use_jax)
-
-    # Get the source and receiver classes
-    wavesource = WaveSourceJax if use_jax else WaveSourceTorch
-    waveprobe = WaveProbeJax if use_jax else WaveProbeTorch
-
-    # Construct the batched source and batched probes
-    super_source = wavesource(bidx_source, **sourcekeys)
-    super_probes = waveprobe(bidx_receivers, **reckeys)
-
-    super_probes.reccounts = reccounts
-
-    return super_source, super_probes

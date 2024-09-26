@@ -31,14 +31,13 @@ from yaml import dump, load
 import seistorch
 from seistorch.eqconfigure import Shape
 from seistorch.distributed import task_distribution_and_data_reception
-from seistorch.io import SeisIO, DataLoader
+from seistorch.io import SeisIO
 from seistorch.log import SeisLog
 from seistorch.signal import SeisSignal
 from seistorch.model import build_model
-from seistorch.type import TensorList
-from seistorch.coords import single2batch2, offset_with_boundary
+from seistorch.coords import single2batch, offset_with_boundary
 from seistorch.setup import *
-from seistorch.utils import (DictAction, to_tensor, nestedlist2tensor)
+from seistorch.utils import (DictAction, to_tensor)
 
 from ot.utils import proj_simplex
 
@@ -162,7 +161,7 @@ if __name__ == '__main__':
                 
                 src, rec = to_tensor(src), to_tensor(rec)
 
-                batched_source, batched_probes = single2batch2(src, rec, cfg, args.dev) # padding, in batch
+                batched_source, batched_probes = single2batch(src, rec, cfg, args.dev) # padding, in batch
                 # model.cell.geom.step() # random boundary
                 y = model(x, None, batched_source, batched_probes)
                 record = y.numpy()

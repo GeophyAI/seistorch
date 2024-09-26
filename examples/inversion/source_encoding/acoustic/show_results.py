@@ -6,9 +6,9 @@ npml = 50
 expand = 50
 true = np.load('../../../models/marmousi_model/true_vp.npy')[:,expand:-expand]
 init = np.load('../../../models/marmousi_model/linear_vp.npy')[:,expand:-expand]
-invt_torch = torch.load('./results/torch/model_F03E49.pt')['vp'].cpu().detach()[npml:-npml, npml+expand:-npml-expand]
-invt_jax = np.load('./results/jax/model_F03E49.npy')[0, npml:-npml, npml+expand:-npml-expand]
-grad = torch.load('./results/torch/grad_vp_F00E49.pt').cpu().detach()[npml:-npml, npml+expand:-npml-expand]
+invt_torch = torch.load('./results/torch/model_F00E29.pt')['vp'].cpu().detach()[npml:-npml, npml+expand:-npml-expand]
+invt_jax = np.load('./results/jax/model_F00E29.npy')[0, npml:-npml, npml+expand:-npml-expand]
+grad = torch.load('./results/torch/grad_vp_F00E29.pt').cpu().detach()[npml:-npml, npml+expand:-npml-expand]
 fig, axes=plt.subplots(4,1,figsize=(8,10))
 vmin,vmax=true.min(),true.max()
 kwargs={"cmap":"seismic","aspect":"auto","vmin":vmin,"vmax":vmax}

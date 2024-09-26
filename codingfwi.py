@@ -28,10 +28,9 @@ from seistorch.setup import *
 from seistorch.log import SeisLog
 from seistorch.io import SeisIO
 from seistorch.signal import SeisSignal
-from seistorch.utils import (dict2table,
-                             low_pass, roll, roll2, to_tensor)
+from seistorch.utils import (dict2table, roll, to_tensor)
 from seistorch.process import PostProcess
-from seistorch.coords import single2batch2, offset_with_boundary
+from seistorch.coords import single2batch, offset_with_boundary
 
 # from torchviz import make_dot
 # The flag below controls whether to allow TF32 on matmul. This flag defaults to False
@@ -39,7 +38,6 @@ from seistorch.coords import single2batch2, offset_with_boundary
 torch.backends.cuda.matmul.allow_tf32 = True
 # The flag below controls whether to allow TF32 on cuDNN. This flag defaults to True.
 torch.backends.cudnn.allow_tf32 = True
-from torch.cuda.amp import GradScaler, autocast
 from seistorch.parser import coding_fwi_parser as parser
 
 
@@ -97,21 +95,10 @@ if __name__ == '__main__':
 
     # In coding fwi, the probes are set only once, 
     # because they are fixed with respect to moving source.
-    probes = setup_rec_coords(full_rec_list, cfg['geom']['boundary']['width'], cfg['geom']['multiple'])[0]
+    temp, probes = offset_with_boundary(np.array(src_list), np.array(rec_list), cfg)
+    _, probes = single2batch(temp[0:1], probes[0:1], cfg, 'cpu') #
     probes.bidx = 0
-    # model.reset_probes(probes)
 
-    # TODO: add checkpoint
-    # Resume training from checkpoint
-    # assert os.path.exists(args.checkpoint), "Checkpoint not found"
-    # Load the checkpoint
-    # checkpoint = torch.load(args.checkpoint)
-
-    # print("model state dict:", model.state_dict())
-    # print("\n\n\n\n\n\n")
-    # print(checkpoint)
-    # # model.load_state_dict(checkpoint['model_state_dict'])
-    # exit()
     cfg["loss"] = args.loss
     cfg["ROOTPATH"] = ROOTPATH
     cfg['training']['lr'] = args.lr
@@ -187,8 +174,7 @@ if __name__ == '__main__':
         # Get the coding shot numbers and coding data
 
         for i, shot in enumerate(shots.tolist()):
-            # src = setup_src_coords(src_list[shot], cfg['geom']['boundary']['width'], cfg['geom']['multiple'])
-            # sources.append(src)
+
             # For fixed acquisition data, the receivers are fixed and the receivers are the same for all shots
             # so we only need to setup the receivers once, and the data can be summed immediately
             # But for non-fixed receivers, we need to setup the receivers for each shot,
@@ -210,7 +196,7 @@ if __name__ == '__main__':
             src, rec = offset_with_boundary(np.array(src_list)[shots], np.array(rec_list)[shots], cfg)
 
             src, rec = to_tensor(src), to_tensor(rec)
-            batched_source, _ = single2batch2(src, rec, cfg, 'cpu') # padding, in batch
+            batched_source, _ = single2batch(src, rec, cfg, 'cpu') # padding, in batch
 
             coding_syn = model(coding_wav, None, batched_source, probes)
 

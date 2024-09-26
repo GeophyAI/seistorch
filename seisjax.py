@@ -29,17 +29,16 @@ from torch.utils.data.distributed import DistributedSampler
 import seistorch
 from seistorch.eqconfigure import Shape
 from seistorch.distributed import task_distribution_and_data_reception
-from seistorch.io import SeisIO, DataLoader
+from seistorch.io import SeisIO
 from torch.utils.tensorboard import SummaryWriter
 from seistorch.array import SeisArray
 from seistorch.log import SeisLog
-from seistorch.coords import single2batch
+from seistorch.coords import single2batch, offset_with_boundary
 from seistorch.signal import SeisSignal, generate_arrival_mask
 from seistorch.model import build_model
 from seistorch.setup import *
-from seistorch.utils import (DictAction, to_tensor, nestedlist2np, nestedlist2tensor)
-from seistorch.dataset import OBSDataset, NumpyLoader, RandomSampler, DataLoaderJAX
-from seistorch.type import TensorList
+from seistorch.utils import (DictAction, to_tensor)
+from seistorch.dataset import OBSDataset, NumpyLoader, DataLoaderJAX
 from seistorch.process import PostProcess
 from seistorch.parser import fwi_parser as parser
 
@@ -115,19 +114,10 @@ if __name__ == "__main__":
 
     obsloader = DataLoaderJAX(obs0, batch_size=bps, shuffle=False, sampler=None)
 
-    # Jax-based optimizer
-    # opt_init, opt_update, get_params = adam(10.0)
-    # opt_state = opt_init(model.parameters())
-
-    # Optax-based optimizer
-    # opt = optax.adam(10.0)
-    opt = setup.setup_optimizer_jax()
-    opt_state = opt.init(model.parameters())
-
     # initial paras
     params = model.parameters()
 
-    rng_key = jax.random.PRNGKey(20240908)
+    rng_key = jax.random.PRNGKey(cfg['seed'])
     criterions = setup.setup_criteria()
 
     # params = model.parameters()
@@ -140,14 +130,13 @@ if __name__ == "__main__":
         """Get the data"""
         obsloader.reset_key(subkey)
         obs, src, rec, shots = next(iter(obsloader))
-        src = src.T
+        src, rec = offset_with_boundary(src, rec, cfg)
 
         # Reset the parameters
-        # model.set_parameters(get_params(opt_state)) # Jax-based updates
         model.set_parameters(params) # Optax-based updates
 
         batched_source, batched_probes = single2batch(src, rec, cfg, 'cpu') # padding, in batch
-        
+
         obs = SeisArray(obs).filter(cfg['geom']['dt'], freqs, FORDER, axis=1)
 
         def loss(params):
@@ -160,12 +149,6 @@ if __name__ == "__main__":
             return jax.value_and_grad(loss, has_aux=True)(params)
 
         (_loss, syn), gradient = compute_gradient(model.parameters())
-
-        # Jax backend update
-        # opt_state = opt_update(epoch, gradient, opt_state)
-        
-        # Optax backend update
-        # updates, opt_state = opt.update(gradient, opt_state)
 
         return _loss, opt_state, params, rng_key, gradient, syn, obs
 
@@ -188,7 +171,7 @@ if __name__ == "__main__":
         idx_freq, local_epoch = divmod(epoch, EPOCH_PER_SCALE)
 
         if local_epoch==0:
-            opt = setup.setup_optimizer_jax(idx_freq=idx_freq+1)
+            opt = setup.setup_optimizer_jax(idx_freq=idx_freq)
             opt_state = opt.init(model.parameters())
             pbar.reset()
         

@@ -55,7 +55,7 @@ def generate_convolution_kernel(spatial_order):
 
 def _laplacian(y, h, order=2):
     """Laplacian operator"""
-    kernel = generate_convolution_kernel(order.item()).unsqueeze(0).unsqueeze(0)
+    kernel = generate_convolution_kernel(order.long()).unsqueeze(0).unsqueeze(0)
     padding = kernel.shape[-1]//2
     operator = h ** (-2) * kernel.to(y.device)
     y = y.unsqueeze(1)
@@ -72,11 +72,6 @@ def _time_step(*args, **kwargs):
     # When b=0, without boundary conditon.
     a = (dt**-2 + b * dt**-1)**(-1)
     y = a*(2. / dt**2 * h1 - (dt**-2-b*dt**-1)*h2 + c**2*_laplacian(h1, h, spatial_order))
-    
-    # y = torch.mul((dt**-2 + b * dt**-1).pow(-1),
-    #             (2 / dt**2 * h1 - torch.mul((dt**-2 - b * dt**-1), h2)
-    #             + torch.mul(c.pow(2), _laplacian(h1, h)))
-    #             )
 
     return y, h1
 
@@ -87,15 +82,14 @@ def _time_step_backward(*args, **kwargs):
     dt, h, b = args[3:6]
     h_bd, _ = args[-2]
     src_type, src_func, src_values = args[-1]
+    spatial_order = args[6]
 
     vp = vp.unsqueeze(0)
     b = b.unsqueeze(0)
 
-
-
     y = torch.mul((dt**-2 + b * dt**-1).pow(-1),
                 (2 / dt**2 * h1 - torch.mul((dt**-2 - b * dt**-1), h2)
-                + torch.mul(vp.pow(2), _laplacian(h1, h)))
+                + torch.mul(vp.pow(2), _laplacian(h1, h, spatial_order)))
                 )
     
     # b = 0
@@ -113,7 +107,8 @@ def _time_step_backward_multiple(*args, **kwargs):
     dt, h, b = args[3:6]
     h_bd, _ = args[-2]
     src_type, src_func, src_values = args[-1]
-    
+    spatial_order = args[6]
+
     vp = vp.unsqueeze(0)
     b = b.unsqueeze(0)
 
@@ -121,7 +116,7 @@ def _time_step_backward_multiple(*args, **kwargs):
 
     y = torch.mul((dt**-2 + b * dt**-1).pow(-1),
                 (2 / dt**2 * h1 - torch.mul((dt**-2 - b * dt**-1), h2)
-                + torch.mul(vp.pow(2), _laplacian(h1, h)))
+                + torch.mul(vp.pow(2), _laplacian(h1, h, spatial_order)))
                 )
     
     with torch.no_grad():

@@ -10,8 +10,8 @@ from .default import ConfigureCheck
 from .eqconfigure import Parameters
 from .geom import WaveGeometryFreeForm
 from .rnn import WaveRNN, WaveRNNJAX
-from .utils import set_dtype, update_cfg
-from .setup import setup_we_equations
+from .utils import set_dtype
+from .setup import setup_we_equations, setup_domain_shape
 
 
 try:
@@ -47,11 +47,8 @@ def build_model(config_path,
         cfg['geom']['spatial_order'] = 2
 
     # Set backend A.D. framework
-    if 'backend' in cfg.keys():
-        backend = cfg['backend']
-    else:
-        backend = 'torch'
-        cfg['backend'] = backend
+    backend = cfg.get('backend', 'torch')
+    cfg.setdefault('backend', backend)
 
     use_jax = (backend == 'jax')
     use_torch = (backend == 'torch')
@@ -62,7 +59,8 @@ def build_model(config_path,
     set_dtype(cfg['dtype'])
 
     # update_cfg must be called since the width of pml need be added to Nx and Ny
-    cfg = update_cfg(cfg, device=device)
+    cfg = setup_domain_shape(cfg)
+    cfg.setdefault('device', device)
     cfg['task'] = mode
 
     if cfg['seed'] is not None:

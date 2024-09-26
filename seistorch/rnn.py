@@ -9,8 +9,7 @@ from torch.nn.parameter import Parameter
 from .eqconfigure import Wavefield
 from .source import WaveSourceTorch
 from .probe import WaveProbeTorch, WaveProbeJax
-from .setup import setup_acquisition
-from .type import TensorList
+from .array import TensorList
 from .eqconfigure import Parameters
 
 class WaveRNNBase:

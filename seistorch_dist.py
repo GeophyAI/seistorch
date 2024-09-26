@@ -28,16 +28,16 @@ from torch.utils.data.distributed import DistributedSampler
 import seistorch
 from seistorch.eqconfigure import Shape
 from seistorch.distributed import task_distribution_and_data_reception
-from seistorch.io import SeisIO, DataLoader
+from seistorch.io import SeisIO
 from torch.utils.tensorboard import SummaryWriter
 from seistorch.log import SeisLog
-from seistorch.coords import single2batch
+from seistorch.coords import single2batch, offset_with_boundary
 from seistorch.signal import SeisSignal, generate_arrival_mask
 from seistorch.model import build_model
 from seistorch.setup import *
 from seistorch.utils import (to_tensor, nestedlist2tensor)
 from seistorch.dataset import OBSDataset
-from seistorch.type import TensorList
+from seistorch.array import TensorList
 from seistorch.process import PostProcess
 from seistorch.parser import fwi_parser as parser
 
@@ -169,6 +169,11 @@ if __name__ == "__main__":
             src = [s[start:end] for s in _src]
             rec = nestedlist2tensor(_rec)[...,start:end] # (ncoords, nrecs, nshots)
             shots = _shots[start:end]
+
+            src = to_tensor(src).T
+            rec = to_tensor(rec).permute(2, 0, 1)
+
+            src, rec = offset_with_boundary(src, rec, cfg)
 
             batched_source, batched_probes = single2batch(src, rec, cfg, dev) # padding, in batch
 

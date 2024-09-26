@@ -135,7 +135,7 @@ class WaveGeometryFreeForm(WaveGeometry):
             self.source_illumination = False
 
         # The demension of the model
-        self.ndim = 2 if kwargs['geom']['Nz'] == 0 else 3
+        self.ndim = len(self.domain_shape)
         super().__init__(self.domain_shape, h, self.bwidth, ndim=self.ndim, multiple=kwargs['geom']['multiple'])
         self.equation = kwargs["equation"]
         self.use_implicit = kwargs["training"]['implicit']['use']

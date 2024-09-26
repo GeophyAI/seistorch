@@ -7,7 +7,7 @@ import numpy as np
 from typing import Any
 import segyio
 
-from .type import *
+from .array import TensorList
 from obspy import Stream, Trace
 from yaml import load, dump
 from yaml import CLoader as Loader

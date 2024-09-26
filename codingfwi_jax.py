@@ -20,7 +20,7 @@ from yaml import dump
 from functools import partial
 
 from seistorch.array import SeisArray
-from seistorch.coords import single2batch, single2batch2, offset_with_boundary
+from seistorch.coords import single2batch, offset_with_boundary
 
 from seistorch.eqconfigure import Shape
 # from tensorflow.keras.models import load_model
@@ -29,44 +29,10 @@ from seistorch.setup import *
 from seistorch.log import SeisLog
 from seistorch.io import SeisIO
 from seistorch.signal import SeisSignal
-from seistorch.utils import (DictAction, dict2table,
-                             low_pass, roll_jax, to_tensor)
+from seistorch.utils import (DictAction, dict2table, roll_jax, to_tensor)
 from seistorch.process import PostProcess
-from seistorch.dataset import OBSDataset, NumpyLoader, RandomSampler, DataLoaderJAX
+from seistorch.dataset import OBSDataset, NumpyLoader, DataLoaderJAX
 from seistorch.parser import coding_fwi_parser as parser
-# parser = argparse.ArgumentParser()
-# parser.add_argument('config', type=str, 
-#                     help='Configuration file for geometry, training, and data preparation')
-# parser.add_argument('--num_threads', type=int, default=2,
-#                     help='Number of threads to use')
-# parser.add_argument('--use-cuda', action='store_true',
-#                     help='Use CUDA to perform computations')
-# parser.add_argument('--gpuid', type=int, default=0,
-#                     help='which gpu is used for calculation')
-# parser.add_argument('--checkpoint', type=str,
-#                     help='checkpoint path for resuming training')
-# parser.add_argument('--opt', choices=['adam', 'lbfgs', 'cg', 'steepestdescent'], default='adam',
-#                     help='optimizer (adam)')
-# parser.add_argument('--loss', action=DictAction, nargs="+",
-#                     help='loss dictionary')
-# parser.add_argument('--save-path', default='',
-#                     help='the root path for saving results')
-# parser.add_argument('--lr', action=DictAction, nargs="+",
-#                     help='learning rate')
-# parser.add_argument('--batchsize', type=int, default=-1,
-#                     help='batch size for coding')
-# parser.add_argument('--grad-smooth', action='store_true',
-#                     help='Smooth the gradient or not')
-# parser.add_argument('--grad-cut', action='store_true',
-#                     help='Cut the boundaries of gradient or not')
-# parser.add_argument('--disable-grad-clamp', action='store_true',
-#                     help='Clamp the gradient using quantile or not')
-# parser.add_argument('--mode', choices=['inversion'], default='inversion',
-#                     help='forward modeling, inversion or reverse time migration mode')
-# parser.add_argument('--source-encoding', action='store_true', default=True,
-#                     help='PLEASE DO NOT CHANGE THE DEFAULT VALUE.')
-# parser.add_argument('--filteratlast', action='store_true', 
-#                     help='Filter the wavelet at the last step or not')
 
 if __name__ == '__main__':
 
@@ -127,17 +93,6 @@ if __name__ == '__main__':
 
     postprocess = PostProcess(model, cfg, args)
 
-    # TODO: add checkpoint
-    # Resume training from checkpoint
-    # assert os.path.exists(args.checkpoint), "Checkpoint not found"
-    # Load the checkpoint
-    # checkpoint = torch.load(args.checkpoint)
-
-    # print("model state dict:", model.state_dict())
-    # print("\n\n\n\n\n\n")
-    # print(checkpoint)
-    # # model.load_state_dict(checkpoint['model_state_dict'])
-    # exit()
     cfg["loss"] = args.loss
     cfg["ROOTPATH"] = ROOTPATH
     cfg['training']['lr'] = args.lr
@@ -156,8 +111,11 @@ if __name__ == '__main__':
     """Set receivers"""
     # In coding fwi, the probes are set only once, 
     # because they are fixed with respect to moving source.
-    probes = setup_rec_coords(full_rec_list, cfg['geom']['boundary']['width'], cfg['geom']['multiple'], use_jax=True)[0]
+
+    temp, probes = offset_with_boundary(jnp.array(src_list), jnp.array(rec_list), cfg)
+    _, probes = single2batch(temp[0:1], probes[0:1], cfg, 'cpu') # padding, in batch
     probes.bidx = 0
+
 
     """---------------------------------------------"""
     """-------------------INVERSION-----------------"""
@@ -179,14 +137,11 @@ if __name__ == '__main__':
     """Define the misfit function"""
     # The parameters needed to be inverted
     criterions = setup.setup_criteria()
-    # Optimizer for model parameters
-    opt = setup.setup_optimizer_jax()
-    opt_state = opt.init(model.parameters())
 
     # initial paras
     params = model.parameters()
 
-    rng_key = jax.random.PRNGKey(20240908)
+    rng_key = jax.random.PRNGKey(cfg['seed'])
 
     @partial(jax.jit, static_argnums=(4,))
     def step(epoch, opt_state, rng_key, params, freqs):
@@ -205,8 +160,9 @@ if __name__ == '__main__':
 
         _obs, _src, _rec, _shots = next(iter(obsloader))
 
+        """Offset the source and receiver"""
         _src, _rec = offset_with_boundary(_src, _rec, cfg)
-        batched_source, _ = single2batch2(_src, _rec, cfg, 'cpu') # padding, in batch
+        batched_source, _ = single2batch(_src, _rec, cfg, 'cpu') # padding, in batch
 
         """Filter the observed data"""
         _obs = SeisArray(_obs).filter(DT, freqs, FORDER, 1)
@@ -238,15 +194,18 @@ if __name__ == '__main__':
 
         return coding_obs, coding_syn, _shots, keys[0], params, gradient, opt_state, _loss
 
+    """Loop over the epochs"""
     for epoch in range(EPOCH_PER_SCALE*SCALE_COUNTS):
 
         idx_freq, local_epoch = divmod(epoch, EPOCH_PER_SCALE)
+        pbar.set_description(f"F{idx_freq}E{local_epoch}")
 
         if local_epoch==0:
-            opt = setup.setup_optimizer_jax(idx_freq=idx_freq+1)
+            """Reset the optimizer at every scale"""
+            opt = setup.setup_optimizer_jax(idx_freq=idx_freq)
             opt_state = opt.init(model.parameters())
             pbar.reset()
-    
+
         outputs = step(epoch, opt_state, rng_key, params, freqs=MULTISCALES[idx_freq])
         obs, syn, _shots, rng_key, params, gradient, opt_state, coding_loss = outputs
 
