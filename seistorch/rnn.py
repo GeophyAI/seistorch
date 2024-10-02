@@ -17,15 +17,29 @@ class WaveRNNBase:
         self.cell = cell
         self.source_encoding = source_encoding
         self.backend = backend
+        self.device = {'torch': cell.geom.device, 'jax': None}[backend]
+        self.zeros = {'torch': torch.zeros, 'jax': jnp.zeros}[backend]
+        self.arange = {'torch': torch.arange, 'jax': jnp.arange}[backend]
+        self.wavefield_names = Wavefield(self.cell.geom.equation).wavefields
 
-class WaveRNN(torch.nn.Module):
+    def initialize(self, nshots):
+
+        batchsize = 1 if self.source_encoding else nshots
+        self.nshots = batchsize
+        self.hidden_state_shape = (batchsize,) + self.cell.geom.domain_shape
+        # Set wavefields
+        self.wavefield_names = Wavefield(self.cell.geom.equation).wavefields
+        for name in self.wavefield_names:
+            setattr(self, name, self.zeros(self.hidden_state_shape, device=self.device))
+        # Initialize the batched indices
+
+class WaveRNN(WaveRNNBase, torch.nn.Module):
     def __init__(self, cell, source_encoding=False):
 
-        super().__init__()
+        torch.nn.Module.__init__(self)
+        WaveRNNBase.__init__(self, cell, source_encoding, 'torch')
 
-        self.cell = cell
         #  Check the availability of the type of sources and probes.
-        self.source_encoding = source_encoding # short cut
         self.use_implicit = self.cell.geom.use_implicit
         self.second_order_equation = self.cell.geom.equation in Parameters.secondorder_equations()
         self.source_illumination = self.cell.geom.source_illumination
@@ -52,18 +66,10 @@ class WaveRNN(torch.nn.Module):
         # Hacky way of figuring out if we're on the GPU from inside the model
         device = self.cell.geom.device
         # Init hidden states
-        
-        batchsize = 1 if self.source_encoding else super_source.x.size(0)
+        self.initialize(super_source.x.size(0))
 
-        hidden_state_shape = (batchsize,) + self.cell.geom.domain_shape
         # Initialize habc if needed
-        if self.cell.geom.use_habc: self.cell.setup_habc(batchsize)
-        # Set wavefields
-        wavefield_names = Wavefield(self.cell.geom.equation).wavefields
-        for name in wavefield_names:
-            setattr(self, name, torch.zeros(hidden_state_shape, device=device))
-
-        # nchannels = len(self.cell.geom.receiver_type)
+        if self.cell.geom.use_habc: self.cell.setup_habc(self.nshots)
 
         if self.source_illumination:
             self.precondition = torch.zeros(self.cell.geom.domain_shape, device=device)
@@ -90,14 +96,14 @@ class WaveRNN(torch.nn.Module):
         # Get the super source and super probes
 
         # Add source mask
-        super_source.smask = torch.zeros(hidden_state_shape, device=device)
+        super_source.smask = torch.zeros(self.hidden_state_shape, device=device)
 
-        for idx in range(super_source.x.size(0)):
-            bidx = idx if not self.source_encoding else 0
-            if hasattr(super_source, 'z'):# 3D
-                super_source.smask[bidx, super_source.z[idx], super_source.y[idx], super_source.x[idx]] = 1.0
-            else:# 2D
-                super_source.smask[bidx, super_source.y[idx], super_source.x[idx]] = 1.0
+        bidx = torch.arange(self.nshots, device=device) if not self.source_encoding else torch.zeros(self.nshots, device=device, dtype=torch.int32)
+
+        if hasattr(super_source, 'z'):  # 3D
+            super_source.smask[bidx, super_source.z, super_source.y, super_source.x] = 1.0
+        else:  # 2D
+            super_source.smask[bidx, super_source.y, super_source.x] = 1.0
 
         reccounts = super_probes.reccounts if not self.source_encoding else super_probes.x.size(0)
 
@@ -109,7 +115,7 @@ class WaveRNN(torch.nn.Module):
         for i, xi in enumerate(x.chunk(x.size(1), dim=1)):
             
             # Propagate the fields
-            wavefield = [getattr(self, name) for name in wavefield_names]
+            wavefield = [getattr(self, name) for name in self.wavefield_names]
             tmpi = min(i+time_offset, x.shape[1]-1)
             wavefield = self.cell(wavefield, 
                                   model_paras, 
@@ -121,7 +127,7 @@ class WaveRNN(torch.nn.Module):
                 # np.save(f"./wf_pml/wf_foward{i:04d}.npy", wavefield[0].detach().cpu().numpy())
 
             # Set the data to vars
-            for name, data in zip(wavefield_names, wavefield):
+            for name, data in zip(self.wavefield_names, wavefield):
                 setattr(self, name, data)
 
             # Add source
@@ -147,17 +153,11 @@ class WaveRNN(torch.nn.Module):
 
         return y
 
-class WaveRNNJAX:
+class WaveRNNJAX(WaveRNNBase):
 
     def __init__(self, cell, source_encoding=False):
-        self.cell = cell
-        self.source_encoding = source_encoding
 
-    def initialize(self, shape):
-        # Set wavefields
-        self.wavefield_names = Wavefield(self.cell.geom.equation).wavefields
-        for name in self.wavefield_names:
-            setattr(self, name, jnp.zeros(shape))
+        WaveRNNBase.__init__(self, cell, source_encoding, 'jax')
 
     def parameters(self):
         # for name in self.cell.geom.model_parameters:
@@ -170,22 +170,14 @@ class WaveRNNJAX:
 
     def forward(self, x, omega=0.0, super_source=None, super_probes=None, parameters=None):
 
-        if super_source is None:
-            batchsize = 1 if self.source_encoding else len(self.sources)
-        else:
-            batchsize = 1 if self.source_encoding else super_source.x.shape[0]
-
-        hidden_state_shape = (batchsize, ) + self.cell.geom.domain_shape
-
         # initialize the wavefields on target device
-        self.initialize(hidden_state_shape)
+        # also initialize the self.nshots and self.hidden_state_shape
+        self.initialize(super_source.x.shape[0])
 
-        if super_source is not None:
-            # Add source mask
-            super_source.smask = jnp.zeros(hidden_state_shape)
-            for idx in range(super_source.x.size):
-                bidx = idx if not self.source_encoding else 0
-                super_source.smask = super_source.smask.at[bidx, super_source.y[idx], super_source.x[idx]].set(1)
+        # Add source mask
+        super_source.smask = jnp.zeros(self.hidden_state_shape)
+        bidx = jnp.arange(self.nshots) if not self.source_encoding else jnp.zeros(self.nshots,dtype=jnp.int32)
+        super_source.smask = super_source.smask.at[bidx, super_source.y, super_source.x].set(1)
 
         source_idx_at = []
         receiver_idx_at = []
@@ -197,10 +189,10 @@ class WaveRNNJAX:
             receiver_idx_at.append(self.wavefield_names.index(receiver_type))
 
         channels = len(self.cell.geom.receiver_type)
-        nrecs = super_probes.x.size//batchsize
+        nrecs = super_probes.x.size//self.nshots
         nt = self.cell.geom.nt
 
-        rec = jnp.zeros((batchsize, nt, nrecs, channels))
+        rec = jnp.zeros((self.nshots, nt, nrecs, channels))
         super_source.source_encoding = self.source_encoding
         def step_fn(carry, it):
             
@@ -217,7 +209,7 @@ class WaveRNNJAX:
 
             # Measure probe(s)
             for channel, ridx in enumerate(receiver_idx_at):
-                rec_this_step = jnp.array(jnp.split(super_probes(wavefields[ridx]), batchsize))
+                rec_this_step = jnp.array(jnp.split(super_probes(wavefields[ridx]), self.nshots))
                 rec = rec.at[:, it, :, channel].set(rec_this_step)
             
             return (wavefields, modelparas, others, rec), None

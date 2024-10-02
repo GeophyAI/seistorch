@@ -38,16 +38,16 @@ def generate_convolution_kernel(spatial_order):
     Returns:
         _type_: Tensor, the convolution kernel
     """
-    constant = even_intergrid(spatial_order)
+    constant = even_intergrid(spatial_order).to(spatial_order.device)
     kernel_size = spatial_order + 1
-    kernel = torch.zeros((kernel_size, kernel_size))
+    kernel = torch.zeros((kernel_size, kernel_size), device=spatial_order.device)
     center = spatial_order // 2
 
     kernel[center, center+1:] = constant
     kernel[center, 0:center] = constant.flip(0)
 
-    kernel[center+1:, center] = constant
-    kernel[0:center, center] = constant.flip(0)
+    kernel[center+1:, center] = constant.reshape(-1, 1)
+    kernel[0:center, center] = constant.flip(0).reshape(-1, 1)
 
     kernel[center, center] = -2*2*torch.sum(constant)
 
