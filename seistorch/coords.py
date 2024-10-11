@@ -6,7 +6,7 @@ from jax import numpy as jnp
 from .source import WaveSourceJax, WaveSourceTorch
 from .probe import WaveProbeJax, WaveProbeTorch
 
-def offset_with_boundary(src, rec, cfg):
+def offset_with_boundary(src, rec, cfg, dist=False):
 
     """Padding the source and receiver locations with boundary.
 
@@ -29,9 +29,13 @@ def offset_with_boundary(src, rec, cfg):
     src += bwidth
     rec += bwidth
 
-    if multiple: # no top boundary
+    if multiple and not dist: # no top boundary
         src[:,-1] -= bwidth
         rec[:,-1, :] -= bwidth
+    
+    if multiple and dist:
+        src[:,:,-1] -= bwidth # The first dimension is the number of devices
+        rec[:,:,-1, :] -= bwidth
 
     return src, rec
 
@@ -91,7 +95,7 @@ def merge_receivers_with_same_keys(receivers, use_jax=False):
 
     return reccounts, batchindices, super_probes
 
-def single2batch(src, rec, cfg, dev):
+def single2batch(src, rec, cfg, dev, sharding=None):
 
     use_jax = (cfg['backend'] == 'jax')
     use_torch = (cfg['backend'] == 'torch')
@@ -114,8 +118,8 @@ def single2batch(src, rec, cfg, dev):
     reccounts, bidx_receivers, reckeys = merge_receivers_with_same_keys(receivers, use_jax)
 
     # Construct the batched source and batched probes instances
-    batched_source = ws(bidx_source, **sourcekeys)
-    batched_probes = wp(bidx_receivers, **reckeys)
+    batched_source = ws(bidx_source, sharding=sharding, **sourcekeys)
+    batched_probes = wp(bidx_receivers, sharding=sharding, **reckeys)
 
     batched_probes.reccounts = reccounts
 

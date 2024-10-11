@@ -1,3 +1,4 @@
+import jax
 from jax import vmap
 import jax.numpy as jnp
 from jax.scipy.signal import convolve2d as conv2d

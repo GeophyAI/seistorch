@@ -5,11 +5,12 @@ import jax.numpy as jnp
 
 class WaveSourceBase:
 
-    def __init__(self, bidx=None, second_order_equation=False, **kwargs):
+    def __init__(self, bidx=None, second_order_equation=False, sharding=None, **kwargs):
         super().__init__()
         self._ndim = len(kwargs)
         self.coord_labels = list(kwargs.keys())
         self.bidx = bidx
+        self.sharding = sharding
         # self.forward = self.get_forward_func()
         self._source_encoding=False
 
@@ -63,9 +64,9 @@ class WaveSourceBase:
 
 class WaveSourceTorch(WaveSourceBase, torch.nn.Module):
 
-    def __init__(self, bidx=None, second_order_equation=False, **kwargs):
+    def __init__(self, bidx=None, second_order_equation=False, sharding=None, **kwargs):
         torch.nn.Module.__init__(self)
-        super().__init__(bidx, second_order_equation, **kwargs)
+        super().__init__(bidx, second_order_equation, sharding=None, **kwargs)
 
         for key, value in kwargs.items():
             value = None if value is None else to_tensor(value, dtype=torch.int64)
@@ -77,9 +78,9 @@ class WaveSourceTorch(WaveSourceBase, torch.nn.Module):
 
 class WaveSourceJax(WaveSourceBase):
     
-    def __init__(self, bidx=None, second_order_equation=False, **kwargs):
+    def __init__(self, bidx=None, second_order_equation=False, sharding=None, **kwargs):
 
-        super().__init__(bidx, second_order_equation, **kwargs)
+        super().__init__(bidx, second_order_equation, sharding=sharding, **kwargs)
 
         for key, value in kwargs.items():
             setattr(self, key, jnp.array(value, dtype=jnp.int32))

@@ -187,10 +187,9 @@ if __name__ == '__main__':
         def compute_gradient(params):
             return jax.value_and_grad(loss, has_aux=True)(params)
 
-        (_loss, coding_syn), gradient = compute_gradient(model.parameters())
-
+        (_loss, coding_syn), gradient = compute_gradient(params)
         updates, opt_state = opt.update(gradient, opt_state)
-        params = optax.apply_updates(model.parameters(), updates)
+        params = optax.apply_updates(params, updates)
 
         return coding_obs, coding_syn, _shots, keys[0], params, gradient, opt_state, _loss
 
@@ -210,8 +209,8 @@ if __name__ == '__main__':
         obs, syn, _shots, rng_key, params, gradient, opt_state, coding_loss = outputs
 
         # Get learning rate        
-        filtering = lambda path, value: isinstance(value, jnp.ndarray)
-        learning_rate = optax.tree_utils.tree_get( opt_state, 'learning_rate', filtering=filtering)
+        # filtering = lambda path, value: isinstance(value, jnp.ndarray)
+        # learning_rate = optax.tree_utils.tree_get( opt_state, 'learning_rate', filtering=filtering)
 
         np.save(f"{ROOTPATH}/model_F{idx_freq:02d}E{local_epoch:02d}.npy", params)
         np.save(f"{ROOTPATH}/gradient_F{idx_freq:02d}E{local_epoch:02d}.npy", gradient)
@@ -220,7 +219,7 @@ if __name__ == '__main__':
         np.save(f"{ROOTPATH}/syn_{epoch}.npy", syn)
 
         writer.add_scalar("Loss", coding_loss.item(), epoch)
-        writer.add_scalar("Learning Rate", learning_rate.item(), epoch)
+        # writer.add_scalar("Learning Rate", learning_rate.item(), epoch)
         writer.add_histogram('Sample Indices', np.array(_shots), epoch)
 
         pbar.update(1)

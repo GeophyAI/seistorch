@@ -13,7 +13,7 @@ from .array import TensorList
 from .eqconfigure import Parameters
 
 class WaveRNNBase:
-    def __init__(self, cell, source_encoding=False, backend='torch'):
+    def __init__(self, cell, source_encoding=False, backend='torch', sharding=None):
         self.cell = cell
         self.source_encoding = source_encoding
         self.backend = backend
@@ -21,6 +21,7 @@ class WaveRNNBase:
         self.zeros = {'torch': torch.zeros, 'jax': jnp.zeros}[backend]
         self.arange = {'torch': torch.arange, 'jax': jnp.arange}[backend]
         self.wavefield_names = Wavefield(self.cell.geom.equation).wavefields
+        self.sharding = sharding
 
     def initialize(self, nshots):
 
@@ -31,13 +32,12 @@ class WaveRNNBase:
         self.wavefield_names = Wavefield(self.cell.geom.equation).wavefields
         for name in self.wavefield_names:
             setattr(self, name, self.zeros(self.hidden_state_shape, device=self.device))
-        # Initialize the batched indices
 
 class WaveRNN(WaveRNNBase, torch.nn.Module):
     def __init__(self, cell, source_encoding=False):
 
         torch.nn.Module.__init__(self)
-        WaveRNNBase.__init__(self, cell, source_encoding, 'torch')
+        WaveRNNBase.__init__(self, cell, source_encoding, 'torch', sharding=None)
 
         #  Check the availability of the type of sources and probes.
         self.use_implicit = self.cell.geom.use_implicit
@@ -155,9 +155,9 @@ class WaveRNN(WaveRNNBase, torch.nn.Module):
 
 class WaveRNNJAX(WaveRNNBase):
 
-    def __init__(self, cell, source_encoding=False):
+    def __init__(self, cell, source_encoding=False, sharding=None):
 
-        WaveRNNBase.__init__(self, cell, source_encoding, 'jax')
+        WaveRNNBase.__init__(self, cell, source_encoding, 'jax', sharding=sharding)
 
     def parameters(self):
         # for name in self.cell.geom.model_parameters:
@@ -224,7 +224,6 @@ class WaveRNNJAX(WaveRNNBase):
         rec = final[-1]
 
         return rec
-
 
     def __call__(self, *args, **kwargs):
         return self.forward(*args, **kwargs)

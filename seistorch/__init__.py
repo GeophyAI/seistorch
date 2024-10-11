@@ -1,4 +1,4 @@
-from . import geom, source, probe, utils, model, loss, optimizer, setup, distributed
+from . import geom, source, probe, utils, model, loss, optimizer, setup
 from .default import ConfigureCheck
 from .geom import WaveGeometryFreeForm
 from .probe import WaveProbeBase

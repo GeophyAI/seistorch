@@ -18,7 +18,7 @@ training:
 
   minibatch: true
 
-  batch_size: 1
+  batch_size: 8
 
   # Number of training epochs
   N_epochs: 50
@@ -33,7 +33,7 @@ training:
   lr_decay: 0.995
 
   # Filter order
-  filter_ord: 3
+  filter_ord: 2
 
 geom:
 

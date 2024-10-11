@@ -1,15 +1,12 @@
-import argparse
-import os
-import pickle
-import jax.numpy as jnp
 import jax
-from typing import Any, Iterable, List, Tuple
-import traceback
+import torch
+import pickle
+import argparse
 
 import numpy as np
-import torch
+import jax.numpy as jnp
+from functools import partial
 from prettytable import PrettyTable
-from scipy import signal
 
 
 def dict2table(dict_data: dict, table: PrettyTable = None):
@@ -84,7 +81,19 @@ def ricker_wave(fm, dt, T, delay = 80, dtype='tensor', inverse=False):
         return np.array(ricker).astype(np.float32)
     else:
         return torch.from_numpy(np.array(ricker).astype(np.float32))
+    
 
+@partial(jax.jit, donate_argnums=(0, ))
+def inplace_update(need_to_update, updates):
+    for i in range(len(updates)):
+        need_to_update = need_to_update.at[i].add(updates[i])
+    return need_to_update
+
+@partial(jax.jit, donate_argnums=(0, ))
+def inplace_zeros(need_to_update):
+    need_to_update = need_to_update.at[...].set(0.0)
+    return need_to_update
+    
 def set_dtype(dtype=None):
     if dtype == 'float32' or dtype is None:
         torch.set_default_dtype(torch.float32)

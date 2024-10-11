@@ -5,14 +5,12 @@ import numpy as np
 import torch
 from yaml import load
 
-from .cell import WaveCellJax, WaveCellTorch
 from .default import ConfigureCheck
 from .eqconfigure import Parameters
 from .geom import WaveGeometryFreeForm
 from .rnn import WaveRNN, WaveRNNJAX
 from .utils import set_dtype
 from .setup import setup_we_equations, setup_domain_shape
-
 
 try:
     from yaml import CDumper as Dumper
@@ -26,7 +24,8 @@ def build_model(config_path,
                 source_encoding=False, 
                 commands=None, 
                 logger=None, 
-                backend=None):
+                backend=None, 
+                sharding=None):
 
     assert mode in ["forward", "inversion", "rtm"], f"No such mode {mode}!"
 
@@ -69,7 +68,7 @@ def build_model(config_path,
         np.random.seed(cfg['seed'])
 
     # Set up geometry
-    geom = WaveGeometryFreeForm(mode=mode, logger=logger, **cfg)
+    geom = WaveGeometryFreeForm(mode=mode, logger=logger, sharding=sharding, **cfg)
     geom.inversion = mode == "inversion"
 
     forward_func, backward_func = setup_we_equations(use_jax, use_torch, use_multiple, geom.ndim, cfg['equation'], logger)
@@ -83,6 +82,6 @@ def build_model(config_path,
     if use_torch:
         model = WaveRNN(cell, source_encoding)
     if use_jax:
-        model = WaveRNNJAX(cell, source_encoding)
+        model = WaveRNNJAX(cell, source_encoding, sharding)
 
     return cfg, model

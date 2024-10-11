@@ -4,58 +4,45 @@ os.environ["XLA_PYTHON_CLIENT_PREALLOCATE"] = "false"
 os.environ['XLA_FLAGS'] = "--xla_disable_hlo_passes=constant_folding"
 
 import jax
-from jax.example_libraries.optimizers import adam
 import optax
-
-import torch
-
-torch.backends.cudnn.enabled = True
-torch.backends.cudnn.benchmark = True
-torch.backends.cuda.matmul.allow_tf32 = True
-torch.backends.cudnn.allow_tf32 = True
-torch.backends.cudnn.deterministic = True
+from jax import pmap
 
 import argparse
 
 import numpy as np
-import torch, tqdm
-import torch.distributed as dist
+import tqdm
+# import torch.distributed as dist
 from yaml import dump, load
 from functools import partial
 
-from torch.nn.parallel import DistributedDataParallel
-from torch.utils.data.distributed import DistributedSampler
-# from torch.utils.data import RandomSampler
 import seistorch
-from seistorch.eqconfigure import Shape
-from seistorch.distributed import task_distribution_and_data_reception
 from seistorch.io import SeisIO
 from torch.utils.tensorboard import SummaryWriter
 from seistorch.array import SeisArray
 from seistorch.log import SeisLog
 from seistorch.coords import single2batch, offset_with_boundary
-from seistorch.signal import SeisSignal, generate_arrival_mask
+from seistorch.signal import SeisSignal
 from seistorch.model import build_model
 from seistorch.setup import *
-from seistorch.utils import (DictAction, to_tensor)
 from seistorch.dataset import OBSDataset, NumpyLoader, DataLoaderJAX
 from seistorch.process import PostProcess
 from seistorch.parser import fwi_parser as parser
+from seistorch.utils import inplace_update, inplace_zeros
 
 if __name__ == "__main__":
 
-    # dist.init_process_group("nccl")
-    def get_default_device():
-        return jax.config.jax_default_device or jax.local_devices()[0]
-    
     args = parser().parse_args()
 
-    # delete later
-    dev = get_default_device()
-    print('Current device:', dev)
-   
+    # Sharding across devices
+    devices = jax.devices()
+    devices_count = len(devices)
+    mesh = jax.sharding.Mesh(np.array(devices), ('devices',))
+    input_spec = jax.sharding.PartitionSpec('devices', )
+    dist_sharding = jax.sharding.NamedSharding(mesh, input_spec)
+    replicated_sharding = jax.sharding.NamedSharding(mesh, jax.sharding.PartitionSpec())
+    print('Executing on devices:', devices)
     # Build model
-    cfg, model = build_model(args.config, device=str(dev), mode='inversion', source_encoding=False, commands=args)
+    cfg, model = build_model(args.config, device=str(devices), mode='inversion', source_encoding=False, commands=args, sharding=replicated_sharding)
 
     seislog = SeisLog(backend="LOCAL")
     seisio = SeisIO(cfg)
@@ -104,7 +91,7 @@ if __name__ == "__main__":
                       MULTIPLE=cfg['geom']['multiple'])
     nshots = len(obs0)
 
-    SHOTS_PER_GPU = SHOTS_PER_EPOCH#//size
+    SHOTS_PER_GPU = SHOTS_PER_EPOCH#//devices_count
 
     bps = SHOTS_PER_GPU//STEP_PER_EPOCH # batchsize / step / gpu
     
@@ -115,56 +102,61 @@ if __name__ == "__main__":
     obsloader = DataLoaderJAX(obs0, batch_size=bps, shuffle=False, sampler=None)
 
     # initial paras
-    params = model.parameters()
+    local_params = model.parameters()
+    dist_params = pmap(lambda _: model.parameters())(jnp.arange(devices_count)) # (ndevices, nparams, nz, nx, ...)
 
-    rng_key = jax.random.PRNGKey(cfg['seed'])
+    rng_key = pmap(lambda x: jax.random.PRNGKey(cfg['seed']+x))(jnp.arange(devices_count))
     criterions = setup.setup_criteria()
 
-    # params = model.parameters()
+    x = jax.device_put(x, replicated_sharding)
 
     @partial(jax.jit, static_argnames=('freqs', ))
-    def step(epoch, opt_state, rng_key, params, freqs):
+    def step(obs, src , rec, rng_key, params, freqs):
 
-        rng_key, subkey = jax.random.split(rng_key)
-
-        """Get the data"""
-        obsloader.reset_key(subkey)
-        obs, src, rec, shots = next(iter(obsloader))
+        rng_key, _ = jax.random.split(rng_key)
         src, rec = offset_with_boundary(src, rec, cfg)
-
         # Reset the parameters
         model.set_parameters(params) # Optax-based updates
-
         batched_source, batched_probes = single2batch(src, rec, cfg, 'cpu') # padding, in batch
-
         obs = SeisArray(obs).filter(cfg['geom']['dt'], freqs, FORDER, axis=1)
 
         def loss(params):
             syn = model(x, None, batched_source, batched_probes, parameters=params)
             # apply filter
             syn = SeisArray(syn).filter(cfg['geom']['dt'], freqs, FORDER, axis=1)
+            assert obs.shape == syn.shape, f"Observed shape {obs.shape} is not equal to synthetic shape {syn.shape}"
             return criterions(syn, obs), syn
-                
+
         def compute_gradient(params):
             return jax.value_and_grad(loss, has_aux=True)(params)
 
-        (_loss, syn), gradient = compute_gradient(model.parameters())
+        (_loss, syn), gradient = compute_gradient(params)
 
-        return _loss, opt_state, params, rng_key, gradient, syn, obs
+        return _loss, params, rng_key, gradient, syn, obs, shots
 
-    @partial(jax.jit, donate_argnums=(0, ))
-    def inplace_update(need_to_update, updates):
-        for i in range(len(updates)):
-            need_to_update = need_to_update.at[i].add(updates[i])
-        return need_to_update
+    batch_gradients =jnp.zeros((len(local_params), *local_params[0].shape), dtype=jnp.float32) # (nparams, ndevices, nz, nx, ...)
 
-    @partial(jax.jit, donate_argnums=(0, ))
-    def inplace_zeros(need_to_update):
-        need_to_update = need_to_update.at[...].set(0.0)
-        return need_to_update
+    step = pmap(step, axis_name='devices', static_broadcasted_argnums=(5,))
 
-    batch_gradients = jnp.zeros((len(params), *params[0].shape), dtype=jnp.float32)
-    
+    @jax.jit
+    def get_data_batch(key):
+
+        obsloader.reset_key(key)
+        obs, src, rec, shots = next(iter( obsloader ))
+
+        local_shape = (devices_count, obs.shape[0]//devices_count)
+
+        obs = obs.reshape(local_shape+ obs.shape[1:])
+        src = src.reshape(local_shape+ src.shape[1:])
+        rec = rec.reshape(local_shape+ rec.shape[1:])
+
+        obs = jax.device_put(obs, dist_sharding)
+        src = jax.device_put(src, dist_sharding)
+        rec = jax.device_put(rec, dist_sharding)
+
+        return obs, src, rec, shots
+
+    # Loop over the epochs
     for epoch in range(EPOCH_PER_SCALE*SCALE_COUNTS):
 
         loss_all_batch = 0.
@@ -176,24 +168,35 @@ if __name__ == "__main__":
             pbar.reset()
         
         batch_gradients = inplace_zeros(batch_gradients)
-
         # Gradient accumulation
         for batch_step in range(STEP_PER_EPOCH):
-            loss_per_batch, opt_state, params, rng_key, gradient, syn, obs = step(epoch, opt_state, rng_key, params, freqs=MULTISCALES[idx_freq])
-            batch_gradients = inplace_update(batch_gradients, gradient)
+            
+            obs, src, rec, shots = get_data_batch(rng_key[0])
+            loss_per_batch, dist_params, rng_key, gradient, syn, obs, shots = step(obs, src, rec, rng_key, dist_params, MULTISCALES[idx_freq])
+            gradient_avg = []
+            for grad in gradient:
+                gradient_avg.append(jnp.mean(grad, axis=0))
+
+            batch_gradients = inplace_update(batch_gradients, gradient_avg)
             loss_all_batch += loss_per_batch
-        
+
         # Update the parameters
         updates, opt_state = opt.update(tuple(batch_gradients), opt_state)
-        params = optax.apply_updates(params, updates)
 
-        np.save(f"{ROOTPATH}/inverted{epoch:03d}.npy", params)
+        local_params = optax.apply_updates(local_params, updates)
+
+        dist_params = pmap(lambda _: local_params)(jnp.arange(devices_count))
+
+        np.save(f"{ROOTPATH}/inverted{epoch:03d}.npy", local_params)
         np.save(f"{ROOTPATH}/gradient{epoch:03d}.npy", batch_gradients)
-        writer.add_scalar('Loss', loss_all_batch.item(), epoch)
+        writer.add_scalar('Loss', loss_all_batch.sum().item(), epoch)
 
-        filtering = lambda path, value: isinstance(value, jnp.ndarray)
-        learning_rate = optax.tree_utils.tree_get( opt_state, 'learning_rate', filtering=filtering)
-        writer.add_scalar("Learning Rate", learning_rate.item(), epoch)
+        # filtering = lambda path, value: isinstance(value, jnp.ndarray)
+        # learning_rates = optax.tree_utils.tree_get_all_with_path(opt_state, 'learning_rate', filtering=filtering)
+        # learning_rate = optax.tree_utils.tree_get( opt_state, 'learning_rate', filtering=filtering)
+        # writer.add_scalar("Learning Rate", learning_rate.item(), epoch)
         # np.save(f"{ROOTPATH}/syn{epoch:03d}.npy", syn)
         # np.save(f"{ROOTPATH}/obs{epoch:03d}.npy", obs)
         pbar.update(1)
+        
+        # break

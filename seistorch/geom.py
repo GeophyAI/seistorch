@@ -1,17 +1,21 @@
 import os
-from typing import Tuple
+import jax
+import torch
 import importlib
-import matplotlib.pyplot as plt
+
 import numpy as np
 import jax.numpy as jnp
-import torch
+import matplotlib.pyplot as plt
+
+from .io import SeisIO
+from .eqconfigure import Parameters
+from .networks import Siren, Encoder, CNN, SirenScale
+from .random import random_fill_2d
+from .utils import to_tensor
+
+from typing import Tuple
 from scipy.ndimage import gaussian_filter
 
-from .eqconfigure import Parameters
-from .utils import to_tensor
-from .networks import Siren, Encoder, CNN, SirenScale
-from .io import SeisIO
-from .random import random_fill_2d
 
 class WaveGeometry(torch.nn.Module):
     def __init__(self, 
@@ -20,15 +24,16 @@ class WaveGeometry(torch.nn.Module):
                  bwidth: int = 20, 
                  equation: str = "acoustic", 
                  ndim: int = 2, 
-                 multiple: bool = False):
+                 multiple: bool = False, 
+                 sharding = None):
         
         super().__init__()
 
         self.domain_shape = domain_shape
 
         self.multiple = multiple
-
         self.ndim = ndim
+        self.sharding = sharding
         
         if self.backend == 'torch':
             self.register_buffer("h", to_tensor(h))
@@ -74,7 +79,8 @@ class WaveGeometry(torch.nn.Module):
                 self.register_buffer("_d", to_tensor(d))
             elif self.backend == 'jax':
                 self._d = jnp.array(d.cpu().numpy())
-
+                if self.sharding is not None:
+                    self._d = jax.device_put(self._d, self.sharding)
 
         if self.use_random:
             self.register_buffer("_d", to_tensor(0.))
@@ -102,7 +108,7 @@ class WaveGeometry(torch.nn.Module):
         return self._d
 
 class WaveGeometryFreeForm(WaveGeometry):
-    def __init__(self, mode='forward', logger=None, **kwargs):
+    def __init__(self, mode='forward', logger=None, sharding=None, **kwargs):
 
         self.mode = mode
         self.kwargs = kwargs
@@ -128,6 +134,7 @@ class WaveGeometryFreeForm(WaveGeometry):
         self.logger = logger
 
         self.seisio = SeisIO(kwargs)
+        self.sharding = sharding
 
         if 'source_illumination' in kwargs['geom'].keys():
             self.source_illumination = kwargs['geom']['source_illumination']
@@ -136,7 +143,7 @@ class WaveGeometryFreeForm(WaveGeometry):
 
         # The demension of the model
         self.ndim = len(self.domain_shape)
-        super().__init__(self.domain_shape, h, self.bwidth, ndim=self.ndim, multiple=kwargs['geom']['multiple'])
+        super().__init__(self.domain_shape, h, self.bwidth, ndim=self.ndim, multiple=kwargs['geom']['multiple'], sharding=self.sharding)
         self.equation = kwargs["equation"]
         self.use_implicit = kwargs["training"]['implicit']['use']
         # Initialize the model parameters if not using implicit neural network

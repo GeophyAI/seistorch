@@ -198,14 +198,13 @@ class SeisSetup:
         
         def create_mask_fn(index, num_params):
             return tuple(i == index for i in range(num_params))
-        
         optimizers = []
         for i, para in enumerate(pars_need_by_eq):
             # Set the learning rate for each parameter
             _lr = 0. if para not in pars_need_invert else lr[para]#*scale_decay**idx_freq
             lr_schedule = optax.exponential_decay(_lr*scale_decay**idx_freq,1,epoch_decay)
-            # opt = optax.adam(lr_schedule, eps=1e-22)
-            opt = optax.inject_hyperparams(optax.adam)(learning_rate=lambda count: lr_schedule(count), eps=1e-22)
+            opt = optax.adam(lr_schedule, eps=1e-22)
+            # opt = optax.inject_hyperparams(optax.adam)(learning_rate=lambda count: lr_schedule(count), eps=1e-22)
             self.logger.print(f"Learning rate for {para}: {lr_schedule(0)}")
             mask = create_mask_fn(i, paras_counts)
             optimizers.append(optax.masked(opt, mask))

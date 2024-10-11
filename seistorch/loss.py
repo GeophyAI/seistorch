@@ -11,6 +11,7 @@ from torchvision.transforms.functional import gaussian_blur
 from seistorch.signal import local_coherence as lc
 from seistorch.signal import instantaneous_phase as ip
 from seistorch.array import SeisArray
+import jax.numpy as jnp
 
 # from numba import cuda
 # from numba import jit, prange
@@ -74,6 +75,8 @@ class CosineSimilarity(torch.nn.Module):
         Returns:
             A tensor representing the similarity loss.
         """
+
+        # Torch
         loss = 0.
         for _x, _y in zip(x, y):
             nt = _x.shape[0]
@@ -86,6 +89,41 @@ class CosineSimilarity(torch.nn.Module):
             loss += torch.mean(1-similarity)
 
         return loss
+    
+class CosineSimilarityJax(torch.nn.Module):
+    """The cosine similarity (Normalized cross correlation) loss function.
+    """
+
+    def __init__(self):
+        super(CosineSimilarityJax, self).__init__()
+
+    @property
+    def name(self,):
+        return "csjax"
+
+    def forward(self, x, y):
+        """
+        Compute the similarity loss based on cosine similarity.
+
+        Args:
+            x: input data, tensor of shape (time_samples, num_traces, num_channels)
+            y: target data, tensor of shape (time_samples, num_traces, num_channels)
+
+        Returns:
+            A tensor representing the similarity loss.
+        """
+
+        # Jax
+        eps = 1e-10
+
+        norm_x1 = jnp.linalg.norm(x, axis=1, keepdims=True)
+        norm_x2 = jnp.linalg.norm(y, axis=1, keepdims=True)
+        
+        dot_product = jnp.sum(x * y, axis=1, keepdims=True)
+        
+        cosine_sim = dot_product / (norm_x1 * norm_x2 + eps)
+        
+        return jnp.mean(1-cosine_sim)
 
 class EnvelopeCosineSimilarity(torch.nn.Module):
     """The cosine similarity (Normalized cross correlation) loss function.

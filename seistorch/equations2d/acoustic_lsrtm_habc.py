@@ -3,7 +3,7 @@ from torch.nn.functional import conv2d
 from .utils import restore_boundaries
 from .acoustic_habc import habc, generate_convolution_kernel, _laplacian
 
-spatial_order = 2
+spatial_order = 6
 device = "cuda"
 kernel = generate_convolution_kernel(spatial_order).unsqueeze(0).unsqueeze(0).to(device)
 padding = kernel.shape[-1]//2

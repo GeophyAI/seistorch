@@ -2,13 +2,15 @@ import torch
 
 from .utils import to_tensor
 import jax.numpy as jnp
+import jax
 
 class WaveProbeBase:
-    def __init__(self, batchidx=None, reccounts=[], **kwargs):
+    def __init__(self, batchidx=None, reccounts=[], sharding=None, **kwargs):
         super().__init__()
         self._ndim = len(kwargs)
         self.coord_labels = list(kwargs.keys())
         self.bidx = batchidx
+        self.sharding = sharding
 
         # This parameter is used for split the records in RNN
         # DONNOT DELETE IT
@@ -42,9 +44,9 @@ class WaveProbeBase:
         return self.get_forward_func()(x)
 
 class WaveProbeTorch(WaveProbeBase, torch.nn.Module):
-    def __init__(self, batchidx=None, reccounts=[], **kwargs):
+    def __init__(self, batchidx=None, reccounts=[], sharding=None, **kwargs):
         torch.nn.Module.__init__(self)
-        super().__init__(batchidx, reccounts, **kwargs)
+        super().__init__(batchidx, reccounts, sharding=None, **kwargs)
         self._ndim = len(kwargs)
         self.coord_labels = list(kwargs.keys())
         # Register index buffer
@@ -64,11 +66,16 @@ class WaveProbeTorch(WaveProbeBase, torch.nn.Module):
 
 class WaveProbeJax(WaveProbeBase):
 
-    def __init__(self, batchidx=None, **kwargs):
+    def __init__(self, batchidx=None, sharding=None, **kwargs):
 
-        super().__init__(batchidx, **kwargs)
+        super().__init__(batchidx, sharding=sharding, **kwargs)
         for key, value in kwargs.items():
             setattr(self, key, jnp.array(value))
+
+        if sharding is not None:
+            for key, value in kwargs.items():
+                setattr(self, key, jax.device_put(getattr(self, key), sharding))
+
         if batchidx is not None:
             self.bidx = jnp.array(batchidx)
         else:

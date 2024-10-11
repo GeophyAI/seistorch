@@ -11,7 +11,7 @@ test
 plot.py
 study
 *.hdf5
-
+examples/advances/minifwi
 examples/computational_graph/*
 examples/nn_embedded_fwi/model_representation/implicit_visacoustic
 examples/nn_embedded_fwi/model_representation/encoder_decoder_elastic2
@@ -28,3 +28,7 @@ examples/models/2007bp
 examples/jax/elastic_marmousi
 seistorch/equations2d_jax/elastic_cpu.py
 examples/jax/boundary_saving
+examples/tests
+examples/slurm
+examples/jax/data_parallel_back
+examples/jax/data_parallel_easy

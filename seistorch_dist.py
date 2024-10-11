@@ -10,11 +10,7 @@ torch.backends.cudnn.allow_tf32 = True
 torch.backends.cudnn.deterministic = True
 torch._dynamo.config.capture_scalar_outputs = True
 
-import argparse
 import os
-import pickle
-import socket
-import time
 
 import numpy as np
 import setproctitle
@@ -26,8 +22,6 @@ from yaml import dump, load
 from torch.nn.parallel import DistributedDataParallel
 from torch.utils.data.distributed import DistributedSampler
 import seistorch
-from seistorch.eqconfigure import Shape
-from seistorch.distributed import task_distribution_and_data_reception
 from seistorch.io import SeisIO
 from torch.utils.tensorboard import SummaryWriter
 from seistorch.log import SeisLog
@@ -134,7 +128,7 @@ if __name__ == "__main__":
         idx_freq, local_epoch = divmod(epoch, EPOCH_PER_SCALE)
 
         if local_epoch==0:
-            pbar.reset()
+            if MASTER: pbar.reset()
             """Reset the optimizer at every scale"""
             freq = MULTISCALES[idx_freq]
             optimizers, lr_scheduler = setup.setup_optimizer(model, 
