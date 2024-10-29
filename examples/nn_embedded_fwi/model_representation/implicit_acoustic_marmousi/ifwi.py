@@ -96,26 +96,23 @@ for epoch in tqdm.trange(EPOCHS):
     opt.step()
     # break
     if epoch % show_every == 0:
-        plt.figure(3, figsize=(6, 8))
+        fig, axes= plt.subplots(3, 1, figsize=(6, 8))
         # show inverted
-        ax = plt.subplot(311)
         inverted = vp.cpu().detach().numpy().reshape(domain)
         inverted = inverted[npml:-npml, npml:-npml]
         show_kwargs = dict(cmap="seismic", aspect="auto", vmin=true.min(), vmax=true.max())
-        ax.imshow(inverted, **show_kwargs)
+        axes[0].imshow(inverted, **show_kwargs)
         # show loss
-        ax = plt.subplot(312)
-        ax.plot(LOSS)
-        plt.yscale("log")
+        axes[1].plot(LOSS)
+        axes[1].set_yscale("log")
         # show compare
-        ax = plt.subplot(313)
-        ax.plot(true[:,nx//2], 'r', label="True")
-        ax.plot(inverted[:,nx//2], 'b', label="Inverted")
-        ax.legend()
+        axes[2].plot(true[:,nx//2], 'r', label="True")
+        axes[2].plot(inverted[:,nx//2], 'b', label="Inverted")
+        axes[2].legend()
         plt.tight_layout()
         # plt.savefig(f"figures/{epoch:04d}.png", dpi=300, bbox_inches="tight")
         plt.savefig(f"figures/ifwi/{epoch:04d}.png")
-        plt.show()
+        plt.close()
         np.save(f"results/ifwi/inverted{epoch:04d}.npy", inverted)
 
 # delta = vp.cpu().detach().numpy().reshape(domain)-vel_at_first
