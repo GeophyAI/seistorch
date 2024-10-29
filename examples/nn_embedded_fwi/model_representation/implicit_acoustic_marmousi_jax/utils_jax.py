@@ -19,13 +19,51 @@ def _laplace(image, kernel):
 
 batch_convolve2d = vmap(vmap(_laplace, in_axes=(0, None)), in_axes=(0, None))
 
+def normal_grid_coes(M):
+    # 2*M: difference order
+    a_m = jnp.zeros(M)
+    
+    for m in range(1, M + 1):
+        product = 1.0
+        for n in range(1, M + 1):
+            if n != m:
+                product *= jnp.abs(n**2 / (n**2 - m**2))
+        
+        a_m = a_m.at[m - 1].set((-1)**(m + 1) / (m**2) * product)
+
+    return a_m
+
+def generate_convolution_kernel(spatial_order):
+    """Generate convolution kernel
+
+    Args:
+        n (int): The order of the taylor expansion(Must be even)
+
+    Returns:
+        _type_: Tensor, the convolution kernel
+    """
+
+    constant = normal_grid_coes(spatial_order//2)
+    kernel_size = spatial_order + 1
+    kernel = jnp.zeros((kernel_size, kernel_size),dtype=jnp.float32)
+    center = spatial_order // 2
+
+    kernel = kernel.at[center, center+1:].set(constant)
+    kernel = kernel.at[center, 0:center].set(constant[::-1])
+
+    kernel = kernel.at[center+1:, center].set(constant)
+    kernel = kernel.at[0:center, center].set(constant[::-1])
+
+    kernel = kernel.at[center, center].set(-2*2*jnp.sum(constant))
+
+    return kernel
+
 # Laplace operator
 @jax.jit
-def laplace(u, h):
-    kernel = jnp.array([[0, 1, 0], [1, -4, 1], [0, 1, 0]])  # 3x3 kernel
+def laplace(u, h, kernel):
     return batch_convolve2d(u, kernel) / (h ** 2)
 
-def show_gathers(rec, size=3, figsize=(8, 5)):
+def show_gathers(rec, size=3, figsize=(8, 5), save_path=None):
     randno = np.random.randint(0, rec.shape[0], size=size)
     fig,axes=plt.subplots(1, randno.shape[0], figsize=figsize)
     for i, ax in enumerate(axes):
@@ -34,7 +72,8 @@ def show_gathers(rec, size=3, figsize=(8, 5)):
         ax.imshow(rec[randno[i]], **kwargs)
         ax.set_title(f"shot {randno[i]}")
     plt.tight_layout()
-    plt.show()
+    plt.savefig(f"{save_path}/gathers.png", dpi=300, bbox_inches="tight")
+    plt.close()
 
 def showgeom(vel, src_loc, rec_loc, figsize=(10, 10)):
     plt.figure(figsize=figsize)
@@ -43,19 +82,20 @@ def showgeom(vel, src_loc, rec_loc, figsize=(10, 10)):
     plt.scatter(*zip(*src_loc), c="r", marker="v", s=100, label="src")
     plt.scatter(*zip(*rec_loc), c="b", marker="^", s=10, label="rec")
     plt.legend()
-    plt.show()
+    plt.savefig("geometry.png", dpi=300, bbox_inches="tight")
+    plt.close()
 
 
 # time step forward
 @jax.jit
-def step(u_pre, u_now, c=1.5, dt=0.001, h=10./1000., b=None):
-    _laplace_u = laplace(u_now, h)
+def step(u_pre, u_now, c=1.5, dt=0.001, h=10./1000., b=None, kernel=None):
+    _laplace_u = laplace(u_now, h, kernel)
     a = (dt**-2 + b * dt**-1)**(-1)
     u_next = a*(2. / dt**2 * u_now - (dt**-2-b*dt**-1)*u_pre + c**2 * _laplace_u)
     return u_next
 
 # forward modeling
-def forward(wave, c, b, src_list, domain, dt, h, recz=0, pmln=50):
+def forward(wave, c, b, src_list, domain, dt, h, recz=0, pmln=50, spatial_order=8):
     nt = wave.shape[0]
     nz, nx = domain
     nshots = len(src_list)
@@ -64,6 +104,7 @@ def forward(wave, c, b, src_list, domain, dt, h, recz=0, pmln=50):
     rec = jnp.zeros((nshots, nt, nx-2*pmln))
     b = b
     c = c
+    kernel = generate_convolution_kernel(spatial_order)
 
     shots = jnp.arange(0, nshots, 1)
     srcx, srcz = zip(*src_list)
@@ -74,7 +115,7 @@ def forward(wave, c, b, src_list, domain, dt, h, recz=0, pmln=50):
         u_pre, u_now, rec = carry
         source = wave[it] * source_mask
         u_now = u_now + source
-        u_next = step(u_pre, u_now, c, dt, h, b)
+        u_next = step(u_pre, u_now, c, dt, h, b, kernel)
         rec = rec.at[:, it, :].set(u_now[:, 0, recz, pmln:-pmln])
         return (u_now, u_next, rec), None
 
@@ -93,18 +134,18 @@ def generate_pml_coefficients_2d(domain_shape, N=50, B=100., multiple=False):
     #d0 = -(order+1)*cp/(2*abs_N)*np.log(R) # Origin
     R = 1e-6; order = 2; cp = 1000.
     d0 = (1.5*cp/N)*np.log10(R**-1)
-    d_vals = d0 * torch.linspace(0.0, 1.0, N + 1) ** order
+    d_vals = d0 * torch.linspace(0.0, 1.0, N) ** order
     d_vals = torch.flip(d_vals, [0])
 
     d_x = torch.zeros(Ny, Nx)
     d_y = torch.zeros(Ny, Nx)
     
     if N > 0:
-        d_x[0:N + 1, :] = d_vals.repeat(Nx, 1).transpose(0, 1)
-        d_x[(Ny - N - 1):Ny, :] = torch.flip(d_vals, [0]).repeat(Nx, 1).transpose(0, 1)
+        d_x[0:N, :] = d_vals.repeat(Nx, 1).transpose(0, 1)
+        d_x[(Ny - N):Ny, :] = torch.flip(d_vals, [0]).repeat(Nx, 1).transpose(0, 1)
         if not multiple:
-            d_y[:, 0:N + 1] = d_vals.repeat(Ny, 1)
-        d_y[:, (Nx - N - 1):Nx] = torch.flip(d_vals, [0]).repeat(Ny, 1)
+            d_y[:, 0:N] = d_vals.repeat(Ny, 1)
+        d_y[:, (Nx - N):Nx] = torch.flip(d_vals, [0]).repeat(Ny, 1)
 
     _d = torch.sqrt(d_x ** 2 + d_y ** 2).transpose(0, 1)
     _d = _corners(domain_shape, N, _d, d_x.T, d_y.T, multiple)

@@ -32,3 +32,5 @@ examples/tests
 examples/slurm
 examples/jax/data_parallel_back
 examples/jax/data_parallel_easy
+examples/nn_embedded_fwi/model_representation/implicit_vs_legacy
+examples/jax/model_parallel
