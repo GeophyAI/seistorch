@@ -32,7 +32,3 @@ examples/tests
 examples/slurm
 examples/jax/data_parallel_back
 examples/jax/data_parallel_easy
-examples/jax/model_parallel
-examples/nn_embedded_fwi/model_representation/implicit_vs_legacy
-examples/nn_embedded_fwi/model_representation/implicit_acoustic_marmousi_jax
-examples/nn_embedded_fwi/model_representation/implicit_acoustic_marmousi_jax2

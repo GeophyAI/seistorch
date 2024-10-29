@@ -4,12 +4,13 @@ import jax.numpy as jnp
 from jax.nn.initializers import uniform as uniform_init
 from jax.nn.initializers import zeros
 from jax import lax
-from jax.random import uniform, normal
+from jax.random import uniform
 from typing import Any, Callable, Sequence, Tuple
 from functools import partial
 import jax
 
 Array = Any
+
 
 def siren_init(weight_std, dtype):
     def init_fun(key, shape, dtype=dtype):
@@ -64,8 +65,6 @@ class SirenLayer(nn.Module):
     act: Callable = jnp.sin
     precision: Any = None
     dtype: Any = jnp.float32
-    outermost_linear: bool = False
-    hidden_dim: int = 128
 
     @nn.compact
     def __call__(self, inputs: Array) -> Array:
@@ -76,13 +75,8 @@ class SirenLayer(nn.Module):
         weight_std = (
             (1 / input_dim) if self.is_first else jnp.sqrt(self.c / input_dim) / self.w0
         )
-        if not self.outermost_linear:
-            weight_min = (-1 / self.features) if self.is_first else (-jnp.sqrt(6 / self.features) / self.w0)
-            weight_max = (1 / self.features) if self.is_first else (jnp.sqrt(6 / self.features) / self.w0)
-        else:
-            weight_min = (-jnp.sqrt(6 / self.hidden_dim) / self.w0)
-            weight_max = (jnp.sqrt(6 / self.hidden_dim) / self.w0)            
-        
+        weight_min = (-1 / self.features) if self.is_first else (-jnp.sqrt(6 / self.features) / self.w0)
+        weight_max = (1 / self.features) if self.is_first else (jnp.sqrt(6 / self.features) / self.w0)
         kernel = self.param(
             # "kernel", siren_init(weight_std, self.dtype), (input_dim, self.features)
             "kernel", siren_init2(weight_min, weight_max), (input_dim, self.features)
@@ -113,27 +107,20 @@ class Siren(nn.Module):
     w0: float = 30.0
     w0_first_layer: float = 30.0
     use_bias: bool = True
-    final_activation: str = 'linear'
+    final_activation: Callable = lambda x: x  # Identity
     dtype: Any = jnp.float32
 
     @nn.compact
     def __call__(self, inputs: Array) -> Array:
         x = jnp.asarray(inputs, self.dtype)
-
-        # First layer
-        x = SirenLayer(
-            features=self.hidden_dim,
-            w0=self.w0_first_layer,
-            is_first=True,
-            use_bias=self.use_bias,
-        )(x)
         
-        # Hidden layers
-        for layernum in range(self.num_layers):
+        for layernum in range(self.num_layers - 1):
+            is_first = layernum == 0
+
             x = SirenLayer(
                 features=self.hidden_dim,
-                w0=self.w0,
-                is_first=False,
+                w0=self.w0_first_layer if is_first else self.w0,
+                is_first=is_first,
                 use_bias=self.use_bias,
             )(x)
 
@@ -144,8 +131,6 @@ class Siren(nn.Module):
             is_first=False,
             use_bias=self.use_bias,
             act=self.final_activation,
-            hidden_dim=self.hidden_dim,
-            outermost_linear=True,
         )(x)
 
         return x.squeeze()
