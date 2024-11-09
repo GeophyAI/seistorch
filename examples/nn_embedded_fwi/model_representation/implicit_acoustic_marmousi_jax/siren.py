@@ -77,8 +77,9 @@ class SirenLayer(nn.Module):
             (1 / input_dim) if self.is_first else jnp.sqrt(self.c / input_dim) / self.w0
         )
         if not self.outermost_linear:
-            weight_min = (-1 / self.features) if self.is_first else (-jnp.sqrt(6 / self.features) / self.w0)
-            weight_max = (1 / self.features) if self.is_first else (jnp.sqrt(6 / self.features) / self.w0)
+            # Change the 2 to desired number of demension of the input coordinates/features!!
+            weight_min = (-1 / 2) if self.is_first else (-jnp.sqrt(6 / self.features) / self.w0)
+            weight_max = (1 / 2) if self.is_first else (jnp.sqrt(6 / self.features) / self.w0)
         else:
             weight_min = (-jnp.sqrt(6 / self.hidden_dim) / self.w0)
             weight_max = (jnp.sqrt(6 / self.hidden_dim) / self.w0)            

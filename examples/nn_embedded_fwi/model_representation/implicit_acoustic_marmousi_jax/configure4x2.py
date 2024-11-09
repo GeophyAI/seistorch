@@ -29,7 +29,7 @@ EPOCHS = 2001
 show_every = 200
 srcx_step = 2
 
-num_layers = 6
+num_layers = 4
 hidden_dim = 128
 save_path = f'ifwi4x2_5hz/{time.strftime("%Y-%m-%d-%H-%M-%S")}'
 # save_path = f'figures'
