@@ -7,6 +7,7 @@ torch.backends.cuda.matmul.allow_tf32 = True
 torch.backends.cudnn.allow_tf32 = True
 torch.backends.cudnn.deterministic = True
 # torch.set_float32_matmul_precision('high')
+# torch.autograd.set_detect_anomaly(True)
 
 import argparse
 import os
