@@ -1,5 +1,14 @@
 # Seistorch: Where wave equations meets Automatic Differentiation
 
+> [!IMPORTANT]
+> **seistorch is now in maintenance mode.** Active development has moved to
+> **[SWEEP](https://github.com/DeepWave-KAUST/sweep)** — a faster, broader successor
+> (PyTorch / JAX / CUDA backends) that supersedes seistorch.
+> **New users should start with SWEEP.** See the [migration guide](MIGRATION.md).
+>
+> seistorch remains available (and will be archived) to reproduce results from
+> the original paper — IEEE TGRS 2023, [10.1109/TGRS.2023.3317529](https://doi.org/10.1109/TGRS.2023.3317529).
+
 In this branch, we provide a new feature, **jax-based Seistorch**. The jax-based Seistorch is designed to provide a more efficient (**10x up**) and flexible way to solve wave equations and perform seismic inversion tasks. 
 
 The jax-based Seistorch is still under development, and we welcome any feedback or contributions.
